@@ -18,10 +18,9 @@ class PrinterInteractor(ScriptedLoadableModule):
     self.parent.title = "PrinterInteractor" # TODO make this more human readable by adding spaces
     self.parent.categories = ["SlicerSpectroscopy"]
     self.parent.dependencies = []
-    self.parent.contributors = ["John Doe (AnyWare Corp.)"] # replace with "Firstname Lastname (Organization)"
+    self.parent.contributors = ["Laura Connolly PerkLab (Queen's University), Mark Asselin PerkLab (Queen's University"] # replace with "Firstname Lastname (Organization)"
     self.parent.helpText = """
-This is an example of scripted loadable module bundled in an extension.
-It performs a simple thresholding on the input volume and optionally captures a screenshot.
+This is an module developed to interface Slicer Software with the Monoprice Mini V2 3D Printer 
 """
     self.parent.helpText += self.getDefaultModuleDocumentationLink()
     self.parent.acknowledgementText = """
@@ -46,12 +45,12 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     #
     # Parameters Area
     #
-    parametersCollapsibleButton = ctk.ctkCollapsibleButton()
-    parametersCollapsibleButton.text = "Connect to Printer"
-    self.layout.addWidget(parametersCollapsibleButton)
+    connect_to_printerCollapsibleButton = ctk.ctkCollapsibleButton()
+    connect_to_printerCollapsibleButton.text = "Connect to Printer"
+    self.layout.addWidget(connect_to_printerCollapsibleButton)
 
     # Layout within the dummy collapsible button
-    parametersFormLayout = qt.QFormLayout(parametersCollapsibleButton)
+    connect_to_printerFormLayout = qt.QFormLayout(connect_to_printerCollapsibleButton)
 
     #
     # IGT Link Connector
@@ -66,7 +65,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.inputSelector.showChildNodeTypes = False
     self.inputSelector.setMRMLScene( slicer.mrmlScene )
     self.inputSelector.setToolTip( "Pick the input to the algorithm." )
-    parametersFormLayout.addRow("Connect to: ", self.inputSelector)
+    connect_to_printerFormLayout.addRow("Connect to: ", self.inputSelector)
 
     #Port Selector
 
@@ -75,7 +74,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.portSelector.insertItem(2, "PORT 2")
     self.portSelector.insertItem(3, "PORT 3")
     self.portSelector.insertItem(4, "PORT 4")
-    parametersFormLayout.addRow("Port :", self.portSelector)
+    connect_to_printerFormLayout.addRow("Port :", self.portSelector)
 
 
     #X Y Z input
@@ -84,42 +83,28 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.x_spinbox.setMinimum(0)
     self.x_spinbox.setMaximum(120)
     self.x_spinbox.setValue(0)
-    parametersFormLayout.addRow("X Pos (mm): ", self.x_spinbox)
+    connect_to_printerFormLayout.addRow("X Pos (mm): ", self.x_spinbox)
 
     self.y_spinbox = qt.QSpinBox()
     self.y_spinbox.setMinimum(0)
     self.y_spinbox.setMaximum(120)
     self.y_spinbox.setValue(0)
-    parametersFormLayout.addRow("Y Pos (mm): ", self.y_spinbox)
+    connect_to_printerFormLayout.addRow("Y Pos (mm): ", self.y_spinbox)
 
     self.z_spinbox = qt.QSpinBox()
     self.z_spinbox.setMinimum(0)
     self.z_spinbox.setMaximum(120)
     self.z_spinbox.setValue(0)
-    parametersFormLayout.addRow("Z Pos (mm): ", self.z_spinbox)
-    #
-    self.outputSelector = slicer.qMRMLNodeComboBox()
-    self.outputSelector.nodeTypes = ["vtkMRMLSelectorNode"]
-    self.outputSelector.selectNodeUponCreation = True
+    connect_to_printerFormLayout.addRow("Z Pos (mm): ", self.z_spinbox)
 
-    self.outputSelector.addEnabled = False
-    self.outputSelector.removeEnabled = False
-    self.outputSelector.noneEnabled = True
-    self.outputSelector.showHidden = False
-    self.outputSelector.showChildNodeTypes = False
-    self.outputSelector.setMRMLScene( slicer.mrmlScene )
-    self.outputSelector.setToolTip( "Pick the output to the algorithm." )
-    parametersFormLayout.addRow("Output Volume: ", self.outputSelector)
 
-    #
 
-    #
     # Apply Button
-    #
+
     self.applyButton = qt.QPushButton("Apply")
     self.applyButton.toolTip = "Run the algorithm."
     self.applyButton.enabled = True
-    parametersFormLayout.addRow(self.applyButton)
+    connect_to_printerFormLayout.addRow(self.applyButton)
     # connections
     self.applyButton.connect('clicked(bool)', self.onApplyButton)
 
@@ -155,92 +140,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
   def __init__(self):
     self.baud_rate = 115200
 
-
-  def hasImageData(self,volumeNode):
-    """This is an example logic method that
-    returns true if the passed in volume
-    node has valid image data
-    """
-    if not volumeNode:
-      logging.debug('hasImageData failed: no volume node')
-      return False
-    if volumeNode.GetImageData() is None:
-      logging.debug('hasImageData failed: no image data in volume node')
-      return False
-    return True
-
-  def isValidInputOutputData(self, inputVolumeNode, outputVolumeNode):
-    """Validates if the output is not the same as input
-    """
-    if not inputVolumeNode:
-      logging.debug('isValidInputOutputData failed: no input volume node defined')
-      return False
-    if not outputVolumeNode:
-      logging.debug('isValidInputOutputData failed: no output volume node defined')
-      return False
-    if inputVolumeNode.GetID()==outputVolumeNode.GetID():
-      logging.debug('isValidInputOutputData failed: input and output volume is the same. Create a new volume for output to avoid this error.')
-      return False
-    return True
-
-  def takeScreenshot(self,name,description,type=-1):
-    # show the message even if not taking a screen shot
-    slicer.util.delayDisplay('Take screenshot: '+description+'.\nResult is available in the Annotations module.', 3000)
-
-    lm = slicer.app.layoutManager()
-    # switch on the type to get the requested window
-    widget = 0
-    if type == slicer.qMRMLScreenShotDialog.FullLayout:
-      # full layout
-      widget = lm.viewport()
-    elif type == slicer.qMRMLScreenShotDialog.ThreeD:
-      # just the 3D window
-      widget = lm.threeDWidget(0).threeDView()
-    elif type == slicer.qMRMLScreenShotDialog.Red:
-      # red slice window
-      widget = lm.sliceWidget("Red")
-    elif type == slicer.qMRMLScreenShotDialog.Yellow:
-      # yellow slice window
-      widget = lm.sliceWidget("Yellow")
-    elif type == slicer.qMRMLScreenShotDialog.Green:
-      # green slice window
-      widget = lm.sliceWidget("Green")
-    else:
-      # default to using the full window
-      widget = slicer.util.mainWindow()
-      # reset the type so that the node is set correctly
-      type = slicer.qMRMLScreenShotDialog.FullLayout
-
-    # grab and convert to vtk image data
-    qimage = ctk.ctkWidgetsUtils.grabWidget(widget)
-    imageData = vtk.vtkImageData()
-    slicer.qMRMLUtils().qImageToVtkImageData(qimage,imageData)
-
-    annotationLogic = slicer.modules.annotations.logic()
-    annotationLogic.CreateSnapShot(name, description, type, 1, imageData)
-
-  #def ConnectPrinter(self):
-    #connectorNode = slicer.vtkMRMLIGTLConnectorNode()
-    #connectorNode.SetTypeClient('127.0.0.1', 18944)
-    #slicer.mrmlScene.AddNode(connectorNode)
-    #connectorNode.Start()
-    #arduinoCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    #arduinoCmd.SetCommandName('SendText')
-    #arduinoCmd.SetCommandAttribute('DeviceId', 'SerialDevice')
-    #arduinoCmd.SetCommandTimeoutSec(1.0)
-
-  #connectorNode = slicer.vtkMRMLIGTLConnectorNode()
-  #connectorNode.SetTypeClient('127.0.0.1', 18944)
-  #slicer.mrmlScene.AddNode(connectorNode)
-  #connectorNode.Start()
-
-  #arduinoCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-  #arduinoCmd.SetCommandName('SendText')
-  #arduinoCmd.SetCommandAttribute('DeviceId', 'SerialDevice')
-  #arduinoCmd.SetCommandTimeoutSec(1.0)
-
-  #arduinoCmd.SetCommandAttribute('Text', "123456")
-  #slicer.modules.openigtlinkremote.logic().SendCommand(arduinoCmd, connectorNode.GetID())
 
   def run(self, port, x=0, y=0, z=0):
     """
