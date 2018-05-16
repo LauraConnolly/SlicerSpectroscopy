@@ -158,7 +158,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     arduinoCmd.SetCommandName('SendText')
     arduinoCmd.SetCommandAttribute('DeviceId', "SerialDevice")
     arduinoCmd.SetCommandTimeoutSec(1.0)
-    arduinoCmd.SetCommandAttribute('Text', "G1 X10 Y10 Z10")
+    arduinoCmd.SetCommandAttribute('Text', "G1 X20 Y20 Z10")
     slicer.modules.openigtlinkremote.logic().SendCommand(arduinoCmd, connectorNode.GetID())
 
     print x
