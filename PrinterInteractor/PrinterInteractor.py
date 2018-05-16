@@ -145,6 +145,22 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     """
     Run the actual algorithm
     """
+    #Connect to the printer
+    #
+    #
+    connectorNode = slicer.vtkMRMLIGTLConnectorNode()
+    connectorNode.SetTypeClient('127.0.0.1', 18944)
+    slicer.mrmlScene.AddNode(connectorNode)
+    connectorNode.Start()
+    #
+    #
+    arduinoCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    arduinoCmd.SetCommandName('SendText')
+    arduinoCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    arduinoCmd.SetCommandTimeoutSec(1.0)
+    arduinoCmd.SetCommandAttribute('Text', "G1 X10 Y10 Z10")
+    slicer.modules.openigtlinkremote.logic().SendCommand(arduinoCmd, connectorNode.GetID())
+
     print x
     print y
     print z
