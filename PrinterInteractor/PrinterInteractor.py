@@ -36,7 +36,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
   """Uses ScriptedLoadableModuleWidget base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
-
+  #x = 0
   def setup(self):
     ScriptedLoadableModuleWidget.setup(self)
 
@@ -115,13 +115,15 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     pass
 
   def onApplyButton(self):
-    logic = PrinterInteractorLogic()
 
+    logic = PrinterInteractorLogic()
     port = self.portSelector.currentIndex + 1 # port is 1 greater than index
     x_value = self.x_spinbox.value
     y_value = self.y_spinbox.value
     z_value = self.z_spinbox.value
-    logic.run(port, x_value, y_value, z_value)
+    #logic.connect()
+    igtl = self.inputSelector.currentNode()
+    logic.run(igtl, port, x_value, y_value, z_value)
 
 #
 # PrinterInteractorLogic
@@ -136,35 +138,34 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
   Uses ScriptedLoadableModuleLogic base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
-
+  #flagvariable = 0
   def __init__(self):
     self.baud_rate = 115200
+    self.flagvariable = False
+
+  #def connect(self):
+    #if self.flagvariable:
+      #self.connectorNode = slicer.vtkMRMLIGTLConnectorNode()
+      #self.connectorNode.SetTypeClient('127.0.0.1', 18944)
+      #self.slicer.mrmlScene.AddNode(connectorNode)
+      #self.connectorNode.Start()
+      #self.flagvariable = False
 
 
-  def run(self, port, x=0, y=0, z=0):
-    """
-    Run the actual algorithm
-    """
+
+  def run(self, igtl, port, x_value=0, y_value=0, z_value=0):
     #Connect to the printer
-    #
-    #
-    connectorNode = slicer.vtkMRMLIGTLConnectorNode()
-    connectorNode.SetTypeClient('127.0.0.1', 18944)
-    slicer.mrmlScene.AddNode(connectorNode)
-    connectorNode.Start()
-    #
-    #
-    arduinoCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    arduinoCmd.SetCommandName('SendText')
-    arduinoCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    arduinoCmd.SetCommandTimeoutSec(1.0)
-    arduinoCmd.SetCommandAttribute('Text', "G1 X20 Y20 Z10")
-    slicer.modules.openigtlinkremote.logic().SendCommand(arduinoCmd, connectorNode.GetID())
+    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    printerCmd.SetCommandName('SendText')
+    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    printerCmd.SetCommandTimeoutSec(1.0)
+    printerCmd.SetCommandAttribute('Text', 'G1 X%d Y%d Z%d' % (x_value,y_value,z_value))
+    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
 
-    print x
-    print y
-    print z
-    print port
+    #print x_value
+    #print y
+    #print z
+    #print port
     logging.info('Processing completed')
 
     return True
