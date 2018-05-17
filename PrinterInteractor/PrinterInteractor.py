@@ -18,7 +18,7 @@ class PrinterInteractor(ScriptedLoadableModule):
     self.parent.title = "PrinterInteractor" # TODO make this more human readable by adding spaces
     self.parent.categories = ["SlicerSpectroscopy"]
     self.parent.dependencies = []
-    self.parent.contributors = ["Laura Connolly PerkLab (Queen's University), Mark Asselin PerkLab (Queen's University"] # replace with "Firstname Lastname (Organization)"
+    self.parent.contributors = ["Laura Connolly PerkLab (Queen's University), Mark Asselin PerkLab (Queen's University)"] # replace with "Firstname Lastname (Organization)"
     self.parent.helpText = """
 This is an module developed to interface Slicer Software with the Monoprice Mini V2 3D Printer 
 """
@@ -51,6 +51,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
     # Layout within the dummy collapsible button
     connect_to_printerFormLayout = qt.QFormLayout(connect_to_printerCollapsibleButton)
+
+    # Home Button
+
+    self.homeButton = qt.QPushButton("Home")
+    self.homeButton.toolTip = "Return to reference axis"
+    self.homeButton.enabled = True
+    connect_to_printerFormLayout.addRow(self.homeButton)
+    self.homeButton.connect('clicked(bool)', self.onHomeButton)
 
     #
     # IGT Link Connector
@@ -108,6 +116,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     # connections
     self.applyButton.connect('clicked(bool)', self.onApplyButton)
 
+
     # Add vertical spacer
     self.layout.addStretch(1)
 
@@ -125,6 +134,10 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     igtl = self.inputSelector.currentNode()
     logic.run(igtl, port, x_value, y_value, z_value)
 
+  def onHomeButton(self):
+    logic = PrinterInteractorLogic()
+    igtl = self.inputSelector.currentNode()
+    logic.home(igtl)
 #
 # PrinterInteractorLogic
 #
@@ -151,7 +164,14 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
       #self.connectorNode.Start()
       #self.flagvariable = False
 
-
+  def home(self,igtl):
+    #Return to home axis
+    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    printerCmd.SetCommandName('SendText')
+    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    printerCmd.SetCommandTimeoutSec(1.0)
+    printerCmd.SetCommandAttribute('Text', 'G1 X0 Y0 Z40 ')
+    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
 
   def run(self, igtl, port, x_value=0, y_value=0, z_value=0):
     #Connect to the printer
