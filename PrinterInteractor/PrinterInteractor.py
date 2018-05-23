@@ -84,37 +84,50 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.portSelector.insertItem(4, "PORT 4")
     connect_to_printerFormLayout.addRow("Port :", self.portSelector)
 
+    #input array selector
+
+    self.inputArraySelector = slicer.qMRMLNodeComboBox()
+    self.inputArraySelector.nodeTypes = (("vtkMRMLDoubleArrayNode"), "")
+    self.inputArraySelector.addEnabled = True
+    self.inputArraySelector.removeEnabled = True
+    self.inputArraySelector.noneEnabled = False
+    self.inputArraySelector.showHidden = False
+    self.inputArraySelector.showChildNodeTypes = False
+    self.inputArraySelector.setMRMLScene(slicer.mrmlScene)
+    self.inputArraySelector.setToolTip("Pick the output to the algorithm.")
+    parametersFormLayout.addRow("Output spectrum array: ", self.inputArraySelector)
+
 
     #X Y Z input
 
-    self.x_spinbox = qt.QSpinBox()
-    self.x_spinbox.setMinimum(0)
-    self.x_spinbox.setMaximum(120)
-    self.x_spinbox.setValue(0)
-    connect_to_printerFormLayout.addRow("X Pos (mm): ", self.x_spinbox)
+    #self.x_spinbox = qt.QSpinBox()
+    #self.x_spinbox.setMinimum(0)
+    #self.x_spinbox.setMaximum(120)
+    #self.x_spinbox.setValue(0)
+    #connect_to_printerFormLayout.addRow("X Pos (mm): ", self.x_spinbox)
 
-    self.y_spinbox = qt.QSpinBox()
-    self.y_spinbox.setMinimum(0)
-    self.y_spinbox.setMaximum(120)
-    self.y_spinbox.setValue(0)
-    connect_to_printerFormLayout.addRow("Y Pos (mm): ", self.y_spinbox)
+    #self.y_spinbox = qt.QSpinBox()
+   #self.y_spinbox.setMinimum(0)
+    #self.y_spinbox.setMaximum(120)
+   # self.y_spinbox.setValue(0)
+    #connect_to_printerFormLayout.addRow("Y Pos (mm): ", self.y_spinbox)
 
-    self.z_spinbox = qt.QSpinBox()
-    self.z_spinbox.setMinimum(0)
-    self.z_spinbox.setMaximum(120)
-    self.z_spinbox.setValue(0)
-    connect_to_printerFormLayout.addRow("Z Pos (mm): ", self.z_spinbox)
+    #self.z_spinbox = qt.QSpinBox()
+   # self.z_spinbox.setMinimum(0)
+    #self.z_spinbox.setMaximum(120)
+    #self.z_spinbox.setValue(0)
+    #connect_to_printerFormLayout.addRow("Z Pos (mm): ", self.z_spinbox)
 
 
 
     # Apply Button
 
-    self.applyButton = qt.QPushButton("Apply")
-    self.applyButton.toolTip = "Run the algorithm."
-    self.applyButton.enabled = True
-    connect_to_printerFormLayout.addRow(self.applyButton)
+   # self.applyButton = qt.QPushButton("Apply")
+    #self.applyButton.toolTip = "Run the algorithm."
+    #self.applyButton.enabled = True
+    #connect_to_printerFormLayout.addRow(self.applyButton)
     # connections
-    self.applyButton.connect('clicked(bool)', self.onApplyButton)
+    #self.applyButton.connect('clicked(bool)', self.onApplyButton)
 
     # Surface scan button
 
@@ -184,6 +197,38 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     printerCmd.SetCommandTimeoutSec(1.0)
     printerCmd.SetCommandAttribute('Text', 'G1 X0 Y0 Z40 ')
     slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
+
+  def updateInputArray(self):
+
+    numberOfPoints = self.spectrumImageNode.GetImageData().GetDimensions()[0]
+    numberOfRows = self.spectrumImageNode.GetImageData().GetDimensions()[1]
+    if numberOfRows != 2:
+      logging.error("Spectrum image is expected to have exactly 2 rows, got {0}".format(numberOfRows))
+      return
+
+    # Create arrays of data
+    a = self.outputArrayNode.GetArray()
+    a.SetNumberOfTuples(self.resolution)
+
+    for row in xrange(numberOfRows):
+      lineSource = vtk.vtkLineSource()
+      lineSource.SetPoint1(0, row, 0)
+      lineSource.SetPoint2(numberOfPoints - 1, row, 0)
+      lineSource.SetResolution(self.resolution - 1)
+      probeFilter = vtk.vtkProbeFilter()
+      probeFilter.SetInputConnection(lineSource.GetInputPort())
+      if vtk.VTK_MAJOR_VERSION <= 5:
+        probeFilter.SetSource(self.spectrumImageNode.GetImageData())
+      else:
+        probeFilter.SetSourceData(self.spectrumImageNode.GetImageData())
+      probeFilter.Update()
+      probedPoints = probeFilter.GetInput()
+      probedPointScalars = probedPoints.GetPointData().GetScalars()
+      for i in xrange(self.resolution):
+        a.SetComponent(i, row, probedPointScalars.GetTuple(i)[0])
+
+    for i in xrange(self.resolution):
+      a.SetComponent(i, 2, 0)
 
   def surfaceScan(self,igtl):
     printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
