@@ -37,11 +37,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
   #x = 0
+  stopButtonPressed = False
+
+
   def setup(self):
     ScriptedLoadableModuleWidget.setup(self)
 
     # Instantiate and connect widgets ...
-
+    self.logic = PrinterInteractorLogic()
     #
     # Parameters Area
     #
@@ -86,17 +89,38 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
     #input array selector
 
-    self.inputArraySelector = slicer.qMRMLNodeComboBox()
-    self.inputArraySelector.nodeTypes = (("vtkMRMLDoubleArrayNode"), "")
-    self.inputArraySelector.addEnabled = True
-    self.inputArraySelector.removeEnabled = True
-    self.inputArraySelector.noneEnabled = False
-    self.inputArraySelector.showHidden = False
-    self.inputArraySelector.showChildNodeTypes = False
-    self.inputArraySelector.setMRMLScene(slicer.mrmlScene)
-    self.inputArraySelector.setToolTip("Pick the output to the algorithm.")
-    parametersFormLayout.addRow("Output spectrum array: ", self.inputArraySelector)
+    # input volume selector
+    #
+    self.spectrumImageSelector = slicer.qMRMLNodeComboBox()
+    self.spectrumImageSelector.nodeTypes = (("vtkMRMLScalarVolumeNode"), "")
+    self.spectrumImageSelector.selectNodeUponCreation = True
+    self.spectrumImageSelector.addEnabled = False
+    self.spectrumImageSelector.removeEnabled = False
+    self.spectrumImageSelector.noneEnabled = False
+    self.spectrumImageSelector.showHidden = False
+    self.spectrumImageSelector.showChildNodeTypes = False
+    self.spectrumImageSelector.setMRMLScene(slicer.mrmlScene)
+    self.spectrumImageSelector.setToolTip("Pick the spectrum image to visualize.")
+    connect_to_printerFormLayout.addRow("Input spectrum image: ", self.spectrumImageSelector)
 
+    self.outputArraySelector = slicer.qMRMLNodeComboBox()
+    self.outputArraySelector.nodeTypes = (("vtkMRMLDoubleArrayNode"), "")
+    self.outputArraySelector.addEnabled = True
+    self.outputArraySelector.removeEnabled = True
+    self.outputArraySelector.noneEnabled = False
+    self.outputArraySelector.showHidden = False
+    self.outputArraySelector.showChildNodeTypes = False
+    self.outputArraySelector.setMRMLScene(slicer.mrmlScene)
+    self.outputArraySelector.setToolTip("Pick the output to the algorithm.")
+    connect_to_printerFormLayout.addRow("Output spectrum array: ", self.outputArraySelector)
+
+    self.enablePlottingCheckBox = qt.QCheckBox()
+    self.enablePlottingCheckBox.checked = 0
+    self.enablePlottingCheckBox.setToolTip("If checked, then the spectrum plot will be updated in real-time")
+    connect_to_printerFormLayout.addRow("Enable plotting", self.enablePlottingCheckBox)
+
+    # connections
+    self.enablePlottingCheckBox.connect('stateChanged(int)', self.setEnablePlotting)
 
     #X Y Z input
 
@@ -118,7 +142,13 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     #self.z_spinbox.setValue(0)
     #connect_to_printerFormLayout.addRow("Z Pos (mm): ", self.z_spinbox)
 
+    # Tumor distinction button
 
+    self.tumorButton = qt.QPushButton("Tumor?")
+    self.tumorButton.toolTip = "Run the algorithm"
+    self.tumorButton.enabled = True
+    connect_to_printerFormLayout.addRow(self.tumorButton)
+    self.tumorButton.connect('clicked(bool)', self.onTumorButton)
 
     # Apply Button
 
@@ -137,9 +167,22 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     connect_to_printerFormLayout.addRow(self.scanButton)
     self.scanButton.connect('clicked(bool)', self.onScanButton)
 
+    #stop button
+    self.stopButton = qt.QPushButton("STOP")
+    self.stopButton.toolTip = "stop scan."
+    self.stopButton.enabled = True
+    connect_to_printerFormLayout.addRow(self.stopButton)
+    self.scanButton.connect('clicked(bool)', self.onStopButton)
 
     # Add vertical spacer
     self.layout.addStretch(1)
+
+  def setEnablePlotting(self, enable):
+
+    if enable:
+      self.logic.startPlotting(self.spectrumImageSelector.currentNode(), self.outputArraySelector.currentNode())
+    else:
+      self.logic.stopPlotting()
 
   def cleanup(self):
     pass
@@ -162,7 +205,25 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
   def onScanButton(self):
     logic = PrinterInteractorLogic()
     igtl = self.inputSelector.currentNode()
-    logic.surfaceScan(igtl)
+    if self.stopButtonPressed != True:
+      logic.surfaceScan(igtl)
+    else:
+      logic.stop(igtl)
+
+  def onStopButton(self):
+    logic = PrinterInteractorLogic()
+    igtl = self.inputSelector.currentNode()
+    self.stopButtonPressed = True
+    logic.stop(igtl)
+    logic.home(igtl)
+
+  def onTumorButton(self):
+    logic = PrinterInteractorLogic()
+    igtl = self.inputSelector.currentNode()
+
+    logic.tumorDetection()
+
+
 #
 # PrinterInteractorLogic
 #
@@ -181,6 +242,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.baud_rate = 115200
     self.flagvariable = False
 
+    self.chartNodeID = None
+
+    self.spectrumImageNode = None
+    self.observerTags = []
+    self.outputArrayNode = None
+    self.resolution = 100
+
   #def connect(self):
     #if self.flagvariable:
       #self.connectorNode = slicer.vtkMRMLIGTLConnectorNode()
@@ -188,6 +256,16 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
       #self.slicer.mrmlScene.AddNode(connectorNode)
       #self.connectorNode.Start()
       #self.flagvariable = False
+
+  def addObservers(self):
+    if self.spectrumImageNode:
+      print "Add observer to {0}".format(self.spectrumImageNode.GetName())
+      self.observerTags.append([self.spectrumImageNode, self.spectrumImageNode.AddObserver(vtk.vtkCommand.ModifiedEvent,
+                                                                                           self.onSpectrumImageNodeModified)])
+  def removeObservers(self):
+    print "Remove observers"
+    for nodeTagPair in self.observerTags:
+      nodeTagPair[0].RemoveObserver(nodeTagPair[1])
 
   def home(self,igtl):
     #Return to home axis
@@ -198,7 +276,32 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     printerCmd.SetCommandAttribute('Text', 'G1 X0 Y0 Z40 ')
     slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
 
-  def updateInputArray(self):
+
+  def startPlotting(self, spectrumImageNode, outputArrayNode):
+    # Change the layout to one that has a chart.  This created the ChartView
+    ln = slicer.util.getNode(pattern='vtkMRMLLayoutNode*')
+    ln.SetViewArrangement(24)
+
+    self.removeObservers()
+    self.spectrumImageNode = spectrumImageNode
+    self.outputArrayNode = outputArrayNode
+
+    # Start the updates
+    self.addObservers()
+    self.onSpectrumImageNodeModified(0, 0)
+
+  def stopPlotting(self):
+    self.removeObservers()
+
+  def onSpectrumImageNodeModified(self, observer, eventid):
+
+    if not self.spectrumImageNode or not self.outputArrayNode:
+      return
+
+    self.updateOutputArray()
+    self.updateChart()
+
+  def updateOutputArray(self):
 
     numberOfPoints = self.spectrumImageNode.GetImageData().GetDimensions()[0]
     numberOfRows = self.spectrumImageNode.GetImageData().GetDimensions()[1]
@@ -216,19 +319,83 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
       lineSource.SetPoint2(numberOfPoints - 1, row, 0)
       lineSource.SetResolution(self.resolution - 1)
       probeFilter = vtk.vtkProbeFilter()
-      probeFilter.SetInputConnection(lineSource.GetInputPort())
+      probeFilter.SetInputConnection(lineSource.GetOutputPort())
       if vtk.VTK_MAJOR_VERSION <= 5:
         probeFilter.SetSource(self.spectrumImageNode.GetImageData())
       else:
         probeFilter.SetSourceData(self.spectrumImageNode.GetImageData())
       probeFilter.Update()
-      probedPoints = probeFilter.GetInput()
+      probedPoints = probeFilter.GetOutput()
       probedPointScalars = probedPoints.GetPointData().GetScalars()
       for i in xrange(self.resolution):
         a.SetComponent(i, row, probedPointScalars.GetTuple(i)[0])
 
     for i in xrange(self.resolution):
       a.SetComponent(i, 2, 0)
+
+    probedPoints.GetPointData().GetScalars().Modified()
+
+  def tumorDetection(self):
+
+
+    if not self.spectrumImageNode or not self.outputArrayNode:
+      return
+
+      self.updateOutputArray()
+    #self.outputArrayNode = outputArrayNode
+    pointsArray = self.outputArrayNode.GetArray()
+    # point contains a wavelength and a corresponding intensity
+
+    componentIndexWavelength = 0
+    componentIndexIntensity = 1
+
+    numberOfPoints = pointsArray.GetNumberOfTuples()
+
+    for pointIndex in xrange(numberOfPoints):
+      wavelengthValue = pointsArray.GetComponent(0,pointIndex)
+      intensityValue = pointsArray.GetComponent(1, pointIndex)
+      while(wavelengthValue >700 and intensityValue < 1):
+        print "Tumor"
+
+
+
+
+
+      #greenValue = a.GetValue(700, row, probedPointScalars.GetTuple(700)[0])
+      #if ( greenValue >= 0 and greenValue <= 1 ):
+        #print('Tumor')
+
+  def updateChart(self):
+
+    # Get the first ChartView node
+    cvn = slicer.util.getNode(pattern='vtkMRMLChartViewNode*')
+
+    # If we already created a chart node and it is still exists then reuse that
+    cn = None
+    if self.chartNodeID:
+      cn = slicer.mrmlScene.GetNodeByID(cvn.GetChartNodeID())
+    if not cn:
+      cn = slicer.mrmlScene.AddNode(slicer.vtkMRMLChartNode())
+      self.chartNodeID = cn.GetID()
+      # Configure properties of the Chart
+      cn.SetProperty('default', 'title', 'Spectrum')
+      cn.SetProperty('default', 'xAxisLabel', 'Wavelength (nm)')
+      cn.SetProperty('default', 'yAxisLabel', 'Intensity')
+
+    name = self.spectrumImageNode.GetName()
+    cn.AddArray(name, self.outputArrayNode.GetID())
+
+    # Set the chart to display
+    cvn.SetChartNodeID(cn.GetID())
+    cvn.Modified()
+
+  def stop(self, igtl):
+    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    printerCmd.SetCommandName('SendText')
+    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    printerCmd.SetCommandTimeoutSec(1.0)
+    printerCmd.SetCommandAttribute('Text', 'M0')
+    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
 
   def surfaceScan(self,igtl):
     printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
