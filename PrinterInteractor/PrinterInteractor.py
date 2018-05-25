@@ -36,9 +36,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
   """Uses ScriptedLoadableModuleWidget base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
-  #x = 0
-  stopButtonPressed = False
-
 
   def setup(self):
     ScriptedLoadableModuleWidget.setup(self)
@@ -54,15 +51,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
     # Layout within the dummy collapsible button
     connect_to_printerFormLayout = qt.QFormLayout(connect_to_printerCollapsibleButton)
-
+    #
     # Home Button
-
+    #
     self.homeButton = qt.QPushButton("Home")
     self.homeButton.toolTip = "Return to reference axis"
     self.homeButton.enabled = True
     connect_to_printerFormLayout.addRow(self.homeButton)
     self.homeButton.connect('clicked(bool)', self.onHomeButton)
-
     #
     # IGT Link Connector
     #
@@ -77,32 +73,18 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.inputSelector.setMRMLScene( slicer.mrmlScene )
     self.inputSelector.setToolTip( "Pick the input to the algorithm." )
     connect_to_printerFormLayout.addRow("Connect to: ", self.inputSelector)
-
+    #
     #Port Selector
-
+    #
     self.portSelector = qt.QComboBox()
     self.portSelector.insertItem(1, "PORT 1")
     self.portSelector.insertItem(2, "PORT 2")
     self.portSelector.insertItem(3, "PORT 3")
     self.portSelector.insertItem(4, "PORT 4")
     connect_to_printerFormLayout.addRow("Port :", self.portSelector)
-
-    #input array selector
-
-    # input volume selector
     #
-    self.spectrumImageSelector = slicer.qMRMLNodeComboBox()
-    self.spectrumImageSelector.nodeTypes = (("vtkMRMLScalarVolumeNode"), "")
-    self.spectrumImageSelector.selectNodeUponCreation = True
-    self.spectrumImageSelector.addEnabled = False
-    self.spectrumImageSelector.removeEnabled = False
-    self.spectrumImageSelector.noneEnabled = False
-    self.spectrumImageSelector.showHidden = False
-    self.spectrumImageSelector.showChildNodeTypes = False
-    self.spectrumImageSelector.setMRMLScene(slicer.mrmlScene)
-    self.spectrumImageSelector.setToolTip("Pick the spectrum image to visualize.")
-    connect_to_printerFormLayout.addRow("Input spectrum image: ", self.spectrumImageSelector)
-
+    #Output array selector
+    #
     self.outputArraySelector = slicer.qMRMLNodeComboBox()
     self.outputArraySelector.nodeTypes = (("vtkMRMLDoubleArrayNode"), "")
     self.outputArraySelector.addEnabled = True
@@ -113,115 +95,88 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.outputArraySelector.setMRMLScene(slicer.mrmlScene)
     self.outputArraySelector.setToolTip("Pick the output to the algorithm.")
     connect_to_printerFormLayout.addRow("Output spectrum array: ", self.outputArraySelector)
-
-    self.enablePlottingCheckBox = qt.QCheckBox()
-    self.enablePlottingCheckBox.checked = 0
-    self.enablePlottingCheckBox.setToolTip("If checked, then the spectrum plot will be updated in real-time")
-    connect_to_printerFormLayout.addRow("Enable plotting", self.enablePlottingCheckBox)
-
-    # connections
-    self.enablePlottingCheckBox.connect('stateChanged(int)', self.setEnablePlotting)
-
-    #X Y Z input
-
-    #self.x_spinbox = qt.QSpinBox()
-    #self.x_spinbox.setMinimum(0)
-    #self.x_spinbox.setMaximum(120)
-    #self.x_spinbox.setValue(0)
-    #connect_to_printerFormLayout.addRow("X Pos (mm): ", self.x_spinbox)
-
-    #self.y_spinbox = qt.QSpinBox()
-   #self.y_spinbox.setMinimum(0)
-    #self.y_spinbox.setMaximum(120)
-   # self.y_spinbox.setValue(0)
-    #connect_to_printerFormLayout.addRow("Y Pos (mm): ", self.y_spinbox)
-
-    #self.z_spinbox = qt.QSpinBox()
-   # self.z_spinbox.setMinimum(0)
-    #self.z_spinbox.setMaximum(120)
-    #self.z_spinbox.setValue(0)
-    #connect_to_printerFormLayout.addRow("Z Pos (mm): ", self.z_spinbox)
-
+    #
     # Tumor distinction button
-
+    #
     self.tumorButton = qt.QPushButton("Tumor?")
     self.tumorButton.toolTip = "Run the algorithm"
     self.tumorButton.enabled = True
     connect_to_printerFormLayout.addRow(self.tumorButton)
     self.tumorButton.connect('clicked(bool)', self.onTumorButton)
-
-    # Apply Button
-
-   # self.applyButton = qt.QPushButton("Apply")
-    #self.applyButton.toolTip = "Run the algorithm."
-    #self.applyButton.enabled = True
-    #connect_to_printerFormLayout.addRow(self.applyButton)
-    # connections
-    #self.applyButton.connect('clicked(bool)', self.onApplyButton)
-
+    #
     # Surface scan button
-
+    #
     self.scanButton = qt.QPushButton("Scan Surface")
     self.scanButton.toolTip = "Begin 2D surface scan"
     self.scanButton.enabled = True
     connect_to_printerFormLayout.addRow(self.scanButton)
     self.scanButton.connect('clicked(bool)', self.onScanButton)
-
-    #stop button
+    #
+    #Stop button
+    #
     self.stopButton = qt.QPushButton("STOP")
     self.stopButton.toolTip = "stop scan."
     self.stopButton.enabled = True
     connect_to_printerFormLayout.addRow(self.stopButton)
-    self.scanButton.connect('clicked(bool)', self.onStopButton)
-
+    self.stopButton.connect('clicked(bool)', self.onStopButton)
+    #
+    #Move z button
+    #
+    self.zButton = qt.QPushButton("Z50")
+    self.zButton.toolTip = "stop scan."
+    self.zButton.enabled = True
+    connect_to_printerFormLayout.addRow(self.zButton)
+    self.zButton.connect('clicked(bool)', self.onZButton)
+    #
+    # Get coordinates button
+    #
+    self.coordinateButton = qt.QPushButton("Get coordinates")
+    self.coordinateButton.toolTip = "stop scan."
+    self.coordinateButton.enabled = True
+    connect_to_printerFormLayout.addRow(self.coordinateButton)
+    self.coordinateButton.connect('clicked(bool)', self.onCoordinateButton)
     # Add vertical spacer
+    #
     self.layout.addStretch(1)
 
-  def setEnablePlotting(self, enable):
-
-    if enable:
-      self.logic.startPlotting(self.spectrumImageSelector.currentNode(), self.outputArraySelector.currentNode())
-    else:
-      self.logic.stopPlotting()
 
   def cleanup(self):
     pass
 
-  def onApplyButton(self):
+  def onSerialIGLTSelectorChanged(self):
+    self.logic.setSerialIGTLNode(serialIGTLNode= self.inputSelector.currentNode())
+    pass # call self.logic.setSerial...(new value of selector)
 
-    logic = PrinterInteractorLogic()
-    port = self.portSelector.currentIndex + 1 # port is 1 greater than index
-    x_value = self.x_spinbox.value
-    y_value = self.y_spinbox.value
-    z_value = self.z_spinbox.value
-    igtl = self.inputSelector.currentNode()
-    logic.run(igtl, port, x_value, y_value, z_value)
+  def ondoubleArrayNodeChanged(self):
+    self.logic.setdoubleArrayNode(doubleArrayNode= self.inputSelector.currentNode())
+    pass
 
-  def onHomeButton(self):
-    logic = PrinterInteractorLogic()
-    igtl = self.inputSelector.currentNode()
-    logic.home(igtl)
+  def onHomeButton(self, SerialIGTLNode):
+    self.onSerialIGLTSelectorChanged()
+    self.logic.home()
 
-  def onScanButton(self):
-    logic = PrinterInteractorLogic()
-    igtl = self.inputSelector.currentNode()
-    if self.stopButtonPressed != True:
-      logic.surfaceScan(igtl)
-    else:
-      logic.stop(igtl)
+  def onScanButton(self, SerialIGTLNode):
+    self.onSerialIGLTSelectorChanged()
+    self.logic.surfaceScan()
 
-  def onStopButton(self):
-    logic = PrinterInteractorLogic()
-    igtl = self.inputSelector.currentNode()
-    self.stopButtonPressed = True
-    logic.stop(igtl)
-    logic.home(igtl)
 
-  def onTumorButton(self):
-    logic = PrinterInteractorLogic()
-    igtl = self.inputSelector.currentNode()
+  def onStopButton(self, SerialIGTLNode):
+    self.onSerialIGLTSelectorChanged()
+    self.logic.stop()
 
-    logic.tumorDetection()
+  def onTumorButton(self, doubleArrayNode ):
+    self.ondoubleArrayNodeChanged()
+    self.logic.tumorDetection(doubleArrayNode)
+
+  def onZButton(self):
+    self.onSerialIGLTSelectorChanged()
+    self.logic.move_z_motor()
+
+  def onCoordinateButton(self):
+    self.onSerialIGLTSelectorChanged()
+    self.logic.get_coordinates()
+    #self.printerCmd.AddObserver(printerCmd.CommandCompletedEvent, onPrinterCmdCompleted)
+
 
 
 #
@@ -237,25 +192,26 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
   Uses ScriptedLoadableModuleLogic base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
-  #flagvariable = 0
+
   def __init__(self):
     self.baud_rate = 115200
-    self.flagvariable = False
-
-    self.chartNodeID = None
-
+    self.serialIGTLNode = None
+    self.doubleArrayNode = None
     self.spectrumImageNode = None
     self.observerTags = []
     self.outputArrayNode = None
     self.resolution = 100
 
-  #def connect(self):
-    #if self.flagvariable:
-      #self.connectorNode = slicer.vtkMRMLIGTLConnectorNode()
-      #self.connectorNode.SetTypeClient('127.0.0.1', 18944)
-      #self.slicer.mrmlScene.AddNode(connectorNode)
-      #self.connectorNode.Start()
-      #self.flagvariable = False
+  def setSerialIGTLNode(self, serialIGTLNode):
+    self.serialIGTLNode = serialIGTLNode
+
+  def setdoubleArrayNode(self, doubleArrayNode):
+    self.doubleArrayNode = doubleArrayNode
+
+  #def addPrinterObserver(self):
+    #printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    #printerCmd.AddObserver(printerCmd.CommandCompletedEvent, self.onPrinterCommandCompleted(0,0))
+
 
   def addObservers(self):
     if self.spectrumImageNode:
@@ -267,31 +223,14 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     for nodeTagPair in self.observerTags:
       nodeTagPair[0].RemoveObserver(nodeTagPair[1])
 
-  def home(self,igtl):
+  def home(self):
     #Return to home axis
     printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
     printerCmd.SetCommandName('SendText')
     printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
     printerCmd.SetCommandTimeoutSec(1.0)
     printerCmd.SetCommandAttribute('Text', 'G1 X0 Y0 Z40 ')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-
-
-  def startPlotting(self, spectrumImageNode, outputArrayNode):
-    # Change the layout to one that has a chart.  This created the ChartView
-    ln = slicer.util.getNode(pattern='vtkMRMLLayoutNode*')
-    ln.SetViewArrangement(24)
-
-    self.removeObservers()
-    self.spectrumImageNode = spectrumImageNode
-    self.outputArrayNode = outputArrayNode
-
-    # Start the updates
-    self.addObservers()
-    self.onSpectrumImageNodeModified(0, 0)
-
-  def stopPlotting(self):
-    self.removeObservers()
+    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
 
   def onSpectrumImageNodeModified(self, observer, eventid):
 
@@ -336,12 +275,12 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     probedPoints.GetPointData().GetScalars().Modified()
 
   def tumorDetection(self):
-
-
-    if not self.spectrumImageNode or not self.outputArrayNode:
+    if not self.outputArrayNode:
+      print "no output array"
       return
 
       self.updateOutputArray()
+
     #self.outputArrayNode = outputArrayNode
     pointsArray = self.outputArrayNode.GetArray()
     # point contains a wavelength and a corresponding intensity
@@ -350,476 +289,51 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     componentIndexIntensity = 1
 
     numberOfPoints = pointsArray.GetNumberOfTuples()
-
+    print numberOfPoints
     for pointIndex in xrange(numberOfPoints):
       wavelengthValue = pointsArray.GetComponent(0,pointIndex)
       intensityValue = pointsArray.GetComponent(1, pointIndex)
       while(wavelengthValue >700 and intensityValue < 1):
         print "Tumor"
 
+  def stop(self):
+    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    printerCmd.SetCommandName('SendText')
+    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    printerCmd.SetCommandTimeoutSec(1.0)
+    printerCmd.SetCommandAttribute('Text', 'M124')
+    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
+
+  def move_z_motor(self):
+    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    printerCmd.SetCommandName('SendText')
+    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    printerCmd.SetCommandTimeoutSec(1.0)
+    printerCmd.SetCommandAttribute('Text', 'G1 Z50')
+    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
+
+  def get_coordinates(self):
+    self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    self.printerCmd.SetCommandName('SendText')
+    self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    self.printerCmd.SetCommandTimeoutSec(1.0)
+    self.printerCmd.SetCommandAttribute('Text', 'M114')
+    slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
+    self.printerCmd.AddObserver(self.printerCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
+
+  def onPrinterCommandCompleted(self, observer, eventid):
+    print("Command completed with status: " + self.printerCmd.StatusToString(self.printerCmd.GetStatus()))
+    print("Response message: " + self.printerCmd.GetResponseMessage())
+    print("Full response: " + self.printerCmd.GetResponseText())
 
 
-
-
-      #greenValue = a.GetValue(700, row, probedPointScalars.GetTuple(700)[0])
-      #if ( greenValue >= 0 and greenValue <= 1 ):
-        #print('Tumor')
-
-  def updateChart(self):
-
-    # Get the first ChartView node
-    cvn = slicer.util.getNode(pattern='vtkMRMLChartViewNode*')
-
-    # If we already created a chart node and it is still exists then reuse that
-    cn = None
-    if self.chartNodeID:
-      cn = slicer.mrmlScene.GetNodeByID(cvn.GetChartNodeID())
-    if not cn:
-      cn = slicer.mrmlScene.AddNode(slicer.vtkMRMLChartNode())
-      self.chartNodeID = cn.GetID()
-      # Configure properties of the Chart
-      cn.SetProperty('default', 'title', 'Spectrum')
-      cn.SetProperty('default', 'xAxisLabel', 'Wavelength (nm)')
-      cn.SetProperty('default', 'yAxisLabel', 'Intensity')
-
-    name = self.spectrumImageNode.GetName()
-    cn.AddArray(name, self.outputArrayNode.GetID())
-
-    # Set the chart to display
-    cvn.SetChartNodeID(cn.GetID())
-    cvn.Modified()
-
-  def stop(self, igtl):
+  def surfaceScan(self):
     printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
     printerCmd.SetCommandName('SendText')
     printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'M0')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-
-  def surfaceScan(self,igtl):
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
+    printerCmd.SetCommandTimeoutSec(0.1)
     printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X110')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y5')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X0')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y10')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X110')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y15')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X0')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y20')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X110')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y25')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X0')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y30')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X110')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y35')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X0')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y40')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X110')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y45')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X0')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y50')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X110')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y55')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X0')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X110')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y65')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X0')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y70')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X110')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y75')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X0')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y80')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X110')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y85')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X0')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y90')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X110')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y95')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X0')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y100')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X110')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y105')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X0')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y110')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X0 Y0 Z40')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-
-
-
-
-  def run(self, igtl, port, x_value=0, y_value=0, z_value=0):
-    #Connect to the printer
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X%d Y%d Z%d' % (x_value,y_value,z_value))
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, igtl.GetID())
-
-    #print x_value
-    #print y
-    #print z
-    #print port
-    logging.info('Processing completed')
-
-    return True
+    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
 
 
 class PrinterInteractorTest(ScriptedLoadableModuleTest):
