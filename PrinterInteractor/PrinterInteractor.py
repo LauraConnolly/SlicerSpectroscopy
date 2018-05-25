@@ -201,6 +201,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.observerTags = []
     self.outputArrayNode = None
     self.resolution = 100
+    self.stopButtonPressed = False
 
   def setSerialIGTLNode(self, serialIGTLNode):
     self.serialIGTLNode = serialIGTLNode
@@ -297,12 +298,12 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         print "Tumor"
 
   def stop(self):
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'M124')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
+    self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    self.printerCmd.SetCommandName('SendText')
+    self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    self.printerCmd.SetCommandTimeoutSec(1.0)
+    self.printerCmd.SetCommandAttribute('Text', 'M124')
+    slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
 
   def move_z_motor(self):
     printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
@@ -328,12 +329,15 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
 
   def surfaceScan(self):
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(0.1)
-    printerCmd.SetCommandAttribute('Text', 'G1 X60')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
+    for y_value in range(0,110,5):
+      for x_value in range(10, 120, 50):
+        self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+        self.printerCmd.SetCommandName('SendText')
+        self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+        self.printerCmd.SetCommandTimeoutSec(0.01)
+        self.printerCmd.SetCommandAttribute('Text', 'G1 X%d Y%d' % (x_value, y_value))
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
+
 
 
 class PrinterInteractorTest(ScriptedLoadableModuleTest):
