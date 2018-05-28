@@ -3,7 +3,7 @@ import unittest
 import vtk, qt, ctk, slicer
 from slicer.ScriptedLoadableModule import *
 import logging
-
+import time
 #
 # PrinterInteractor
 #
@@ -36,7 +36,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
   """Uses ScriptedLoadableModuleWidget base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
-
   def setup(self):
     ScriptedLoadableModuleWidget.setup(self)
 
@@ -104,6 +103,12 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     connect_to_printerFormLayout.addRow(self.tumorButton)
     self.tumorButton.connect('clicked(bool)', self.onTumorButton)
     #
+
+    self.testButton = qt.QPushButton("test")
+    self.testButton.toolTip = "Run the algorithm"
+    self.testButton.enabled = True
+    connect_to_printerFormLayout.addRow(self.testButton)
+    self.testButton.connect('clicked(bool)', self.onTestButton)
     # Surface scan button
     #
     #self.scanButton = qt.QPushButton("Scan Surface")
@@ -180,6 +185,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
   def onShortScanButton(self):
     self.onSerialIGLTSelectorChanged()
     self.logic.shortScan()
+
+  def onTestButton(self):
+    self.ondoubleArrayNodeChanged()
+    self.onSerialIGLTSelectorChanged()
+    for xvar in xrange(30,50,10): # will change depending on the step size necessary
+      self.logic.xControl(xvar, self.outputArraySelector.currentNode(), doubleArrayNode= self.inputSelector.currentNode())
+      time.sleep(2.5)
+
 
 #
 # PrinterInteractorLogic
@@ -291,9 +304,11 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     #print(intensityValue)
     print(wavelengthValue)
     if intensityValue == 1:
-      print "Healthy"
+      #print "Healthy"
+      return True
     else:
-      print "Tumor"
+      #print "Tumor"
+      return False
 
 
   def shortScan(self):
@@ -367,6 +382,21 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         #self.printerCmd.SetCommandAttribute('Text', 'G1 X%d Y%d' % (x_value, y_value))
         #slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
 
+  def xControl(self, x_value, node, doubleArrayNode):
+    #self.setdoubleArrayNode(doubleArrayNode)
+
+    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    printerCmd.SetCommandName('SendText')
+    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    printerCmd.SetCommandTimeoutSec(1.0)
+    printerCmd.SetCommandAttribute('Text', 'G1 X%d' % (x_value))
+    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
+    time.sleep(2.5)
+    self.setdoubleArrayNode(doubleArrayNode)
+    if self.tumorDetection(node) == False:
+      print "Tumor"
+    else:
+      print "Healthy"
 
 
 
