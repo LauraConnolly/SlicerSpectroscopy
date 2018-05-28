@@ -111,6 +111,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.scanButton.enabled = True
     connect_to_printerFormLayout.addRow(self.scanButton)
     self.scanButton.connect('clicked(bool)', self.onScanButton)
+
     #
     #Stop button
     #
@@ -155,18 +156,18 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.onSerialIGLTSelectorChanged()
     self.logic.home()
 
-  def onScanButton(self, SerialIGTLNode):
+  def onScanButton(self, enable):
     self.onSerialIGLTSelectorChanged()
     self.logic.surfaceScan()
 
 
-  def onStopButton(self, SerialIGTLNode):
+  def onStopButton(self):#SerialIGTLNode):
     self.onSerialIGLTSelectorChanged()
     self.logic.stop()
 
-  def onTumorButton(self, doubleArrayNode ):
+  def onTumorButton(self ):
     self.ondoubleArrayNodeChanged()
-    self.logic.tumorDetection(doubleArrayNode)
+    self.logic.tumorDetection(self.outputArraySelector.currentNode())
 
   def onZButton(self):
     self.onSerialIGLTSelectorChanged()
@@ -201,7 +202,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.observerTags = []
     self.outputArrayNode = None
     self.resolution = 100
-    self.stopButtonPressed = False
+    global stopPressed
+    stopPressed = False
 
   def setSerialIGTLNode(self, serialIGTLNode):
     self.serialIGTLNode = serialIGTLNode
@@ -275,35 +277,35 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     probedPoints.GetPointData().GetScalars().Modified()
 
-  def tumorDetection(self):
-    if not self.outputArrayNode:
-      print "no output array"
-      return
+  def tumorDetection(self, outputArrayNode):
+    #if not self.outputArrayNode:
+      #print "no output array"
 
-      self.updateOutputArray()
-
-    #self.outputArrayNode = outputArrayNode
+    #self.updateOutputArray()
+      #print(outputArrayNode)
+    self.outputArrayNode = outputArrayNode
     pointsArray = self.outputArrayNode.GetArray()
     # point contains a wavelength and a corresponding intensity
 
-    componentIndexWavelength = 0
-    componentIndexIntensity = 1
+    self.componentIndexWavelength = 0
+    self.componentIndexIntensity = 1
 
     numberOfPoints = pointsArray.GetNumberOfTuples()
-    print numberOfPoints
-    for pointIndex in xrange(numberOfPoints):
+    #print numberOfPoints
+    #for pointIndex in xrange(30,numberOfPoints): # use to be number of points
+    for pointIndex in xrange(187,188):
       wavelengthValue = pointsArray.GetComponent(0,pointIndex)
       intensityValue = pointsArray.GetComponent(1, pointIndex)
-      while(wavelengthValue >700 and intensityValue < 1):
+      #print(intensityValue)
+      print(wavelengthValue)
+      if intensityValue == 1:
+        print "Healthy"
+      else:
         print "Tumor"
 
   def stop(self):
-    self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    self.printerCmd.SetCommandName('SendText')
-    self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    self.printerCmd.SetCommandTimeoutSec(1.0)
-    self.printerCmd.SetCommandAttribute('Text', 'M124')
-    slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
+    global stopPressed
+    stopPressed = True
 
   def move_z_motor(self):
     printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
@@ -327,6 +329,17 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     print("Response message: " + self.printerCmd.GetResponseMessage())
     print("Full response: " + self.printerCmd.GetResponseText())
 
+  def checkIfStopPressed(self):
+    if stopPressed == True:
+      self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+      self.printerCmd.SetCommandName('SendText')
+      self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+      self.printerCmd.SetCommandTimeoutSec(1.0)
+      self.printerCmd.SetCommandAttribute('Text', 'M112')
+      slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
+    else:
+      return
+
 
   def surfaceScan(self):
     for y_value in range(0,110,5):
@@ -337,6 +350,12 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.printerCmd.SetCommandTimeoutSec(0.01)
         self.printerCmd.SetCommandAttribute('Text', 'G1 X%d Y%d' % (x_value, y_value))
         slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
+        self.checkIfStopPressed()
+
+
+
+
+
 
 
 
