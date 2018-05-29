@@ -116,11 +116,11 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.testButton.connect('clicked(bool)', self.onTestButton)
     # Surface scan button
     #
-    #self.scanButton = qt.QPushButton("Scan Surface")
-    #self.scanButton.toolTip = "Begin 2D surface scan"
-    #self.scanButton.enabled = True
-    #connect_to_printerFormLayout.addRow(self.scanButton)
-    #self.scanButton.connect('clicked(bool)', self.onScanButton)
+    self.scanButton = qt.QPushButton("Scan Surface")
+    self.scanButton.toolTip = "Begin 2D surface scan"
+    self.scanButton.enabled = True
+    connect_to_printerFormLayout.addRow(self.scanButton)
+    self.scanButton.connect('clicked(bool)', self.onScanButton)
 
     #
     #Stop button
@@ -175,10 +175,12 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.onSerialIGLTSelectorChanged()
     self.logic.home()
 
- # def onScanButton(self, enable):
-    #self.onSerialIGLTSelectorChanged()
-   # self.logic.surfaceScan()
-
+  def onScanButton(self):
+    self.onSerialIGLTSelectorChanged()
+    self.scanTimer = qt.QTimer()
+    for xvar in xrange(0,50,10):
+      self.scanTimer.timeout.connect(self.logic.controlledMovement(xvar))
+    self.scanTimer.start(2000)
 
   def onStopButton(self):#SerialIGTLNode):
     self.onSerialIGLTSelectorChanged()
@@ -206,11 +208,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
     self.Timer = qt.QTimer()
     #self.logic.tumorDetection(self.outputArraySelector.currentNode())
-    self.Timer.timeout.connect(self.logic.get_coordinates)
-    self.Timer.start(2000)
+    #self.Timer.timeout.connect(self.logic.get_coordinates)
+    self.Timer.timeout.connect( (self.Timer.timeout()), (self.logic.tumorDetection(self.outputArraySelector.currentNode())))
+    self.Timer.start(1000)
 
   def onStopTimerButton(self):
     self.Timer.stop()
+
+
 
 #
 # PrinterInteractorLogic
@@ -409,7 +414,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         #slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
 
   def xControl(self, x_value, node, doubleArrayNode):
-    #self.setdoubleArrayNode(doubleArrayNode)
+
 
     printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
     printerCmd.SetCommandName('SendText')
@@ -417,12 +422,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     printerCmd.SetCommandTimeoutSec(1.0)
     printerCmd.SetCommandAttribute('Text', 'G1 X%d' % (x_value))
     slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
-    #time.sleep(1)
-   # self.setdoubleArrayNode(doubleArrayNode)
-    #if self.tumorDetection(node) == False:
-     # print "Tumor"
-    #else:
-      #print "Healthy"
+
 
   def controlledMovement(self, xvar):
 
@@ -432,7 +432,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     printerCmd.SetCommandTimeoutSec(1.0)
     printerCmd.SetCommandAttribute('Text', 'G1 X%d' % (xvar))
     slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
-    #time.sleep(self.interval)
+
 
 
 class PrinterInteractorTest(ScriptedLoadableModuleTest):
