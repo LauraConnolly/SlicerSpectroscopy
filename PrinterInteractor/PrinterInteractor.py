@@ -4,7 +4,7 @@ import vtk, qt, ctk, slicer
 from slicer.ScriptedLoadableModule import *
 import logging
 import time
-
+import functools
 
 #
 # PrinterInteractor
@@ -109,11 +109,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.tumorButton.connect('clicked(bool)', self.onTumorButton)
     #
 
-    self.testButton = qt.QPushButton("test")
-    self.testButton.toolTip = "Run the algorithm"
-    self.testButton.enabled = True
-    connect_to_printerFormLayout.addRow(self.testButton)
-    self.testButton.connect('clicked(bool)', self.onTestButton)
     # Surface scan button
     #
     self.scanButton = qt.QPushButton("Scan Surface")
@@ -148,19 +143,8 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     connect_to_printerFormLayout.addRow(self.shortScanButton)
     self.shortScanButton.connect('clicked(bool)', self.onShortScanButton)
     #
-    #
-    # stop button
-    self.stopTimerButton = qt.QPushButton("Stop Timer")
-    self.stopTimerButton.toolTip = "stop timer."
-    self.stopTimerButton.enabled = True
-    connect_to_printerFormLayout.addRow(self.stopTimerButton)
-    self.stopTimerButton.connect('clicked(bool)', self.onStopTimerButton)
 
-    self.stopMotorButton = qt.QPushButton("Stop Motor")
-    self.stopMotorButton.toolTip = "stop timer."
-    self.stopMotorButton.enabled = True
-    connect_to_printerFormLayout.addRow(self.stopMotorButton)
-    self.stopMotorButton.connect('clicked(bool)', self.onStopMotorButton)
+
     #
     # Automated tumor detect
     #
@@ -170,13 +154,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     connect_to_printerFormLayout.addRow(self.tumorDetectOn)
     self.tumorDetectOn.connect('clicked(bool)', self.onTumorDetectOn)
     #
-    # Tumor detection off
-    #
-    self.tumorDetectOff = qt.QPushButton("Turn tumor detection off")
-    self.tumorDetectOff.toolTip = "Turn off tumor detection"
-    self.tumorDetectOff.enabled = True
-    connect_to_printerFormLayout.addRow(self.tumorDetectOff)
-    self.tumorDetectOff.connect('clicked(bool)', self.onTumorDetectOff)
 
     self.layout.addStretch(1)
 
@@ -200,31 +177,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
   def onScanButton(self):
     self.onSerialIGLTSelectorChanged()
-    self.scanTimer = qt.QTimer()
-    self.scanTimer.start()
-    #self.scanTime = 0
-    #self.xvar = 0
-    #for self.waiting in xrange(0,10,1):
+   # self.logic.surfaceScan()
 
-    self.scanTimer.timeout.connect(self.logic.get_coordinates)
-    self.scanTimer.start(2000)
-    self.waitTime = 0
-    for waitLoop in xrange(0,10,1):
-      self.scanTimer.singleShot(self.waitTime, lambda: self.logic.tumorDetection(self.outputArraySelector.currentNode()))
-      self.waitTime = self.waitTime + 2000
-      waitLoop = waitLoop + 1
-
-    self.scanTimer.singleShot(2000, lambda: self.logic.controlledMovement(0))
-    self.scanTimer.singleShot(4000, lambda: self.logic.controlledMovement(20))
-    self.scanTimer.singleShot(6000, lambda: self.logic.controlledMovement(30))
-    self.scanTimer.singleShot(8000, lambda: self.logic.controlledMovement(40))
-    self.scanTimer.singleShot(10000, lambda: self.logic.controlledMovement(50))
-    self.scanTimer.singleShot(12000, lambda: self.logic.controlledMovement(60))
-    self.scanTimer.singleShot(14000, lambda: self.logic.controlledMovement(70))
-    self.scanTimer.singleShot(16000, lambda: self.logic.controlledMovement(80))
-    self.scanTimer.singleShot(18000, lambda: self.logic.controlledMovement(90))
-    self.scanTimer.singleShot(20000, lambda: self.logic.controlledMovement(100))
-
+    #self.timerTimer = qt.QTimer()
+    #for x, y in zip(range(2000, 20000, 2000), range(0, 100, 10)):
+      #self.timerTimer.singleShot(x, lambda: functools.partial(self.logic.controlledMovement(y)))
+    self.logic.xWidthForward()
+    self.logic.xWidthBackwards()
+    #self.logic.xWidthForward()
 
   def onStopButton(self):#SerialIGTLNode):
     self.onSerialIGLTSelectorChanged()
@@ -246,34 +206,20 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.onSerialIGLTSelectorChanged()
     self.logic.shortScan()
 
-  def onTestButton(self):
-    self.ondoubleArrayNodeChanged()
-    self.onSerialIGLTSelectorChanged()
-
-    self.Timer = qt.QTimer()
-    #self.logic.tumorDetection(self.outputArraySelector.currentNode())
-    #self.Timer.timeout.connect(self.logic.get_coordinates)
-    #self.Timer.timeout.connect( (self.Timer.timeout()), (self.logic.tumorDetection(self.outputArraySelector.currentNode())))
-    self.Timer.timeout.connect(self.logic.get_coordinates)
-    self.Timer.start(2000)
-
-  def onStopTimerButton(self):
-    self.Timer.stop()
 
   def onTumorDetectOn(self):
     self.ondoubleArrayNodeChanged()
     self.onSerialIGLTSelectorChanged()
     self.tumorTimer = qt.QTimer()
-    self.waitTime = 2000
-    self.tumorTimer.timeout.connect(self.logic.get_coordinates)
-    self.tumorTimer.start(2000)
-    for waitLoop in xrange(0,10,1):
-      self.tumorTimer.singleShot(self.waitTime, lambda: self.logic.tumorDetection(self.outputArraySelector.currentNode()))
-      self.waitTime = self.waitTime + 2000
-      waitLoop = waitLoop + 1
-      #
-  def onTumorDetectOff(self):
-    self.scanTimer.stop()
+    #self.tumorTimer.timeout.connect(self.logic.get_coordinates)
+    #self.tumorTimer.start(2000)
+
+    self.timeValue = 0
+    for self.timeValue in xrange(0,54000,2000):
+      self.tumorTimer.singleShot(self.timeValue, lambda: self.logic.get_coordinates())
+      self.tumorTimer.singleShot(self.timeValue, lambda: self.logic.tumorDetection(self.outputArraySelector.currentNode()))
+      self.timeValue = self.timeValue + 2000
+
 
 
 
@@ -442,29 +388,64 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.printerCmd.AddObserver(self.printerCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
 
 
+  def xWidthForward(self):
+    self.scanTimer = qt.QTimer()
+    self.scanTimer.singleShot(2000, lambda: self.controlledMovement(10))
+    self.scanTimer.singleShot(4000, lambda: self.controlledMovement(20))
+    self.scanTimer.singleShot(6000, lambda: self.controlledMovement(30))
+    self.scanTimer.singleShot(8000, lambda: self.controlledMovement(40))
+    self.scanTimer.singleShot(10000, lambda: self.controlledMovement(50))
+    self.scanTimer.singleShot(12000, lambda: self.controlledMovement(60))
+    self.scanTimer.singleShot(14000, lambda: self.controlledMovement(70))
+    self.scanTimer.singleShot(16000, lambda: self.controlledMovement(80))
+    self.scanTimer.singleShot(18000, lambda: self.controlledMovement(90))
+    self.scanTimer.singleShot(20000, lambda: self.controlledMovement(100))
+    self.scanTimer.singleShot(22000, lambda: self.controlledMovement(110))
+    self.scanTimer.singleShot(24000, lambda: self.controlledMovement(120))
+
+  def xWidthBackwards(self):
+    self.scanTimer = qt.QTimer()
+    self.scanTimer.singleShot(26000, lambda: self.controlledMovement(120))
+    self.scanTimer.singleShot(28000, lambda: self.controlledMovement(110))
+    self.scanTimer.singleShot(30000, lambda: self.controlledMovement(100))
+    self.scanTimer.singleShot(32000, lambda: self.controlledMovement(90))
+    self.scanTimer.singleShot(34000, lambda: self.controlledMovement(80))
+    self.scanTimer.singleShot(36000, lambda: self.controlledMovement(70))
+    self.scanTimer.singleShot(38000, lambda: self.controlledMovement(60))
+    self.scanTimer.singleShot(40000, lambda: self.controlledMovement(50))
+    self.scanTimer.singleShot(42000, lambda: self.controlledMovement(40))
+    self.scanTimer.singleShot(44000, lambda: self.controlledMovement(30))
+    self.scanTimer.singleShot(46000, lambda: self.controlledMovement(20))
+    self.scanTimer.singleShot(48000, lambda: self.controlledMovement(10))
+    self.scanTimer.singleShot(50000, lambda: self.controlledMovement(0))
+
+
   def surfaceScan(self):
+    self.timerTimer = qt.QTimer()
+    for x,y in zip(range(2000,20000,2000), range(0,100,10)):
+      self.timerTimer.singleShot(x, lambda: functools.partial(self.controlledMovement(y)))
+      #x = x + 2000
+      #y = y + 10
+    #for y_value in xrange(0,120,5):
+      #self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+      #self.printerCmd.SetCommandName('SendText')
+      #self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+      #self.printerCmd.SetCommandTimeoutSec(0.01)
+      #self.printerCmd.SetCommandAttribute('Text', 'G1 Y%d' % (y_value))
+      #slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
+      #for x_value in xrange(0,120,10):
+      #  self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+       # self.printerCmd.SetCommandName('SendText')
+       # self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+       # self.printerCmd.SetCommandTimeoutSec(0.01)
+       #self.printerCmd.SetCommandAttribute('Text', 'G1 X%d' % (x_value))
+        #slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
 
-    for y_value in xrange(0,120,5):
-      self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-      self.printerCmd.SetCommandName('SendText')
-      self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-      self.printerCmd.SetCommandTimeoutSec(0.01)
-      self.printerCmd.SetCommandAttribute('Text', 'G1 Y%d' % (y_value))
-      slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
-      for x_value in xrange(0,120,10):
-        self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-        self.printerCmd.SetCommandName('SendText')
-        self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-        self.printerCmd.SetCommandTimeoutSec(0.01)
-        self.printerCmd.SetCommandAttribute('Text', 'G1 X%d' % (x_value))
-        slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
-
-    self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    self.printerCmd.SetCommandName('SendText')
-    self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    self.printerCmd.SetCommandTimeoutSec(0.01)
-    self.printerCmd.SetCommandAttribute('Text', 'G1 X0')
-    slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
+    #self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    #self.printerCmd.SetCommandName('SendText')
+    #self.printerCmd.SetCommandTimeoutSec(0.01)
+    #self.printerCmd.SetCommandAttribute('Text', 'G1 X0')
+    #slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
 
     #for y_value in range(0,110,5):
       #for x_value in range(10, 120, 50):
@@ -474,16 +455,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         #self.printerCmd.SetCommandTimeoutSec(0.01)
         #self.printerCmd.SetCommandAttribute('Text', 'G1 X%d Y%d' % (x_value, y_value))
         #slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
-
-  def xControl(self, x_value, node, doubleArrayNode):
-
-
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X%d' % (x_value))
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
 
 
   def controlledMovement(self, xvar):
@@ -495,6 +466,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     printerCmd.SetCommandAttribute('Text', 'G1 X%d' % (xvar))
     slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
 
+  def controlledYMovement(self, yvar):
+    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    printerCmd.SetCommandName('SendText')
+    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    printerCmd.SetCommandTimeoutSec(1.0)
+    printerCmd.SetCommandAttribute('Text', 'G1 Y%d' % (yvar))
+    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
 
 
 class PrinterInteractorTest(ScriptedLoadableModuleTest):
