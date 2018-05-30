@@ -155,6 +155,22 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.stopTimerButton.enabled = True
     connect_to_printerFormLayout.addRow(self.stopTimerButton)
     self.stopTimerButton.connect('clicked(bool)', self.onStopTimerButton)
+    #
+    # Automated tumor detect
+    #
+    self.tumorDetectOn = qt.QPushButton("Analyze Tissue")
+    self.tumorDetectOn.toolTip = "Turn on tumor detection"
+    self.tumorDetectOn.enabled = True
+    connect_to_printerFormLayout.addRow(self.tumorDetectOn)
+    self.tumorDetectOn.connect('clicked(bool)', self.onTumorDetectOn)
+    #
+    # Tumor detection off
+    #
+    self.tumorDetectOff = qt.QPushButton("Turn tumor detection off")
+    self.tumorDetectOff.toolTip = "Turn off tumor detection"
+    self.tumorDetectOff.enabled = True
+    connect_to_printerFormLayout.addRow(self.tumorDetectOff)
+    self.tumorDetectOff.connect('clicked(bool)', self.onTumorDetectOff)
 
     self.layout.addStretch(1)
 
@@ -178,9 +194,13 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
   def onScanButton(self):
     self.onSerialIGLTSelectorChanged()
     self.scanTimer = qt.QTimer()
-    for xvar in xrange(0,50,10):
-      self.scanTimer.timeout.connect(self.logic.controlledMovement(xvar))
-    self.scanTimer.start(2000)
+    self.scanTime = 0
+    self.xvar = 0
+    for self.waiting in xrange(0,10,1):
+      self.scanTimer.singleShot(self.scanTime, lambda: self.logic.controlledMovement(self.xvar))
+      self.scanTime = self.scanTime + 2000
+      self.xvar = self.xvar + 10
+      self.waiting = self.waiting + 1
 
   def onStopButton(self):#SerialIGTLNode):
     self.onSerialIGLTSelectorChanged()
@@ -209,11 +229,29 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.Timer = qt.QTimer()
     #self.logic.tumorDetection(self.outputArraySelector.currentNode())
     #self.Timer.timeout.connect(self.logic.get_coordinates)
-    self.Timer.timeout.connect( (self.Timer.timeout()), (self.logic.tumorDetection(self.outputArraySelector.currentNode())))
-    self.Timer.start(1000)
+    #self.Timer.timeout.connect( (self.Timer.timeout()), (self.logic.tumorDetection(self.outputArraySelector.currentNode())))
+    self.Timer.timeout.connect(self.logic.get_coordinates)
+    self.Timer.start(2000)
 
   def onStopTimerButton(self):
     self.Timer.stop()
+
+  def onTumorDetectOn(self):
+    self.ondoubleArrayNodeChanged()
+    self.onSerialIGLTSelectorChanged()
+    self.tumorTimer = qt.QTimer()
+    self.waitTime = 2000
+    self.tumorTimer.timeout.connect(self.logic.get_coordinates)
+    self.tumorTimer.start(2000)
+    for waitLoop in xrange(0,10,1):
+      self.tumorTimer.singleShot(self.waitTime, lambda: self.logic.tumorDetection(self.outputArraySelector.currentNode()))
+      self.waitTime = self.waitTime + 2000
+      waitLoop = waitLoop + 1
+      #
+  def onTumorDetectOff(self):
+    self.tumorTimer.stop()
+
+
 
 
 
@@ -331,7 +369,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     wavelengthValue = pointsArray.GetComponent(0,187)
     intensityValue = pointsArray.GetComponent(1, 187)
     #print(intensityValue)
-    print(wavelengthValue)
+    #print(wavelengthValue)
     if intensityValue == 1:
       print "Healthy"
 
