@@ -155,6 +155,12 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.stopTimerButton.enabled = True
     connect_to_printerFormLayout.addRow(self.stopTimerButton)
     self.stopTimerButton.connect('clicked(bool)', self.onStopTimerButton)
+
+    self.stopMotorButton = qt.QPushButton("Stop Motor")
+    self.stopMotorButton.toolTip = "stop timer."
+    self.stopMotorButton.enabled = True
+    connect_to_printerFormLayout.addRow(self.stopMotorButton)
+    self.stopMotorButton.connect('clicked(bool)', self.onStopMotorButton)
     #
     # Automated tumor detect
     #
@@ -174,7 +180,8 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
     self.layout.addStretch(1)
 
-
+  def onStopMotorButton(self):
+    self.scanTimer.stop()
 
   def cleanup(self):
     pass
@@ -194,13 +201,30 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
   def onScanButton(self):
     self.onSerialIGLTSelectorChanged()
     self.scanTimer = qt.QTimer()
-    self.scanTime = 0
-    self.xvar = 0
-    for self.waiting in xrange(0,10,1):
-      self.scanTimer.singleShot(self.scanTime, lambda: self.logic.controlledMovement(self.xvar))
-      self.scanTime = self.scanTime + 2000
-      self.xvar = self.xvar + 10
-      self.waiting = self.waiting + 1
+    self.scanTimer.start()
+    #self.scanTime = 0
+    #self.xvar = 0
+    #for self.waiting in xrange(0,10,1):
+
+    self.scanTimer.timeout.connect(self.logic.get_coordinates)
+    self.scanTimer.start(2000)
+    self.waitTime = 0
+    for waitLoop in xrange(0,10,1):
+      self.scanTimer.singleShot(self.waitTime, lambda: self.logic.tumorDetection(self.outputArraySelector.currentNode()))
+      self.waitTime = self.waitTime + 2000
+      waitLoop = waitLoop + 1
+
+    self.scanTimer.singleShot(2000, lambda: self.logic.controlledMovement(0))
+    self.scanTimer.singleShot(4000, lambda: self.logic.controlledMovement(20))
+    self.scanTimer.singleShot(6000, lambda: self.logic.controlledMovement(30))
+    self.scanTimer.singleShot(8000, lambda: self.logic.controlledMovement(40))
+    self.scanTimer.singleShot(10000, lambda: self.logic.controlledMovement(50))
+    self.scanTimer.singleShot(12000, lambda: self.logic.controlledMovement(60))
+    self.scanTimer.singleShot(14000, lambda: self.logic.controlledMovement(70))
+    self.scanTimer.singleShot(16000, lambda: self.logic.controlledMovement(80))
+    self.scanTimer.singleShot(18000, lambda: self.logic.controlledMovement(90))
+    self.scanTimer.singleShot(20000, lambda: self.logic.controlledMovement(100))
+
 
   def onStopButton(self):#SerialIGTLNode):
     self.onSerialIGLTSelectorChanged()
@@ -249,7 +273,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
       waitLoop = waitLoop + 1
       #
   def onTumorDetectOff(self):
-    self.tumorTimer.stop()
+    self.scanTimer.stop()
 
 
 
