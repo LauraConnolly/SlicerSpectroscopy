@@ -344,13 +344,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.outputArrayNode = outputArrayNode
     pointsArray = self.outputArrayNode.GetArray()
     # point contains a wavelength and a corresponding intensity
-
+    # each data point has 2 rows of data, one corresponding to wavelength and one corresponding to intensity
     self.componentIndexWavelength = 0
     self.componentIndexIntensity = 1
 
-    numberOfPoints = pointsArray.GetNumberOfTuples()
-    #for pointIndex in xrange(numberOfPoints):
-    wavelengthValue = pointsArray.GetComponent(0,187)
+    numberOfPoints = pointsArray.GetNumberOfTuples() #access the number of points received from the spectra
+    #for pointIndex in xrange(numberOfPoints): #could potentially loop to check a certain range of data points
+    wavelengthValue = pointsArray.GetComponent(0,187) #checks the 187th point in the data stream
     intensityValue = pointsArray.GetComponent(1, 187)
     #print(intensityValue)
     #print(wavelengthValue)
@@ -437,45 +437,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.scanTimer = qt.QTimer()
     self.scanTimer.singleShot(timevar, lambda: self.controlledYMovement(movevar))
 
-  def surfaceScan(self):
-    self.timerTimer = qt.QTimer()
-    for x,y in zip(range(2000,20000,2000), range(0,100,10)):
-      self.timerTimer.singleShot(x, lambda: functools.partial(self.controlledMovement(y)))
-      #x = x + 2000
-      #y = y + 10
-    #for y_value in xrange(0,120,5):
-      #self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-      #self.printerCmd.SetCommandName('SendText')
-      #self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-      #self.printerCmd.SetCommandTimeoutSec(0.01)
-      #self.printerCmd.SetCommandAttribute('Text', 'G1 Y%d' % (y_value))
-      #slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
-      #for x_value in xrange(0,120,10):
-      #  self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-       # self.printerCmd.SetCommandName('SendText')
-       # self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-       # self.printerCmd.SetCommandTimeoutSec(0.01)
-       #self.printerCmd.SetCommandAttribute('Text', 'G1 X%d' % (x_value))
-        #slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
 
-    #self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    #self.printerCmd.SetCommandName('SendText')
-    #self.printerCmd.SetCommandTimeoutSec(0.01)
-    #self.printerCmd.SetCommandAttribute('Text', 'G1 X0')
-    #slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
-
-    #for y_value in range(0,110,5):
-      #for x_value in range(10, 120, 50):
-        #self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-        #self.printerCmd.SetCommandName('SendText')
-        #self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-        #self.printerCmd.SetCommandTimeoutSec(0.01)
-        #self.printerCmd.SetCommandAttribute('Text', 'G1 X%d Y%d' % (x_value, y_value))
-        #slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
-
-
-  def controlledMovement(self, xvar):
-
+  def controlledMovement(self, xvar): # x movement
     printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
     printerCmd.SetCommandName('SendText')
     printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
@@ -483,7 +446,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     printerCmd.SetCommandAttribute('Text', 'G1 X%d' % (xvar))
     slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
 
-  def controlledYMovement(self, yvar):
+  def controlledYMovement(self, yvar): # y movement
     printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
     printerCmd.SetCommandName('SendText')
     printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
