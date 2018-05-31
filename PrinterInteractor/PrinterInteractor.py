@@ -108,32 +108,22 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     connect_to_printerFormLayout.addRow(self.tumorButton)
     self.tumorButton.connect('clicked(bool)', self.onTumorButton)
     #
-
+    #
+    # Automated tumor detect
+    #
+    self.tumorDetectOn = qt.QPushButton("Analyze Tissue")
+    self.tumorDetectOn.toolTip = "Receive tissue analysis for 10 seconds"
+    self.tumorDetectOn.enabled = True
+    connect_to_printerFormLayout.addRow(self.tumorDetectOn)
+    self.tumorDetectOn.connect('clicked(bool)', self.onTumorDetectOn)
+    #
     # Surface scan button
     #
-    self.scanButton = qt.QPushButton("Scan Surface")
+    self.scanButton = qt.QPushButton("Systematic Scan")
     self.scanButton.toolTip = "Begin 2D surface scan"
     self.scanButton.enabled = True
     connect_to_printerFormLayout.addRow(self.scanButton)
     self.scanButton.connect('clicked(bool)', self.onScanButton)
-
-    #
-    #Stop button
-    #
-    self.stopButton = qt.QPushButton("EMERGENCY STOP")
-    self.stopButton.toolTip = "stop scan."
-    self.stopButton.enabled = True
-    connect_to_printerFormLayout.addRow(self.stopButton)
-    self.stopButton.connect('clicked(bool)', self.onStopButton)
-
-    #
-    # Get coordinates button
-    #
-    self.coordinateButton = qt.QPushButton("Get coordinates")
-    self.coordinateButton.toolTip = "stop scan."
-    self.coordinateButton.enabled = True
-    connect_to_printerFormLayout.addRow(self.coordinateButton)
-    self.coordinateButton.connect('clicked(bool)', self.onCoordinateButton)
     #
     #Short scan button
     #
@@ -143,16 +133,13 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     connect_to_printerFormLayout.addRow(self.shortScanButton)
     self.shortScanButton.connect('clicked(bool)', self.onShortScanButton)
     #
-
-
+    # Stop button
     #
-    # Automated tumor detect
-    #
-    self.tumorDetectOn = qt.QPushButton("Analyze Tissue")
-    self.tumorDetectOn.toolTip = "Turn on tumor detection"
-    self.tumorDetectOn.enabled = True
-    connect_to_printerFormLayout.addRow(self.tumorDetectOn)
-    self.tumorDetectOn.connect('clicked(bool)', self.onTumorDetectOn)
+    self.stopButton = qt.QPushButton("EMERGENCY STOP")
+    self.stopButton.toolTip = "Immediately stop printer motors, requires restart."
+    self.stopButton.enabled = True
+    connect_to_printerFormLayout.addRow(self.stopButton)
+    self.stopButton.connect('clicked(bool)', self.onStopButton)
     #
 
     self.layout.addStretch(1)
@@ -177,18 +164,50 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
   def onScanButton(self):
     self.onSerialIGLTSelectorChanged()
-   # self.logic.surfaceScan()
 
-    #self.timerTimer = qt.QTimer()
-    #for x, y in zip(range(2000, 20000, 2000), range(0, 100, 10)):
-      #self.timerTimer.singleShot(x, lambda: functools.partial(self.logic.controlledMovement(y)))
-    self.logic.xWidthForward()
-    self.logic.xWidthBackwards()
-    #self.logic.xWidthForward()
+    # Controlled printer movement
+    self.timerTimer = qt.QTimer()
+
+    self.logic.xWidthForward(0)
+    self.logic.yBackwards(26000,10)
+    self.logic.xWidthBackwards(0)
+    self.logic.yBackwards(54000,20)
+    self.logic.xWidthForward(54000)
+    self.logic.yBackwards(80000,30)
+    self.logic.xWidthBackwards(54000)
+    self.logic.yBackwards(106000,40)
+    self.logic.xWidthForward(106000)
+    self.logic.yBackwards(132000,50)
+    self.logic.xWidthBackwards(106000)
+    self.logic.yBackwards(158000,60)
+    self.logic.xWidthForward(158000)
+    self.logic.yBackwards(184000,70)
+    self.logic.xWidthBackwards(158000)
+    self.logic.yBackwards(210000,80)
+    self.logic.xWidthForward(210000)
+    self.logic.yBackwards(236000,90)
+    self.logic.xWidthBackwards(210000)
+    self.logic.yBackwards(262000,100)
+    self.logic.xWidthForward(262000)
+    self.logic.yBackwards(288000,110)
+    self.logic.xWidthBackwards(262000)
+    self.logic.yBackwards(314000,120)
+    self.logic.xWidthForward(314000)
+
+    # tissue analysis
+    self.tumorTimer = qt.QTimer()
+
+    self.timeValue = 0
+    for self.timeValue in xrange(0,330000,2000):
+      self.tumorTimer.singleShot(self.timeValue, lambda: self.logic.get_coordinates())
+      self.tumorTimer.singleShot(self.timeValue, lambda: self.logic.tumorDetection(self.outputArraySelector.currentNode()))
+      self.timeValue = self.timeValue + 2000
+
 
   def onStopButton(self):#SerialIGTLNode):
     self.onSerialIGLTSelectorChanged()
     self.logic.emergencyStop()
+
 
   def onTumorButton(self):
     self.ondoubleArrayNodeChanged()
@@ -196,11 +215,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.logic.tumorDetection(self.outputArraySelector.currentNode())
     self.logic.get_coordinates()
 
-
-  def onCoordinateButton(self):
-    self.onSerialIGLTSelectorChanged()
-    self.logic.get_coordinates()
-    #self.printerCmd.AddObserver(printerCmd.CommandCompletedEvent, onPrinterCmdCompleted)
 
   def onShortScanButton(self):
     self.onSerialIGLTSelectorChanged()
@@ -215,7 +229,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     #self.tumorTimer.start(2000)
 
     self.timeValue = 0
-    for self.timeValue in xrange(0,54000,2000):
+    for self.timeValue in xrange(0,10000,2000):
       self.tumorTimer.singleShot(self.timeValue, lambda: self.logic.get_coordinates())
       self.tumorTimer.singleShot(self.timeValue, lambda: self.logic.tumorDetection(self.outputArraySelector.currentNode()))
       self.timeValue = self.timeValue + 2000
@@ -281,7 +295,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     printerCmd.SetCommandName('SendText')
     printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
     printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X0 Y0 Z40 ')
+    printerCmd.SetCommandAttribute('Text', 'G28 X Y ')
     slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
 
   def onSpectrumImageNodeModified(self, observer, eventid):
@@ -388,37 +402,40 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.printerCmd.AddObserver(self.printerCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
 
 
-  def xWidthForward(self):
+  def xWidthForward(self, xvar):
     self.scanTimer = qt.QTimer()
-    self.scanTimer.singleShot(2000, lambda: self.controlledMovement(10))
-    self.scanTimer.singleShot(4000, lambda: self.controlledMovement(20))
-    self.scanTimer.singleShot(6000, lambda: self.controlledMovement(30))
-    self.scanTimer.singleShot(8000, lambda: self.controlledMovement(40))
-    self.scanTimer.singleShot(10000, lambda: self.controlledMovement(50))
-    self.scanTimer.singleShot(12000, lambda: self.controlledMovement(60))
-    self.scanTimer.singleShot(14000, lambda: self.controlledMovement(70))
-    self.scanTimer.singleShot(16000, lambda: self.controlledMovement(80))
-    self.scanTimer.singleShot(18000, lambda: self.controlledMovement(90))
-    self.scanTimer.singleShot(20000, lambda: self.controlledMovement(100))
-    self.scanTimer.singleShot(22000, lambda: self.controlledMovement(110))
-    self.scanTimer.singleShot(24000, lambda: self.controlledMovement(120))
+    self.scanTimer.singleShot(xvar + 2000, lambda: self.controlledMovement(10))
+    self.scanTimer.singleShot(xvar + 4000, lambda: self.controlledMovement(20))
+    self.scanTimer.singleShot(xvar + 6000, lambda: self.controlledMovement(30))
+    self.scanTimer.singleShot(xvar + 8000, lambda: self.controlledMovement(40))
+    self.scanTimer.singleShot(xvar + 10000, lambda: self.controlledMovement(50))
+    self.scanTimer.singleShot(xvar + 12000, lambda: self.controlledMovement(60))
+    self.scanTimer.singleShot(xvar + 14000, lambda: self.controlledMovement(70))
+    self.scanTimer.singleShot(xvar + 16000, lambda: self.controlledMovement(80))
+    self.scanTimer.singleShot(xvar +18000, lambda: self.controlledMovement(90))
+    self.scanTimer.singleShot(xvar +20000, lambda: self.controlledMovement(100))
+    self.scanTimer.singleShot(xvar + 22000, lambda: self.controlledMovement(110))
+    self.scanTimer.singleShot(xvar + 24000, lambda: self.controlledMovement(120))
 
-  def xWidthBackwards(self):
+  def xWidthBackwards(self, xvar):
     self.scanTimer = qt.QTimer()
-    self.scanTimer.singleShot(26000, lambda: self.controlledMovement(120))
-    self.scanTimer.singleShot(28000, lambda: self.controlledMovement(110))
-    self.scanTimer.singleShot(30000, lambda: self.controlledMovement(100))
-    self.scanTimer.singleShot(32000, lambda: self.controlledMovement(90))
-    self.scanTimer.singleShot(34000, lambda: self.controlledMovement(80))
-    self.scanTimer.singleShot(36000, lambda: self.controlledMovement(70))
-    self.scanTimer.singleShot(38000, lambda: self.controlledMovement(60))
-    self.scanTimer.singleShot(40000, lambda: self.controlledMovement(50))
-    self.scanTimer.singleShot(42000, lambda: self.controlledMovement(40))
-    self.scanTimer.singleShot(44000, lambda: self.controlledMovement(30))
-    self.scanTimer.singleShot(46000, lambda: self.controlledMovement(20))
-    self.scanTimer.singleShot(48000, lambda: self.controlledMovement(10))
-    self.scanTimer.singleShot(50000, lambda: self.controlledMovement(0))
+    self.scanTimer.singleShot(xvar + 26000, lambda: self.controlledMovement(120))
+    self.scanTimer.singleShot(xvar +28000, lambda: self.controlledMovement(110))
+    self.scanTimer.singleShot(xvar + 30000, lambda: self.controlledMovement(100))
+    self.scanTimer.singleShot(xvar + 32000, lambda: self.controlledMovement(90))
+    self.scanTimer.singleShot(xvar + 34000, lambda: self.controlledMovement(80))
+    self.scanTimer.singleShot(xvar + 36000, lambda: self.controlledMovement(70))
+    self.scanTimer.singleShot(xvar + 38000, lambda: self.controlledMovement(60))
+    self.scanTimer.singleShot(xvar + 40000, lambda: self.controlledMovement(50))
+    self.scanTimer.singleShot(xvar + 42000, lambda: self.controlledMovement(40))
+    self.scanTimer.singleShot(xvar + 44000, lambda: self.controlledMovement(30))
+    self.scanTimer.singleShot(xvar + 46000, lambda: self.controlledMovement(20))
+    self.scanTimer.singleShot(xvar + 48000, lambda: self.controlledMovement(10))
+    self.scanTimer.singleShot(xvar + 50000, lambda: self.controlledMovement(0))
 
+  def yBackwards(self, timevar, movevar):
+    self.scanTimer = qt.QTimer()
+    self.scanTimer.singleShot(timevar, lambda: self.controlledYMovement(movevar))
 
   def surfaceScan(self):
     self.timerTimer = qt.QTimer()
