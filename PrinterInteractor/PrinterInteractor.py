@@ -150,6 +150,13 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     connect_to_printerFormLayout.addRow(self.testButton)
     self.testButton.connect('clicked(bool)', self.onTestButton)
 
+
+    self.testingButton = qt.QPushButton("Test spectra")
+    self.testingButton.toolTip = "Immediately stop printer motors, requires restart."
+    self.testingButton.enabled = True
+    connect_to_printerFormLayout.addRow(self.testingButton)
+    self.testingButton.connect('clicked(bool)', self.onTestingButton)
+
     self.layout.addStretch(1)
 
   def onStopMotorButton(self):
@@ -252,6 +259,9 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     if self.logic.tumorDetection(self.outputArraySelector.currentNode()) == False:
       self.logic.get_coordinates()
 
+  def onTestingButton(self):
+
+    self.logic.testFunc(self.outputArraySelector.currentNode())
 
 
 
@@ -355,7 +365,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     # each data point has 2 rows of data, one corresponding to wavelength and one corresponding to intensity
     self.componentIndexWavelength = 0
     self.componentIndexIntensity = 1
-
+    # TODO: fix this data aquisition
     numberOfPoints = pointsArray.GetNumberOfTuples() #access the number of points received from the spectra
     #for pointIndex in xrange(numberOfPoints): #could potentially loop to check a certain range of data points
     wavelengthValue = pointsArray.GetComponent(0,187) #checks the 187th point in the data stream
@@ -407,27 +417,21 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     slicer.mrmlScene.AddNode(self.fiducialNode)
     self.fiducialNode.AddFiducial(xcoordinate,ycoordinate,zcoordinate)
 
-  def parsingFunc(self):
+  def testFunc(self ,outputArrayNode):
+    self.outputArrayNode = outputArrayNode
+    pointsArray = self.outputArrayNode.GetArray()
+    # point contains a wavelength and a corresponding intensity
+    # each data point has 2 rows of data, one corresponding to wavelength and one corresponding to intensity
+    self.componentIndexWavelength = 0
+    self.componentIndexIntensity = 1
 
+    numberOfPoints = pointsArray.GetNumberOfTuples()  # access the number of points received from the spectra
+    # for pointIndex in xrange(numberOfPoints): #could potentially loop to check a certain range of data points
+    wavelengthValue = pointsArray.GetComponent(1, 193)  # checks the 187th point in the data stream
+    intensityValue = pointsArray.GetComponent(0, 193)
+    print(intensityValue)
+    print(wavelengthValue)
 
-    self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    self.printerCmd.SetCommandName('SendText')
-    self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    self.printerCmd.SetCommandTimeoutSec(1.0)
-    self.printerCmd.SetCommandAttribute('Text', 'M114')
-    slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
-    self.printerCmd.AddObserver(self.printerCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
-    coordinateValues = self.printerCmd.GetResponseMessage()
-    mylist = coordinateValues.split(" ")
-    xvalues = mylist[0].split(":")
-    xcoordinate = xvalues[1]
-    print(xcoordinate)
-    yvalues = mylist[1].split(":")
-    ycoordinate = yvalues[1]
-    print(ycoordinate)
-    zvalues = mylist[2].split(":")
-    zcoordinate = zvalues[1]
-    print(zcoordinate)
 
   def home(self):
     # Return to home axis
