@@ -5,6 +5,7 @@ from slicer.ScriptedLoadableModule import *
 import logging
 import time
 import functools
+import argparse
 
 #
 # PrinterInteractor
@@ -141,6 +142,13 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     connect_to_printerFormLayout.addRow(self.stopButton)
     self.stopButton.connect('clicked(bool)', self.onStopButton)
     #
+    # Test button
+    #
+    self.testButton = qt.QPushButton("Test")
+    self.testButton.toolTip = "Immediately stop printer motors, requires restart."
+    self.testButton.enabled = True
+    connect_to_printerFormLayout.addRow(self.testButton)
+    self.testButton.connect('clicked(bool)', self.onTestButton)
 
     self.layout.addStretch(1)
 
@@ -199,8 +207,9 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
     self.timeValue = 0
     for self.timeValue in xrange(0,330000,2000):
-      self.tumorTimer.singleShot(self.timeValue, lambda: self.logic.get_coordinates())
-      self.tumorTimer.singleShot(self.timeValue, lambda: self.logic.tumorDetection(self.outputArraySelector.currentNode()))
+      self.tumorTimer.singleShot(self.timeValue, lambda: self.onTestButton())
+      #self.tumorTimer.singleShot(self.timeValue, lambda: self.logic.get_coordinates())
+      #self.tumorTimer.singleShot(self.timeValue, lambda: self.logic.tumorDetection(self.outputArraySelector.currentNode()))
       self.timeValue = self.timeValue + 2000
 
 
@@ -213,6 +222,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.ondoubleArrayNodeChanged()
     self.onSerialIGLTSelectorChanged()
     self.logic.tumorDetection(self.outputArraySelector.currentNode())
+
     self.logic.get_coordinates()
 
 
@@ -234,7 +244,13 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
       self.tumorTimer.singleShot(self.timeValue, lambda: self.logic.tumorDetection(self.outputArraySelector.currentNode()))
       self.timeValue = self.timeValue + 2000
 
+  def onTestButton(self):
 
+
+    self.ondoubleArrayNodeChanged()
+    self.onSerialIGLTSelectorChanged()
+    if self.logic.tumorDetection(self.outputArraySelector.currentNode()) == False:
+      self.logic.get_coordinates()
 
 
 
@@ -289,14 +305,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     for nodeTagPair in self.observerTags:
       nodeTagPair[0].RemoveObserver(nodeTagPair[1])
 
-  def home(self):
-    #Return to home axis
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G28 X Y ')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
 
   def onSpectrumImageNodeModified(self, observer, eventid):
 
@@ -356,12 +364,88 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     #print(wavelengthValue)
     if intensityValue == 1:
       print "Healthy"
-
+      return True
     else:
       print "Tumor"
+      return False
+
+
+  def get_coordinates(self):
+    self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    self.printerCmd.SetCommandName('SendText')
+    self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    self.printerCmd.SetCommandTimeoutSec(1.0)
+    self.printerCmd.SetCommandAttribute('Text', 'M114')
+    slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
+    self.printerCmd.AddObserver(self.printerCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
+
+  # print(zcoordinate)
+
+  def onPrinterCommandCompleted(self, observer, eventid):
+    coordinateValues = self.printerCmd.GetResponseMessage()
+    print("Command completed with status: " + self.printerCmd.StatusToString(self.printerCmd.GetStatus()))
+    print("Response message: " + coordinateValues)
+    print("Full response: " + self.printerCmd.GetResponseText())
+    # parsing the string for specific coordinate values
+    mylist = coordinateValues.split(" ")
+    xvalues = mylist[0].split(":")
+    xcoordinate = float(xvalues[1])
+    print(xcoordinate)
+
+    yvalues = mylist[1].split(":")
+    ycoordinate = float(yvalues[1])
+    #print(ycoordinate)
+    zvalues = mylist[2].split(":")
+    zcoordinate = float(zvalues[1])
+    #print(zcoordinate)
+    self.fiducialMarker(xcoordinate,ycoordinate,zcoordinate)
 
 
 
+  def fiducialMarker(self, xcoordinate, ycoordinate, zcoordinate):
+    self.fiducialNode = slicer.vtkMRMLMarkupsFiducialNode()
+    slicer.mrmlScene.AddNode(self.fiducialNode)
+    self.fiducialNode.AddFiducial(xcoordinate,ycoordinate,zcoordinate)
+
+  def parsingFunc(self):
+
+
+    self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    self.printerCmd.SetCommandName('SendText')
+    self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    self.printerCmd.SetCommandTimeoutSec(1.0)
+    self.printerCmd.SetCommandAttribute('Text', 'M114')
+    slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
+    self.printerCmd.AddObserver(self.printerCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
+    coordinateValues = self.printerCmd.GetResponseMessage()
+    mylist = coordinateValues.split(" ")
+    xvalues = mylist[0].split(":")
+    xcoordinate = xvalues[1]
+    print(xcoordinate)
+    yvalues = mylist[1].split(":")
+    ycoordinate = yvalues[1]
+    print(ycoordinate)
+    zvalues = mylist[2].split(":")
+    zcoordinate = zvalues[1]
+    print(zcoordinate)
+
+  def home(self):
+    # Return to home axis
+    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    printerCmd.SetCommandName('SendText')
+    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    printerCmd.SetCommandTimeoutSec(1.0)
+    printerCmd.SetCommandAttribute('Text', 'G28 X Y ')
+    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
+
+  def emergencyStop(self):
+    self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    self.printerCmd.SetCommandName('SendText')
+    self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    self.printerCmd.SetCommandTimeoutSec(1.0)
+    self.printerCmd.SetCommandAttribute('Text', 'M112')
+    slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
+    self.printerCmd.AddObserver(self.printerCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
 
 
   def shortScan(self):
@@ -377,30 +461,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     printerCmd.SetCommandTimeoutSec(1.0)
     printerCmd.SetCommandAttribute('Text', 'G1 X0 Y0')
     slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
-
-  def get_coordinates(self):
-    self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    self.printerCmd.SetCommandName('SendText')
-    self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    self.printerCmd.SetCommandTimeoutSec(1.0)
-    self.printerCmd.SetCommandAttribute('Text', 'M114')
-    slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
-    self.printerCmd.AddObserver(self.printerCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
-
-  def onPrinterCommandCompleted(self, observer, eventid):
-    print("Command completed with status: " + self.printerCmd.StatusToString(self.printerCmd.GetStatus()))
-    print("Response message: " + self.printerCmd.GetResponseMessage())
-    print("Full response: " + self.printerCmd.GetResponseText())
-
-  def emergencyStop(self):
-    self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    self.printerCmd.SetCommandName('SendText')
-    self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    self.printerCmd.SetCommandTimeoutSec(1.0)
-    self.printerCmd.SetCommandAttribute('Text', 'M112')
-    slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
-    self.printerCmd.AddObserver(self.printerCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
-
 
   def xWidthForward(self, xvar):
     self.scanTimer = qt.QTimer()
