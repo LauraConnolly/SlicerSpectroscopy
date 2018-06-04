@@ -215,6 +215,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.timeValue = 0
     for self.timeValue in xrange(0,330000,2000):
       self.tumorTimer.singleShot(self.timeValue, lambda: self.onTestButton())
+      #in order to identify and show without fiducials use:
       #self.tumorTimer.singleShot(self.timeValue, lambda: self.logic.get_coordinates())
       #self.tumorTimer.singleShot(self.timeValue, lambda: self.logic.tumorDetection(self.outputArraySelector.currentNode()))
       self.timeValue = self.timeValue + 2000
@@ -230,7 +231,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.onSerialIGLTSelectorChanged()
     self.logic.tumorDetection(self.outputArraySelector.currentNode())
 
-    self.logic.get_coordinates()
+    #self.logic.get_coordinates()
 
 
   def onShortScanButton(self):
@@ -287,6 +288,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.observerTags = []
     self.outputArrayNode = None
     self.resolution = 100
+    self.addNode = False
+    self.fiducialNodeID = None
+    self.x = 0
+
 
     # Timer stuff
 
@@ -296,13 +301,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
   def setdoubleArrayNode(self, doubleArrayNode):
     self.doubleArrayNode = doubleArrayNode
-
-  #def addPrinterObserver(self):
-    #printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    #printerCmd.AddObserver(printerCmd.CommandCompletedEvent, self.onPrinterCommandCompleted(0,0))
-
-  def tick(self):
-    print "tick"
 
 
   def addObservers(self):
@@ -366,18 +364,22 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.componentIndexWavelength = 0
     self.componentIndexIntensity = 1
     # TODO: fix this data aquisition
-    numberOfPoints = pointsArray.GetNumberOfTuples() #access the number of points received from the spectra
+    #numberOfPoints = pointsArray.GetNumberOfTuples() #access the number of points received from the spectra
     #for pointIndex in xrange(numberOfPoints): #could potentially loop to check a certain range of data points
-    wavelengthValue = pointsArray.GetComponent(0,187) #checks the 187th point in the data stream
-    intensityValue = pointsArray.GetComponent(1, 187)
-    #print(intensityValue)
-    #print(wavelengthValue)
-    if intensityValue == 1:
+    #wavelengthValue = pointsArray.GetComponent(63,0) #checks the 187th point in the data stream
+    #intensityValue = pointsArray.GetComponent(62, 1)
+    tumorCheck = pointsArray.GetComponent(62,1)
+    HealthyCheck = pointsArray.GetComponent(68,1)
+
+    if tumorCheck < 0.07:
+      print "Tumor"
+      return False
+    elif tumorCheck ==1 and HealthyCheck == 1:
       print "Healthy"
       return True
     else:
-      print "Tumor"
-      return False
+      print "Healthy 2"
+      return
 
 
   def get_coordinates(self):
@@ -408,15 +410,22 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     zvalues = mylist[2].split(":")
     zcoordinate = float(zvalues[1])
     #print(zcoordinate)
-    self.fiducialMarker(xcoordinate,ycoordinate,zcoordinate)
+
+    if self.x < 1: # make sure to only create one node
+      self.fiducialMarker(xcoordinate,ycoordinate,zcoordinate)
+      self.x = self.x + 1
+    else:
+      self.addToCurrentNode(xcoordinate, ycoordinate, zcoordinate) # add fiducials to existing node
 
 
+  def addToCurrentNode(self, xcoordinate, ycoordinate, zcoordinate):
+    self.fiducialNode.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
 
   def fiducialMarker(self, xcoordinate, ycoordinate, zcoordinate):
     self.fiducialNode = slicer.vtkMRMLMarkupsFiducialNode()
     slicer.mrmlScene.AddNode(self.fiducialNode)
     self.fiducialNode.AddFiducial(xcoordinate,ycoordinate,zcoordinate)
-
+  #
   def testFunc(self ,outputArrayNode):
     self.outputArrayNode = outputArrayNode
     pointsArray = self.outputArrayNode.GetArray()
@@ -426,9 +435,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.componentIndexIntensity = 1
 
     numberOfPoints = pointsArray.GetNumberOfTuples()  # access the number of points received from the spectra
-    # for pointIndex in xrange(numberOfPoints): #could potentially loop to check a certain range of data points
-    wavelengthValue = pointsArray.GetComponent(1, 193)  # checks the 187th point in the data stream
-    intensityValue = pointsArray.GetComponent(0, 193)
+    print(numberOfPoints)
+    #for pointIndex in xrange(60,80): #loop through the 60th - 80th data points
+    wavelengthValue = pointsArray.GetComponent(62, 0)  # checks the 187th point in the data stream
+    intensityValue = pointsArray.GetComponent(62, 1)
     print(intensityValue)
     print(wavelengthValue)
 
