@@ -23,7 +23,7 @@ class PrinterInteractor(ScriptedLoadableModule):
     self.parent.dependencies = []
     self.parent.contributors = ["Laura Connolly PerkLab (Queen's University), Mark Asselin PerkLab (Queen's University)"] # replace with "Firstname Lastname (Organization)"
     self.parent.helpText = """
-This is an module developed to interface Slicer Software with the Monoprice Mini V2 3D Printer 
+This is an module developed to interface Slicer Software with the Monoprice Mini V2 3D Printer for spectroscopy 
 """
     self.parent.helpText += self.getDefaultModuleDocumentationLink()
     self.parent.acknowledgementText = """
