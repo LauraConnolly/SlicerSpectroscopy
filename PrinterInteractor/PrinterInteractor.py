@@ -112,10 +112,18 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     # Surface scan button
     #
     self.scanButton = qt.QPushButton("Systematic Scan")
-    self.scanButton.toolTip = "Begin 2D surface scan"
+    self.scanButton.toolTip = "Begin systematic surface scan"
     self.scanButton.enabled = True
     connect_to_printerFormLayout.addRow(self.scanButton)
     self.scanButton.connect('clicked(bool)', self.onScanButton)
+    #
+    # Random scanning
+    #
+    self.randomScanButton = qt.QPushButton("Random Scan")
+    self.randomScanButton.toolTip = " Begin random surface scan"
+    self.randomScanButton.toolTip = True
+    connect_to_printerFormLayout.addRow(self.randomScanButton)
+    self.randomScanButton.connect('clicked(bool)', self.onRandomScanButton)
 
     #
     # Stop button
@@ -158,7 +166,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.onSerialIGLTSelectorChanged()
 
     # Controlled printer movement
-    self.timerTimer = qt.QTimer()
+    #self.timerTimer = qt.QTimer()
 
     # x width forwards and backwards increased by 26 000 every call
     # y Backwards is increasing by 5 at each call
@@ -196,6 +204,29 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
       self.tumorTimer.singleShot(self.timeValue, lambda: self.tissueDecision())
       self.timeValue = self.timeValue + 2000
 
+  def onRandomScanButton(self):
+    self.onSerialIGLTSelectorChanged()
+    self.randomScanTimer = qt.QTimer()
+    #self.time = 0
+    #self.arrayIndex = 0
+    # Random data sets of 120 points from online generator
+    randomx = [ 40, 74, 99, 97, 85, 6, 80, 103, 68, 93, 55, 23, 64, 117, 58, 115, 114, 120, 89, 13, 42, 91, 98, 17, 29, 41, 95, 2, 118, 10, 59, 44, 76, 73, 7, 48, 71, 38, 26, 16, 106, 69, 49,62, 21, 96, 112, 83, 56, 105, 107, 52, 35, 87, 84, 61, 46, 22, 19, 37]
+    randomy = [ 79, 116, 86, 60 , 113, 28, 102, 70, 33, 78, 20, 66, 39, 27, 108, 81, 45, 8, 65, 67, 31, 88, 14, 90, 77, 3, 111, 50, 119, 12, 30, 4, 34, 75, 47, 51, 25, 92, 94, 54, 53, 18, 57, 101, 72, 104, 15, 82, 43, 5, 11, 32, 109, 110, 100, 1 , 9, 36, 63, 0]
+
+    for arrayIndex in range(0, 60):
+      delayMs = arrayIndex*4000 +4000;
+      self.logic.randomXMovement(delayMs, randomx[arrayIndex])
+      self.logic.randomYMovement(delayMs, randomy[arrayIndex])
+
+
+    # tissue analysis
+    self.tumorTimer = qt.QTimer()
+
+    self.timeValue = 0
+    for self.timeValue in xrange(0,240000,2000):
+      self.tumorTimer.singleShot(self.timeValue, lambda: self.tissueDecision())
+      self.timeValue = self.timeValue + 2000
+
 
   def onStopButton(self):
     self.onSerialIGLTSelectorChanged()
@@ -207,7 +238,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.onSerialIGLTSelectorChanged()
     self.logic.tumorDetection(self.outputArraySelector.currentNode())
 
-    #self.logic.get_coordinates()
+    self.logic.get_coordinates()
 
 
   def tissueDecision(self):
@@ -471,6 +502,14 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     # move a specified distance in the postive y direction at a specific instance according to the timer
     self.scanTimer = qt.QTimer()
     self.scanTimer.singleShot(timevar, lambda: self.controlledYMovement(movevar))
+
+  def randomXMovement(self,timevar, movevar):
+    self.randomScanTimer = qt.QTimer()
+    self.randomScanTimer.singleShot(timevar, lambda: self.controlledMovement(movevar))
+
+  def randomYMovement(self, timevar,movevar):
+    self.randomScanTimer = qt.QTimer()
+    self.randomScanTimer.singleShot(timevar, lambda: self.controlledYMovement(movevar))
 
 
   def controlledMovement(self, xvar): # x movement
