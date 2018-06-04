@@ -109,15 +109,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     connect_to_printerFormLayout.addRow(self.tumorButton)
     self.tumorButton.connect('clicked(bool)', self.onTumorButton)
     #
-    #
-    # Automated tumor detect
-    #
-    self.tumorDetectOn = qt.QPushButton("Analyze Tissue")
-    self.tumorDetectOn.toolTip = "Receive tissue analysis for 10 seconds"
-    self.tumorDetectOn.enabled = True
-    connect_to_printerFormLayout.addRow(self.tumorDetectOn)
-    self.tumorDetectOn.connect('clicked(bool)', self.onTumorDetectOn)
-    #
     # Surface scan button
     #
     self.scanButton = qt.QPushButton("Systematic Scan")
@@ -125,14 +116,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.scanButton.enabled = True
     connect_to_printerFormLayout.addRow(self.scanButton)
     self.scanButton.connect('clicked(bool)', self.onScanButton)
-    #
-    #Short scan button
-    #
-    self.shortScanButton = qt.QPushButton("Short Scan")
-    self.shortScanButton.toolTip = "Short scan."
-    self.shortScanButton.enabled = True
-    connect_to_printerFormLayout.addRow(self.shortScanButton)
-    self.shortScanButton.connect('clicked(bool)', self.onShortScanButton)
+
     #
     # Stop button
     #
@@ -141,21 +125,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.stopButton.enabled = True
     connect_to_printerFormLayout.addRow(self.stopButton)
     self.stopButton.connect('clicked(bool)', self.onStopButton)
-    #
-    # Test button
-    #
-    self.testButton = qt.QPushButton("Test")
-    self.testButton.toolTip = "Immediately stop printer motors, requires restart."
-    self.testButton.enabled = True
-    connect_to_printerFormLayout.addRow(self.testButton)
-    self.testButton.connect('clicked(bool)', self.onTestButton)
 
 
-    self.testingButton = qt.QPushButton("Test spectra")
-    self.testingButton.toolTip = "Immediately stop printer motors, requires restart."
-    self.testingButton.enabled = True
-    connect_to_printerFormLayout.addRow(self.testingButton)
-    self.testingButton.connect('clicked(bool)', self.onTestingButton)
+
+    #self.testingButton = qt.QPushButton("Test spectra")
+    #self.testingButton.toolTip = "Immediately stop printer motors, requires restart."
+    #self.testingButton.enabled = True
+    #connect_to_printerFormLayout.addRow(self.testingButton)
+    #self.testingButton.connect('clicked(bool)', self.onTestingButton)
 
     self.layout.addStretch(1)
 
@@ -183,6 +160,8 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     # Controlled printer movement
     self.timerTimer = qt.QTimer()
 
+    # x width forwards and backwards increased by 26 000 every call
+    # y Backwards is increasing by 5 at each call
     self.logic.xWidthForward(0)
     self.logic.yBackwards(26000,10)
     self.logic.xWidthBackwards(0)
@@ -213,15 +192,12 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.tumorTimer = qt.QTimer()
 
     self.timeValue = 0
-    for self.timeValue in xrange(0,330000,2000):
-      self.tumorTimer.singleShot(self.timeValue, lambda: self.onTestButton())
-      #in order to identify and show without fiducials use:
-      #self.tumorTimer.singleShot(self.timeValue, lambda: self.logic.get_coordinates())
-      #self.tumorTimer.singleShot(self.timeValue, lambda: self.logic.tumorDetection(self.outputArraySelector.currentNode()))
+    for self.timeValue in xrange(0,334000,2000):
+      self.tumorTimer.singleShot(self.timeValue, lambda: self.tissueDecision())
       self.timeValue = self.timeValue + 2000
 
 
-  def onStopButton(self):#SerialIGTLNode):
+  def onStopButton(self):
     self.onSerialIGLTSelectorChanged()
     self.logic.emergencyStop()
 
@@ -234,35 +210,17 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     #self.logic.get_coordinates()
 
 
-  def onShortScanButton(self):
-    self.onSerialIGLTSelectorChanged()
-    self.logic.shortScan()
-
-
-  def onTumorDetectOn(self):
-    self.ondoubleArrayNodeChanged()
-    self.onSerialIGLTSelectorChanged()
-    self.tumorTimer = qt.QTimer()
-    #self.tumorTimer.timeout.connect(self.logic.get_coordinates)
-    #self.tumorTimer.start(2000)
-
-    self.timeValue = 0
-    for self.timeValue in xrange(0,10000,2000):
-      self.tumorTimer.singleShot(self.timeValue, lambda: self.logic.get_coordinates())
-      self.tumorTimer.singleShot(self.timeValue, lambda: self.logic.tumorDetection(self.outputArraySelector.currentNode()))
-      self.timeValue = self.timeValue + 2000
-
-  def onTestButton(self):
-
+  def tissueDecision(self):
 
     self.ondoubleArrayNodeChanged()
     self.onSerialIGLTSelectorChanged()
     if self.logic.tumorDetection(self.outputArraySelector.currentNode()) == False:
       self.logic.get_coordinates()
 
-  def onTestingButton(self):
+# in order to access and read specific data points use this function
+ # def onTestingButton(self):
 
-    self.logic.testFunc(self.outputArraySelector.currentNode())
+   # self.logic.testFunc(self.outputArraySelector.currentNode())
 
 
 
@@ -290,7 +248,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.resolution = 100
     self.addNode = False
     self.fiducialNodeID = None
-    self.x = 0
+    self.nodeCreated = 0
 
 
     # Timer stuff
@@ -364,17 +322,24 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.componentIndexWavelength = 0
     self.componentIndexIntensity = 1
     # TODO: fix this data aquisition
+    # commented out lines are possible improvements or useful for different probes
+    # Data is acquired from probe in a double array with each index corresponding to either wavelength or intensity
+    # There are 100 points (tuples) each consisting of one wavelength and a corresponding intensity
+    # The first index (0) is where wavelength values are stored
+    # The second index (1) is where intensities are stored
     #numberOfPoints = pointsArray.GetNumberOfTuples() #access the number of points received from the spectra
     #for pointIndex in xrange(numberOfPoints): #could potentially loop to check a certain range of data points
     #wavelengthValue = pointsArray.GetComponent(63,0) #checks the 187th point in the data stream
     #intensityValue = pointsArray.GetComponent(62, 1)
-    tumorCheck = pointsArray.GetComponent(62,1)
-    HealthyCheck = pointsArray.GetComponent(68,1)
 
+    tumorCheck = pointsArray.GetComponent(62,1) # Access the intensity value of the 62nd data point which corresponds to approximatley the 696th wavelength
+    healthyCheck = pointsArray.GetComponent(68,1) # Access the intensity value of the 68th data point which corresponds to approximatley the 750th wavelength
+
+    #Decision Loop
     if tumorCheck < 0.07:
       print "Tumor"
       return False
-    elif tumorCheck ==1 and HealthyCheck == 1:
+    elif tumorCheck ==1 and healthyCheck == 1:
       print "Healthy"
       return True
     else:
@@ -391,7 +356,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
     self.printerCmd.AddObserver(self.printerCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
 
-  # print(zcoordinate)
 
   def onPrinterCommandCompleted(self, observer, eventid):
     coordinateValues = self.printerCmd.GetResponseMessage()
@@ -400,20 +364,23 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     print("Full response: " + self.printerCmd.GetResponseText())
     # parsing the string for specific coordinate values
     mylist = coordinateValues.split(" ")
+
+    # Parse string for x coordinate value
     xvalues = mylist[0].split(":")
     xcoordinate = float(xvalues[1])
-    print(xcoordinate)
 
+    # Parse string for y coordinate value
     yvalues = mylist[1].split(":")
     ycoordinate = float(yvalues[1])
-    #print(ycoordinate)
+
+    # Parse string for z coordinate value
     zvalues = mylist[2].split(":")
     zcoordinate = float(zvalues[1])
-    #print(zcoordinate)
 
-    if self.x < 1: # make sure to only create one node
+
+    if self.nodeCreated < 1: # make sure to only create one node
       self.fiducialMarker(xcoordinate,ycoordinate,zcoordinate)
-      self.x = self.x + 1
+      self.nodeCreated = self.nodeCreated + 1
     else:
       self.addToCurrentNode(xcoordinate, ycoordinate, zcoordinate) # add fiducials to existing node
 
@@ -426,7 +393,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     slicer.mrmlScene.AddNode(self.fiducialNode)
     self.fiducialNode.AddFiducial(xcoordinate,ycoordinate,zcoordinate)
   #
+
   def testFunc(self ,outputArrayNode):
+    # Used to access specific wavelengths and intensitys of different data points
     self.outputArrayNode = outputArrayNode
     pointsArray = self.outputArrayNode.GetArray()
     # point contains a wavelength and a corresponding intensity
@@ -453,6 +422,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
 
   def emergencyStop(self):
+    # Writes to the printer to automatically stop all motors
+    # Requires reboot
     self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
     self.printerCmd.SetCommandName('SendText')
     self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
@@ -461,22 +432,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
     self.printerCmd.AddObserver(self.printerCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
 
-
-  def shortScan(self):
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X110 Y110')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X0 Y0')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
-
   def xWidthForward(self, xvar):
+    # Move the width of the bed forward in the positive x direction
+    # Corresponds to a timer called in printer interactor widget
     self.scanTimer = qt.QTimer()
     self.scanTimer.singleShot(xvar + 2000, lambda: self.controlledMovement(10))
     self.scanTimer.singleShot(xvar + 4000, lambda: self.controlledMovement(20))
@@ -492,6 +450,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.scanTimer.singleShot(xvar + 24000, lambda: self.controlledMovement(120))
 
   def xWidthBackwards(self, xvar):
+    # Move the width of the bed backwards in the negative x direction
+    # Corresponds to a timer called in printer interactor widget
     self.scanTimer = qt.QTimer()
     self.scanTimer.singleShot(xvar + 26000, lambda: self.controlledMovement(120))
     self.scanTimer.singleShot(xvar +28000, lambda: self.controlledMovement(110))
@@ -508,6 +468,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.scanTimer.singleShot(xvar + 50000, lambda: self.controlledMovement(0))
 
   def yBackwards(self, timevar, movevar):
+    # move a specified distance in the postive y direction at a specific instance according to the timer
     self.scanTimer = qt.QTimer()
     self.scanTimer.singleShot(timevar, lambda: self.controlledYMovement(movevar))
 
