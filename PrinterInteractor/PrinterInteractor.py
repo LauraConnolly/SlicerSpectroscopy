@@ -168,6 +168,8 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     # Controlled printer movement
     #self.timerTimer = qt.QTimer()
 
+    self.logic.xWidthForward(0)
+
     # x width forwards and backwards increased by 26 000 every call
     # y Backwards is increasing by 5 at each call
     self.logic.xWidthForward(0)
@@ -214,7 +216,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     randomy = [ 79, 116, 86, 60 , 113, 28, 102, 70, 33, 78, 20, 66, 39, 27, 108, 81, 45, 8, 65, 67, 31, 88, 14, 90, 77, 3, 111, 50, 119, 12, 30, 4, 34, 75, 47, 51, 25, 92, 94, 54, 53, 18, 57, 101, 72, 104, 15, 82, 43, 5, 11, 32, 109, 110, 100, 1 , 9, 36, 63, 0]
 
     for arrayIndex in range(0, 60):
-      delayMs = arrayIndex*4000 +4000;
+      delayMs = arrayIndex*6000 +6000;
       self.logic.randomXMovement(delayMs, randomx[arrayIndex])
       self.logic.randomYMovement(delayMs, randomy[arrayIndex])
 
@@ -467,6 +469,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     # Move the width of the bed forward in the positive x direction
     # Corresponds to a timer called in printer interactor widget
     self.scanTimer = qt.QTimer()
+   # for xValue in xrange(0,120,10):
+      #delayMs  = xValue*400 + 4000
+      #self.scanTimer.singleShot(delayMs, lambda: self.controlledMovement(xValue))
     self.scanTimer.singleShot(xvar + 2000, lambda: self.controlledMovement(10))
     self.scanTimer.singleShot(xvar + 4000, lambda: self.controlledMovement(20))
     self.scanTimer.singleShot(xvar + 6000, lambda: self.controlledMovement(30))
