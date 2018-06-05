@@ -167,34 +167,33 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.onSerialIGLTSelectorChanged()
 
     # Controlled printer movement
-
-    self.logic.xLoop()
-    self.logic.yLoop()
+    self.logic.xLoop() # calls a loop to toggle printer back and forth in the x direction
+    self.logic.yLoop() # calls a loop to increment the printer back in the y direction
 
     # tissue analysis
     self.tumorTimer = qt.QTimer()
 
     self.timeValue = 0
-    for self.timeValue in xrange(0,334000,2000):
+    for self.timeValue in xrange(0,700000,2000):
       self.tumorTimer.singleShot(self.timeValue, lambda: self.tissueDecision())
       self.timeValue = self.timeValue + 2000
 
   def onRandomScanButton(self):
     self.onSerialIGLTSelectorChanged()
     self.randomScanTimer = qt.QTimer()
-    #self.time = 0
-    #self.arrayIndex = 0
+
     # Random data sets of 120 points from online generator
     randomx = [84, 38, 74, 109, 48, 70, 17, 90, 92, 113, 115, 65, 67, 51, 114, 60, 108, 1, 119, 45, 5, 80, 20, 69, 75, 77, 52, 9, 41, 37, 95, 32, 7, 63, 118, 4, 72, 89, 50, 3, 78, 42, 64, 59, 104, 105, 100, 16, 55, 29, 68, 33, 117, 57, 56, 79, 53, 116, 26, 106, 22, 27, 23, 61, 111, 2, 86, 62, 73, 58, 101, 12, 110, 8, 91, 96, 25, 112, 46, 88, 54, 15, 85, 76, 120, 24, 71, 19, 81, 94, 93, 102, 49, 35, 47, 6, 34, 107, 103, 83, 44, 28, 82, 31, 40, 13, 10, 21, 14, 97, 18, 30, 0, 66, 87, 39, 43, 36, 11, 98]
     randomy = [31, 42, 58, 76, 99, 71, 84, 32, 79, 98, 59, 34, 39, 12, 37, 91, 60, 104, 52, 46, 51, 82, 107, 100, 74, 38, 10, 96, 35, 41, 50, 27, 117, 67, 102, 112, 47, 69, 109, 25, 85, 97, 33, 73, 3, 2, 68, 88, 15, 0, 118, 65, 20, 11, 103, 21, 26, 80, 18, 57, 14, 17, 55, 101, 115, 81, 48, 106, 43, 30, 90, 45, 56, 40, 77, 86, 72, 61, 83, 92, 23, 63, 93, 105, 4, 16, 64, 78, 9, 24, 62, 1, 75, 13, 8, 70, 120, 95, 94, 116, 54, 89, 53, 19, 22, 66, 49, 44, 29, 119, 110, 28, 113, 5, 7, 6, 87, 111, 114, 108]
 
     for arrayIndex in range(0, 120):
-      delayMs = arrayIndex*7000 +7000; # largest distance to travel takes approximatley 7 seconds
-      self.logic.randomXMovement(delayMs, randomx[arrayIndex])
-      self.logic.randomYMovement(delayMs, randomy[arrayIndex])
+      delayMs = arrayIndex*7000 +7000; # largest distance to travel takes approximatley 7 seconds therefore the waitime between position movements is 7 seconds
+      self.logic.XMovement(delayMs, randomx[arrayIndex])
+      self.logic.YMovement(delayMs, randomy[arrayIndex])
 
 
     # tissue analysis
+    # initiate a timer to distinguish the tissue every 2 seconds based on spectral reading
     self.tumorTimer = qt.QTimer()
 
     self.timeValue = 0
@@ -333,6 +332,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     # There are 100 points (tuples) each consisting of one wavelength and a corresponding intensity
     # The first index (0) is where wavelength values are stored
     # The second index (1) is where intensities are stored
+    # test lines that could be useful eventually
     #numberOfPoints = pointsArray.GetNumberOfTuples() #access the number of points received from the spectra
     #for pointIndex in xrange(numberOfPoints): #could potentially loop to check a certain range of data points
     #wavelengthValue = pointsArray.GetComponent(63,0) #checks the 187th point in the data stream
@@ -349,7 +349,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
       print "Healthy"
       return True
     else:
-      print "Healthy 2"
+      print "Healthy" # uncertain measurements, typically occur outside of tumor range
       return
 
 
@@ -399,7 +399,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     slicer.mrmlScene.AddNode(self.fiducialNode)
     self.fiducialNode.AddFiducial(xcoordinate,ycoordinate,zcoordinate)
   #
-
+  # function written for testing and understanding spectral data acquisition
   def testFunc(self ,outputArrayNode):
     # Used to access specific wavelengths and intensitys of different data points
     self.outputArrayNode = outputArrayNode
@@ -439,65 +439,62 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.printerCmd.AddObserver(self.printerCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
 
   def xLoop(self):
-    for xValue in xrange(0,700000, 50000): #150000 should be 314 000
-      self.xWidthForward(xValue)
-      self.xWidthBackwards(xValue)
+    # it takes 50000 seconds for the x to go back and forth once at a resolution of 10 mm per step
+    for xCoordinateValue in xrange(0,700000, 50000):
+      self.xWidthForward(xCoordinateValue)
+      self.xWidthBackwards(xCoordinateValue)
 
+  def yLoop(self):
+    # y delay is increasing in alternating intervals therefore there are 2 for loops at alternating coordinates and times
+    for yValue in xrange(5,120,10):
+      delayMs = (yValue-5)*5000 + 28000 # interval for y movement on righthand side of bed
+      self.yMovement(delayMs,yValue)
+    for yValue2 in xrange(10,120,10):
+      delayMs2 = (yValue2-10)*5000 + 52000 # interval for y movement on lefthand side of bed
+      self.yMovement(delayMs2, yValue2)
 
-  def xWidthForward(self, xvar): #used to be passed xvar
+  def xWidthForward(self, xCoordinate): #used to be passed xCoordinate
     # Move the width of the bed forward in the positive x direction
     # Corresponds to a timer called in printer interactor widget
     self.scanTimer = qt.QTimer()
-    for xValue in xrange(0,130,10):
-      delayMs  = xvar + xValue*200 + 2000
-      self.randomXMovement(delayMs, xValue)
+    for xValue in xrange(0,130,10): # increment by 10 until 120
+      delayMs  = xCoordinate + xValue*200 + 2000 # initiate the timer so that commands are sent at 2 second intervals
+      self.XMovement(delayMs, xValue)
 
 
-  def xWidthBackwards(self, xvar):
+  def xWidthBackwards(self, xCoordinate):
     # Move the width of the bed backwards in the negative x direction
     # Corresponds to a timer called in printer interactor widget
     self.scanTimer = qt.QTimer()
     for xValue in xrange(120,-10,-10):
-      delayMs = abs(xValue-120)* 200 +26000 + xvar
-      self.randomXMovement(delayMs, xValue)
+      delayMs = abs(xValue-120)* 200 +26000 + xCoordinate
+      self.XMovement(delayMs, xValue)
 
-  def yLoop(self):
-
-    for yValue in xrange(5,120,10):
-      delayMs = (yValue-5)*5000 + 28000
-      self.yMovement(delayMs,yValue)
-    for yValue2 in xrange(10,120,10):
-      delayMs2 = (yValue2-10)*5000 + 52000
-      self.yMovement(delayMs2, yValue2)
 
 
   def yMovement(self, timevar, movevar):
     self.randomScanTimer = qt.QTimer()
     self.randomScanTimer.singleShot(timevar, lambda: self.controlledYMovement(movevar))
 
-  def randomXMovement(self,timevar, movevar):
+  def XMovement(self,timevar, movevar):
     self.randomScanTimer = qt.QTimer()
-    self.randomScanTimer.singleShot(timevar, lambda: self.controlledMovement(movevar))
-
-  def randomYMovement(self, timevar,movevar):
-    self.randomScanTimer = qt.QTimer()
-    self.randomScanTimer.singleShot(timevar, lambda: self.controlledYMovement(movevar))
+    self.randomScanTimer.singleShot(timevar, lambda: self.controlledXMovement(movevar))
 
 
-  def controlledMovement(self, xvar): # x movement
+  def controlledXMovement(self, xCoordinate): # x movement
     printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
     printerCmd.SetCommandName('SendText')
     printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
     printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X%d' % (xvar))
+    printerCmd.SetCommandAttribute('Text', 'G1 X%d' % (xCoordinate))
     slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
 
-  def controlledYMovement(self, yvar): # y movement
+  def controlledYMovement(self, yCoordinate): # y movement
     printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
     printerCmd.SetCommandName('SendText')
     printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
     printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y%d' % (yvar))
+    printerCmd.SetCommandAttribute('Text', 'G1 Y%d' % (yCoordinate))
     slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
 
 
