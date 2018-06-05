@@ -124,6 +124,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.randomScanButton.toolTip = True
     connect_to_printerFormLayout.addRow(self.randomScanButton)
     self.randomScanButton.connect('clicked(bool)', self.onRandomScanButton)
+    #
 
     #
     # Stop button
@@ -166,37 +167,9 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.onSerialIGLTSelectorChanged()
 
     # Controlled printer movement
-    #self.timerTimer = qt.QTimer()
 
-    self.logic.xWidthForward(0)
-
-    # x width forwards and backwards increased by 26 000 every call
-    # y Backwards is increasing by 5 at each call
-    self.logic.xWidthForward(0)
-    self.logic.yBackwards(26000,10)
-    self.logic.xWidthBackwards(0)
-    self.logic.yBackwards(54000,20)
-    self.logic.xWidthForward(54000)
-    self.logic.yBackwards(80000,30)
-    self.logic.xWidthBackwards(54000)
-    self.logic.yBackwards(106000,40)
-    self.logic.xWidthForward(106000)
-    self.logic.yBackwards(132000,50)
-    self.logic.xWidthBackwards(106000)
-    self.logic.yBackwards(158000,60)
-    self.logic.xWidthForward(158000)
-    self.logic.yBackwards(184000,70)
-    self.logic.xWidthBackwards(158000)
-    self.logic.yBackwards(210000,80)
-    self.logic.xWidthForward(210000)
-    self.logic.yBackwards(236000,90)
-    self.logic.xWidthBackwards(210000)
-    self.logic.yBackwards(262000,100)
-    self.logic.xWidthForward(262000)
-    self.logic.yBackwards(288000,110)
-    self.logic.xWidthBackwards(262000)
-    self.logic.yBackwards(314000,120)
-    self.logic.xWidthForward(314000)
+    self.logic.xLoop()
+    self.logic.yLoop()
 
     # tissue analysis
     self.tumorTimer = qt.QTimer()
@@ -212,11 +185,11 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     #self.time = 0
     #self.arrayIndex = 0
     # Random data sets of 120 points from online generator
-    randomx = [ 40, 74, 99, 97, 85, 6, 80, 103, 68, 93, 55, 23, 64, 117, 58, 115, 114, 120, 89, 13, 42, 91, 98, 17, 29, 41, 95, 2, 118, 10, 59, 44, 76, 73, 7, 48, 71, 38, 26, 16, 106, 69, 49,62, 21, 96, 112, 83, 56, 105, 107, 52, 35, 87, 84, 61, 46, 22, 19, 37]
-    randomy = [ 79, 116, 86, 60 , 113, 28, 102, 70, 33, 78, 20, 66, 39, 27, 108, 81, 45, 8, 65, 67, 31, 88, 14, 90, 77, 3, 111, 50, 119, 12, 30, 4, 34, 75, 47, 51, 25, 92, 94, 54, 53, 18, 57, 101, 72, 104, 15, 82, 43, 5, 11, 32, 109, 110, 100, 1 , 9, 36, 63, 0]
+    randomx = [84, 38, 74, 109, 48, 70, 17, 90, 92, 113, 115, 65, 67, 51, 114, 60, 108, 1, 119, 45, 5, 80, 20, 69, 75, 77, 52, 9, 41, 37, 95, 32, 7, 63, 118, 4, 72, 89, 50, 3, 78, 42, 64, 59, 104, 105, 100, 16, 55, 29, 68, 33, 117, 57, 56, 79, 53, 116, 26, 106, 22, 27, 23, 61, 111, 2, 86, 62, 73, 58, 101, 12, 110, 8, 91, 96, 25, 112, 46, 88, 54, 15, 85, 76, 120, 24, 71, 19, 81, 94, 93, 102, 49, 35, 47, 6, 34, 107, 103, 83, 44, 28, 82, 31, 40, 13, 10, 21, 14, 97, 18, 30, 0, 66, 87, 39, 43, 36, 11, 98]
+    randomy = [31, 42, 58, 76, 99, 71, 84, 32, 79, 98, 59, 34, 39, 12, 37, 91, 60, 104, 52, 46, 51, 82, 107, 100, 74, 38, 10, 96, 35, 41, 50, 27, 117, 67, 102, 112, 47, 69, 109, 25, 85, 97, 33, 73, 3, 2, 68, 88, 15, 0, 118, 65, 20, 11, 103, 21, 26, 80, 18, 57, 14, 17, 55, 101, 115, 81, 48, 106, 43, 30, 90, 45, 56, 40, 77, 86, 72, 61, 83, 92, 23, 63, 93, 105, 4, 16, 64, 78, 9, 24, 62, 1, 75, 13, 8, 70, 120, 95, 94, 116, 54, 89, 53, 19, 22, 66, 49, 44, 29, 119, 110, 28, 113, 5, 7, 6, 87, 111, 114, 108]
 
-    for arrayIndex in range(0, 60):
-      delayMs = arrayIndex*6000 +6000;
+    for arrayIndex in range(0, 120):
+      delayMs = arrayIndex*7000 +7000; # largest distance to travel takes approximatley 7 seconds
       self.logic.randomXMovement(delayMs, randomx[arrayIndex])
       self.logic.randomYMovement(delayMs, randomy[arrayIndex])
 
@@ -225,7 +198,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.tumorTimer = qt.QTimer()
 
     self.timeValue = 0
-    for self.timeValue in xrange(0,240000,2000):
+    for self.timeValue in xrange(0,420000,2000):
       self.tumorTimer.singleShot(self.timeValue, lambda: self.tissueDecision())
       self.timeValue = self.timeValue + 2000
 
@@ -465,48 +438,42 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
     self.printerCmd.AddObserver(self.printerCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
 
-  def xWidthForward(self, xvar):
+  def xLoop(self):
+    for xValue in xrange(0,350000, 50000): #150000 should be 314 000
+      self.xWidthForward(xValue)
+      self.xWidthBackwards(xValue)
+
+
+  def xWidthForward(self, xvar): #used to be passed xvar
     # Move the width of the bed forward in the positive x direction
     # Corresponds to a timer called in printer interactor widget
     self.scanTimer = qt.QTimer()
-   # for xValue in xrange(0,120,10):
-      #delayMs  = xValue*400 + 4000
-      #self.scanTimer.singleShot(delayMs, lambda: self.controlledMovement(xValue))
-    self.scanTimer.singleShot(xvar + 2000, lambda: self.controlledMovement(10))
-    self.scanTimer.singleShot(xvar + 4000, lambda: self.controlledMovement(20))
-    self.scanTimer.singleShot(xvar + 6000, lambda: self.controlledMovement(30))
-    self.scanTimer.singleShot(xvar + 8000, lambda: self.controlledMovement(40))
-    self.scanTimer.singleShot(xvar + 10000, lambda: self.controlledMovement(50))
-    self.scanTimer.singleShot(xvar + 12000, lambda: self.controlledMovement(60))
-    self.scanTimer.singleShot(xvar + 14000, lambda: self.controlledMovement(70))
-    self.scanTimer.singleShot(xvar + 16000, lambda: self.controlledMovement(80))
-    self.scanTimer.singleShot(xvar +18000, lambda: self.controlledMovement(90))
-    self.scanTimer.singleShot(xvar +20000, lambda: self.controlledMovement(100))
-    self.scanTimer.singleShot(xvar + 22000, lambda: self.controlledMovement(110))
-    self.scanTimer.singleShot(xvar + 24000, lambda: self.controlledMovement(120))
+    for xValue in xrange(0,130,10):
+      delayMs  = xvar + xValue*200 + 2000
+      self.randomXMovement(delayMs, xValue)
+
 
   def xWidthBackwards(self, xvar):
     # Move the width of the bed backwards in the negative x direction
     # Corresponds to a timer called in printer interactor widget
     self.scanTimer = qt.QTimer()
-    self.scanTimer.singleShot(xvar + 26000, lambda: self.controlledMovement(120))
-    self.scanTimer.singleShot(xvar +28000, lambda: self.controlledMovement(110))
-    self.scanTimer.singleShot(xvar + 30000, lambda: self.controlledMovement(100))
-    self.scanTimer.singleShot(xvar + 32000, lambda: self.controlledMovement(90))
-    self.scanTimer.singleShot(xvar + 34000, lambda: self.controlledMovement(80))
-    self.scanTimer.singleShot(xvar + 36000, lambda: self.controlledMovement(70))
-    self.scanTimer.singleShot(xvar + 38000, lambda: self.controlledMovement(60))
-    self.scanTimer.singleShot(xvar + 40000, lambda: self.controlledMovement(50))
-    self.scanTimer.singleShot(xvar + 42000, lambda: self.controlledMovement(40))
-    self.scanTimer.singleShot(xvar + 44000, lambda: self.controlledMovement(30))
-    self.scanTimer.singleShot(xvar + 46000, lambda: self.controlledMovement(20))
-    self.scanTimer.singleShot(xvar + 48000, lambda: self.controlledMovement(10))
-    self.scanTimer.singleShot(xvar + 50000, lambda: self.controlledMovement(0))
+    for xValue in xrange(120,-10,-10):
+      delayMs = abs(xValue-120)* 200 +26000 + xvar
+      self.randomXMovement(delayMs, xValue)
 
-  def yBackwards(self, timevar, movevar):
-    # move a specified distance in the postive y direction at a specific instance according to the timer
-    self.scanTimer = qt.QTimer()
-    self.scanTimer.singleShot(timevar, lambda: self.controlledYMovement(movevar))
+  def yLoop(self):
+
+    for yValue in xrange(10,120,20):
+      delayMs = (yValue-10)*2500 + 28000
+      self.yMovement(delayMs,yValue)
+    for yValue2 in xrange(20,120,20):
+      delayMs2 = (yValue2-20)*2500 + 52000
+      self.yMovement(delayMs2, yValue2)
+
+
+  def yMovement(self, timevar, movevar):
+    self.randomScanTimer = qt.QTimer()
+    self.randomScanTimer.singleShot(timevar, lambda: self.controlledYMovement(movevar))
 
   def randomXMovement(self,timevar, movevar):
     self.randomScanTimer = qt.QTimer()
