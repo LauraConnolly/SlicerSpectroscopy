@@ -439,7 +439,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.printerCmd.AddObserver(self.printerCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
 
   def xLoop(self):
-    for xValue in xrange(0,350000, 50000): #150000 should be 314 000
+    for xValue in xrange(0,700000, 50000): #150000 should be 314 000
       self.xWidthForward(xValue)
       self.xWidthBackwards(xValue)
 
@@ -463,11 +463,11 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
   def yLoop(self):
 
-    for yValue in xrange(10,120,20):
-      delayMs = (yValue-10)*2500 + 28000
+    for yValue in xrange(5,120,10):
+      delayMs = (yValue-5)*5000 + 28000
       self.yMovement(delayMs,yValue)
-    for yValue2 in xrange(20,120,20):
-      delayMs2 = (yValue2-20)*2500 + 52000
+    for yValue2 in xrange(10,120,10):
+      delayMs2 = (yValue2-10)*5000 + 52000
       self.yMovement(delayMs2, yValue2)
 
 
