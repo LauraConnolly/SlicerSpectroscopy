@@ -167,6 +167,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.onSerialIGLTSelectorChanged()
 
     # Controlled printer movement
+    # resolution can be changed as necessary
     self.logic.xLoop() # calls a loop to toggle printer back and forth in the x direction
     self.logic.yLoop() # calls a loop to increment the printer back in the y direction
 
