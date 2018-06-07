@@ -6,6 +6,7 @@ import logging
 import time
 import functools
 import argparse
+import math
 
 #
 # PrinterInteractor
@@ -134,7 +135,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.stopButton.enabled = True
     connect_to_printerFormLayout.addRow(self.stopButton)
     self.stopButton.connect('clicked(bool)', self.onStopButton)
-
+    #
+    # Calculate metrics
+    #
+    #self.metricsButton = qt.QPushButton("Calculate Metrics")
+    #self.metricsButton.toolTip = " Calculate approximate surface area."
+    #self.metricsButton.enabled = True
+    #connect_to_printerFormLayout.addRow(self.metricsButton)
+    #self.metricsButton.connect('clicked(bool)', self.onMetricsButton)
 
 
     #self.testingButton = qt.QPushButton("Test spectra")
@@ -206,6 +214,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
   def onStopButton(self):
     self.onSerialIGLTSelectorChanged()
     self.logic.emergencyStop()
+    # self.tumorTimer.cancel()
 
 
   def onTumorButton(self):
@@ -222,6 +231,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.onSerialIGLTSelectorChanged()
     if self.logic.tumorDetection(self.outputArraySelector.currentNode()) == False:
       self.logic.get_coordinates()
+
+
+  def onMetricsButton(self):
+    self.ondoubleArrayNodeChanged()
+    self.onSerialIGLTSelectorChanged()
+    self.logic.get_coordinates()
+    #width = self.logic.calculateMetric()
+    #print(width)
 
 # in order to access and read specific data points use this function
  # def onTestingButton(self):
@@ -255,6 +272,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.addNode = False
     self.fiducialNodeID = None
     self.nodeCreated = 0
+    self.dummyVariable = 0
+    self.i = 1
 
 
     # Timer stuff
@@ -385,20 +404,48 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     zcoordinate = float(zvalues[1])
 
 
+    self.numberOfFiducials = 28; # to be changed later
+    if self.dummyVariable < 1:
+      self.distanceArray = [None] * self.numberOfFiducials  # create an array to store the distance of each fiducial point from point (0,0)
+      self.dummyVariable = 1
+
     if self.nodeCreated < 1: # make sure to only create one node
       self.fiducialMarker(xcoordinate,ycoordinate,zcoordinate)
       self.nodeCreated = self.nodeCreated + 1
+      distance = self.calculateDistance(xcoordinate,ycoordinate)  # compute the distance of each fiducial from the point (0,0)
+      self.distanceArray[0] = distance
     else:
       self.addToCurrentNode(xcoordinate, ycoordinate, zcoordinate) # add fiducials to existing node
+      self.numberOfFiducials = self.numberOfFiducials + 1
+      distance = self.calculateDistance(xcoordinate,ycoordinate) #compute the distance of each fiducial from the point (0,0)
+      #for i in xrange(1,9,1): #should be len(distanceArray)
+      self.distanceArray[self.i] = distance
+      if self.i < 27:
+        self.i = self.i + 1
+        #print(self.distanceArray)
+      else:
+        width = self.calculateMetric(self.distanceArray)
+        surfaceArea = width * width
+        print("Width is:" + width)
+        print("SurfaceArea is:" + surfaceArea)
 
-
-  def addToCurrentNode(self, xcoordinate, ycoordinate, zcoordinate):
-    self.fiducialNode.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
+  def calculateMetric(self, distanceArray):
+    maxDistance = max(distanceArray)
+    minDistance = min(distanceArray)
+    Width = maxDistance - minDistance
+    return Width
 
   def fiducialMarker(self, xcoordinate, ycoordinate, zcoordinate):
     self.fiducialNode = slicer.vtkMRMLMarkupsFiducialNode()
     slicer.mrmlScene.AddNode(self.fiducialNode)
     self.fiducialNode.AddFiducial(xcoordinate,ycoordinate,zcoordinate)
+
+  def addToCurrentNode(self, xcoordinate, ycoordinate, zcoordinate):
+    self.fiducialNode.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
+
+  def calculateDistance(self, xcoordinate, ycoordinate):
+    distance = math.sqrt((xcoordinate * xcoordinate) + (ycoordinate * ycoordinate))
+    return distance
   #
   # function written for testing and understanding spectral data acquisition
   def testFunc(self ,outputArrayNode):
@@ -448,6 +495,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
   def yLoop(self):
     # y delay is increasing in alternating intervals therefore there are 2 for loops at alternating coordinates and times
     for yValue in xrange(5,120,10):
+      #TODO: fix this interval (doesn't work sometimes)
       delayMs = (yValue-5)*5000 + 28000 # interval for y movement on righthand side of bed
       self.yMovement(delayMs,yValue)
     for yValue2 in xrange(10,120,10):
@@ -470,7 +518,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     for xValue in xrange(120,-10,-10):
       delayMs = abs(xValue-120)* 200 +26000 + xCoordinate
       self.XMovement(delayMs, xValue)
-
 
 
   def yMovement(self, timevar, movevar):
