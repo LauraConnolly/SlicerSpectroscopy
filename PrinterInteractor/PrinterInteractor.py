@@ -136,15 +136,16 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     connect_to_printerFormLayout.addRow(self.stopButton)
     self.stopButton.connect('clicked(bool)', self.onStopButton)
     #
-    # Calculate metrics
+    # Get Coordinates (without placing fiducials)
     #
-    #self.metricsButton = qt.QPushButton("Calculate Metrics")
-    #self.metricsButton.toolTip = " Calculate approximate surface area."
-    #self.metricsButton.enabled = True
-    #connect_to_printerFormLayout.addRow(self.metricsButton)
-    #self.metricsButton.connect('clicked(bool)', self.onMetricsButton)
-
-
+    self.coordinateButton = qt.QPushButton("Get Coordinates")
+    self.coordinateButton.toolTip = "Get coordinate values for testing."
+    self.coordinateButton.enabled = True
+    connect_to_printerFormLayout.addRow(self.coordinateButton)
+    self.coordinateButton.connect('clicked(bool)', self.onCoordinateButton)
+    #
+    # Testing button
+    #
     #self.testingButton = qt.QPushButton("Test spectra")
     #self.testingButton.toolTip = "Immediately stop printer motors, requires restart."
     #self.testingButton.enabled = True
@@ -229,16 +230,15 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
     self.ondoubleArrayNodeChanged()
     self.onSerialIGLTSelectorChanged()
-    if self.logic.tumorDetection(self.outputArraySelector.currentNode()) == False:
+    if self.logic.tumorDetection(self.outputArraySelector.currentNode()) == False: #add a fiducial if the the tumor detecting function returns false
       self.logic.get_coordinates()
 
 
-  def onMetricsButton(self):
+  def onCoordinateButton(self):
     self.ondoubleArrayNodeChanged()
     self.onSerialIGLTSelectorChanged()
-    self.logic.get_coordinates()
-    #width = self.logic.calculateMetric()
-    #print(width)
+    self.logic.getCoordinatesForTesting()
+
 
 # in order to access and read specific data points use this function
  # def onTestingButton(self):
@@ -272,8 +272,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.addNode = False
     self.fiducialNodeID = None
     self.nodeCreated = 0
-    self.dummyVariable = 0
-    self.i = 1
+    self.distanceArrayCreated = 0
+    self.iterationVariable = 1
 
 
     # Timer stuff
@@ -373,6 +373,21 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
       return
 
 
+  def getCoordinatesForTesting(self):
+    self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    self.printerCmd.SetCommandName('SendText')
+    self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    self.printerCmd.SetCommandTimeoutSec(1.0)
+    self.printerCmd.SetCommandAttribute('Text', 'M114')
+    slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
+    self.printerCmd.AddObserver(self.printerCmd.CommandCompletedEvent, self.onPrinterCommandCompletedForTesting)
+
+  def onPrinterCommandCompletedForTesting(self, observer, eventid):
+    coordinateValues = self.printerCmd.GetResponseMessage()
+    print("Command completed with status: " + self.printerCmd.StatusToString(self.printerCmd.GetStatus()))
+    print("Response message: " + coordinateValues)
+    print("Full response: " + self.printerCmd.GetResponseText())
+
   def get_coordinates(self):
     self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
     self.printerCmd.SetCommandName('SendText')
@@ -403,31 +418,32 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     zvalues = mylist[2].split(":")
     zcoordinate = float(zvalues[1])
 
+    # Create 1 distance array to store distances from origin in order to determine the width of the specimen
 
-    self.numberOfFiducials = 28; # to be changed later
-    if self.dummyVariable < 1:
+    self.numberOfFiducials = 28; # can be adjusted depending on how many fiducial points are required for an accurate reading
+    if self.distanceArrayCreated < 1:
       self.distanceArray = [None] * self.numberOfFiducials  # create an array to store the distance of each fiducial point from point (0,0)
-      self.dummyVariable = 1
+      self.distanceArrayCreated = 1
 
     if self.nodeCreated < 1: # make sure to only create one node
       self.fiducialMarker(xcoordinate,ycoordinate,zcoordinate)
       self.nodeCreated = self.nodeCreated + 1
       distance = self.calculateDistance(xcoordinate,ycoordinate)  # compute the distance of each fiducial from the point (0,0)
-      self.distanceArray[0] = distance
+      self.distanceArray[0] = distance #  Store the first value in the first position in the array
     else:
       self.addToCurrentNode(xcoordinate, ycoordinate, zcoordinate) # add fiducials to existing node
       self.numberOfFiducials = self.numberOfFiducials + 1
       distance = self.calculateDistance(xcoordinate,ycoordinate) #compute the distance of each fiducial from the point (0,0)
       #for i in xrange(1,9,1): #should be len(distanceArray)
-      self.distanceArray[self.i] = distance
-      if self.i < 27:
-        self.i = self.i + 1
+      self.distanceArray[self.iterationVariable] = distance
+      if self.iterationVariable < 27:
+        self.iterationVariable = self.iterationVariable + 1 # continue storing distances in the array until enough fiducials have been collected for an accurate measurement
         #print(self.distanceArray)
       else:
         width = self.calculateMetric(self.distanceArray)
         surfaceArea = width * width
-        print("Width is:" + width)
-        print("SurfaceArea is:" + surfaceArea)
+        print('Width is: %.2f' % width)
+        print('SurfaceArea is: %.2f' % surfaceArea)
 
   def calculateMetric(self, distanceArray):
     maxDistance = max(distanceArray)
@@ -460,7 +476,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     numberOfPoints = pointsArray.GetNumberOfTuples()  # access the number of points received from the spectra
     print(numberOfPoints)
     #for pointIndex in xrange(60,80): #loop through the 60th - 80th data points
-    wavelengthValue = pointsArray.GetComponent(62, 0)  # checks the 187th point in the data stream
+    wavelengthValue = pointsArray.GetComponent(62, 0)  # checks the 187th point in the data stream, corresponds to the 650-700 nm wavelength (area of interest)
     intensityValue = pointsArray.GetComponent(62, 1)
     print(intensityValue)
     print(wavelengthValue)
