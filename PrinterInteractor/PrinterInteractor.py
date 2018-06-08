@@ -104,46 +104,48 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     #
     # Tumor distinction button
     #
-    self.tumorButton = qt.QPushButton("Tumor?")
-    self.tumorButton.toolTip = "Run the algorithm"
-    self.tumorButton.enabled = True
-    connect_to_printerFormLayout.addRow(self.tumorButton)
-    self.tumorButton.connect('clicked(bool)', self.onTumorButton)
-    #
-    # Surface scan button
-    #
-    self.scanButton = qt.QPushButton("Systematic Scan")
-    self.scanButton.toolTip = "Begin systematic surface scan"
-    self.scanButton.enabled = True
-    connect_to_printerFormLayout.addRow(self.scanButton)
-    self.scanButton.connect('clicked(bool)', self.onScanButton)
-    #
-    # Random scanning
-    #
-    self.randomScanButton = qt.QPushButton("Random Scan")
-    self.randomScanButton.toolTip = " Begin random surface scan"
-    self.randomScanButton.toolTip = True
-    connect_to_printerFormLayout.addRow(self.randomScanButton)
-    self.randomScanButton.connect('clicked(bool)', self.onRandomScanButton)
+    #self.tumorButton = qt.QPushButton("Tumor?")
+    #self.tumorButton.toolTip = "Run the algorithm"
+    #self.tumorButton.enabled = True
+    #connect_to_printerFormLayout.addRow(self.tumorButton)
+    #self.tumorButton.connect('clicked(bool)', self.onTumorButton)
     #
 
     #
-    # Stop button
+    # Random scanning
     #
-    self.stopButton = qt.QPushButton("EMERGENCY STOP")
-    self.stopButton.toolTip = "Immediately stop printer motors, requires restart."
-    self.stopButton.enabled = True
-    connect_to_printerFormLayout.addRow(self.stopButton)
-    self.stopButton.connect('clicked(bool)', self.onStopButton)
+    #self.randomScanButton = qt.QPushButton("Random Scan")
+    #self.randomScanButton.toolTip = " Begin random surface scan"
+    #self.randomScanButton.toolTip = True
+    #connect_to_printerFormLayout.addRow(self.randomScanButton)
+    #self.randomScanButton.connect('clicked(bool)', self.onRandomScanButton)
     #
-    # Get Coordinates (without placing fiducials)
+
+
     #
-    self.coordinateButton = qt.QPushButton("Get Coordinates")
-    self.coordinateButton.toolTip = "Get coordinate values for testing."
-    self.coordinateButton.enabled = True
-    connect_to_printerFormLayout.addRow(self.coordinateButton)
-    self.coordinateButton.connect('clicked(bool)', self.onCoordinateButton)
+    # X Resolution
     #
+    self.xResolution_spinbox = qt.QSpinBox()
+    self.xResolution_spinbox.setMinimum(0)
+    self.xResolution_spinbox.setMaximum(120)
+    self.xResolution_spinbox.setValue(0)
+    connect_to_printerFormLayout.addRow("X resolution (mm / step) :", self.xResolution_spinbox)
+    #
+    # Y Resolution
+    #
+    self.yResolution_spinbox = qt.QSpinBox()
+    self.yResolution_spinbox.setMinimum(0)
+    self.yResolution_spinbox.setMaximum(120)
+    self.yResolution_spinbox.setValue(0)
+    connect_to_printerFormLayout.addRow("Y resolution (mm/ step):", self.yResolution_spinbox)
+    #
+    # Time per reading
+    #
+    self.timeDelay_spinbox = qt.QSpinBox()
+    self.timeDelay_spinbox.setMinimum(500)
+    self.timeDelay_spinbox.setMaximum(2000)
+    self.timeDelay_spinbox.setValue(1000)
+    connect_to_printerFormLayout.addRow("Time for data delay (ms) :", self.timeDelay_spinbox)
     # Testing button
     #
     #self.testingButton = qt.QPushButton("Test spectra")
@@ -151,7 +153,21 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     #self.testingButton.enabled = True
     #connect_to_printerFormLayout.addRow(self.testingButton)
     #self.testingButton.connect('clicked(bool)', self.onTestingButton)
-
+    # Surface scan button
+    #
+    self.scanButton = qt.QPushButton("GO")
+    self.scanButton.toolTip = "Begin systematic surface scan"
+    self.scanButton.enabled = True
+    connect_to_printerFormLayout.addRow(self.scanButton)
+    self.scanButton.connect('clicked(bool)', self.onScanButton)
+    #
+    # Stop button
+    #
+    self.stopButton = qt.QPushButton("STOP")
+    self.stopButton.toolTip = "Immediately stop printer motors, requires restart."
+    self.stopButton.enabled = True
+    connect_to_printerFormLayout.addRow(self.stopButton)
+    self.stopButton.connect('clicked(bool)', self.onStopButton)
     self.layout.addStretch(1)
 
   def onStopMotorButton(self):
@@ -177,39 +193,42 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
     # Controlled printer movement
     # resolution can be changed as necessary
-    self.logic.xLoop() # calls a loop to toggle printer back and forth in the x direction
-    self.logic.yLoop() # calls a loop to increment the printer back in the y direction
+    self.timeValue = self.timeDelay_spinbox.value
+    xResolution = self.xResolution_spinbox.value
+    yResolution = self.yResolution_spinbox.value
+    self.logic.xLoop(self.timeValue, xResolution) # calls a loop to toggle printer back and forth in the x direction
+    self.logic.yLoop(self.timeValue) # calls a loop to increment the printer back in the y direction
 
     # tissue analysis
     self.tumorTimer = qt.QTimer()
+    self.iterationTimingValue = 0
 
-    self.timeValue = 0
-    for self.timeValue in xrange(0,700000,2000):
-      self.tumorTimer.singleShot(self.timeValue, lambda: self.tissueDecision())
-      self.timeValue = self.timeValue + 2000
+    for self.iterationTimingValue in range(0,300*self.timeValue,self.timeValue): # 300 can be changed to x resolution by y resolution
+      self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
+      self.iterationTimingValue = self.iterationTimingValue + self.timeValue
 
-  def onRandomScanButton(self):
-    self.onSerialIGLTSelectorChanged()
-    self.randomScanTimer = qt.QTimer()
+ # def onRandomScanButton(self):
+ #   self.onSerialIGLTSelectorChanged()
+ #   self.randomScanTimer = qt.QTimer()
 
     # Random data sets of 120 points from online generator
-    randomx = [84, 38, 74, 109, 48, 70, 17, 90, 92, 113, 115, 65, 67, 51, 114, 60, 108, 1, 119, 45, 5, 80, 20, 69, 75, 77, 52, 9, 41, 37, 95, 32, 7, 63, 118, 4, 72, 89, 50, 3, 78, 42, 64, 59, 104, 105, 100, 16, 55, 29, 68, 33, 117, 57, 56, 79, 53, 116, 26, 106, 22, 27, 23, 61, 111, 2, 86, 62, 73, 58, 101, 12, 110, 8, 91, 96, 25, 112, 46, 88, 54, 15, 85, 76, 120, 24, 71, 19, 81, 94, 93, 102, 49, 35, 47, 6, 34, 107, 103, 83, 44, 28, 82, 31, 40, 13, 10, 21, 14, 97, 18, 30, 0, 66, 87, 39, 43, 36, 11, 98]
-    randomy = [31, 42, 58, 76, 99, 71, 84, 32, 79, 98, 59, 34, 39, 12, 37, 91, 60, 104, 52, 46, 51, 82, 107, 100, 74, 38, 10, 96, 35, 41, 50, 27, 117, 67, 102, 112, 47, 69, 109, 25, 85, 97, 33, 73, 3, 2, 68, 88, 15, 0, 118, 65, 20, 11, 103, 21, 26, 80, 18, 57, 14, 17, 55, 101, 115, 81, 48, 106, 43, 30, 90, 45, 56, 40, 77, 86, 72, 61, 83, 92, 23, 63, 93, 105, 4, 16, 64, 78, 9, 24, 62, 1, 75, 13, 8, 70, 120, 95, 94, 116, 54, 89, 53, 19, 22, 66, 49, 44, 29, 119, 110, 28, 113, 5, 7, 6, 87, 111, 114, 108]
+    #randomx = [84, 38, 74, 109, 48, 70, 17, 90, 92, 113, 115, 65, 67, 51, 114, 60, 108, 1, 119, 45, 5, 80, 20, 69, 75, 77, 52, 9, 41, 37, 95, 32, 7, 63, 118, 4, 72, 89, 50, 3, 78, 42, 64, 59, 104, 105, 100, 16, 55, 29, 68, 33, 117, 57, 56, 79, 53, 116, 26, 106, 22, 27, 23, 61, 111, 2, 86, 62, 73, 58, 101, 12, 110, 8, 91, 96, 25, 112, 46, 88, 54, 15, 85, 76, 120, 24, 71, 19, 81, 94, 93, 102, 49, 35, 47, 6, 34, 107, 103, 83, 44, 28, 82, 31, 40, 13, 10, 21, 14, 97, 18, 30, 0, 66, 87, 39, 43, 36, 11, 98]
+    #randomy = [31, 42, 58, 76, 99, 71, 84, 32, 79, 98, 59, 34, 39, 12, 37, 91, 60, 104, 52, 46, 51, 82, 107, 100, 74, 38, 10, 96, 35, 41, 50, 27, 117, 67, 102, 112, 47, 69, 109, 25, 85, 97, 33, 73, 3, 2, 68, 88, 15, 0, 118, 65, 20, 11, 103, 21, 26, 80, 18, 57, 14, 17, 55, 101, 115, 81, 48, 106, 43, 30, 90, 45, 56, 40, 77, 86, 72, 61, 83, 92, 23, 63, 93, 105, 4, 16, 64, 78, 9, 24, 62, 1, 75, 13, 8, 70, 120, 95, 94, 116, 54, 89, 53, 19, 22, 66, 49, 44, 29, 119, 110, 28, 113, 5, 7, 6, 87, 111, 114, 108]
 
-    for arrayIndex in range(0, 120):
-      delayMs = arrayIndex*7000 +7000; # largest distance to travel takes approximatley 7 seconds therefore the waitime between position movements is 7 seconds
-      self.logic.XMovement(delayMs, randomx[arrayIndex])
-      self.logic.YMovement(delayMs, randomy[arrayIndex])
+   # for arrayIndex in range(0, 120):
+    #  delayMs = arrayIndex*7000 +7000; # largest distance to travel takes approximatley 7 seconds therefore the waitime between position movements is 7 seconds
+     # self.logic.XMovement(delayMs, randomx[arrayIndex])
+     # self.logic.YMovement(delayMs, randomy[arrayIndex])
 
 
     # tissue analysis
     # initiate a timer to distinguish the tissue every 2 seconds based on spectral reading
-    self.tumorTimer = qt.QTimer()
+   # self.tumorTimer = qt.QTimer()
 
-    self.timeValue = 0
-    for self.timeValue in xrange(0,420000,2000):
-      self.tumorTimer.singleShot(self.timeValue, lambda: self.tissueDecision())
-      self.timeValue = self.timeValue + 2000
+    #self.timeValue = 0
+    #for self.timeValue in xrange(0,420000,2000):
+     # self.tumorTimer.singleShot(self.timeValue, lambda: self.tissueDecision())
+      #self.timeValue = self.timeValue + 2000
 
 
   def onStopButton(self):
@@ -234,10 +253,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
       self.logic.get_coordinates()
 
 
-  def onCoordinateButton(self):
-    self.ondoubleArrayNodeChanged()
-    self.onSerialIGLTSelectorChanged()
-    self.logic.getCoordinatesForTesting()
+
 
 
 # in order to access and read specific data points use this function
@@ -274,6 +290,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.nodeCreated = 0
     self.distanceArrayCreated = 0
     self.iterationVariable = 1
+    # instantiate coordinate values
+    self.getCoordinateCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    self.getCoordinateCmd.SetCommandName('SendText')
+    self.getCoordinateCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    self.getCoordinateCmd.SetCommandTimeoutSec(1.0)
+    self.getCoordinateCmd.SetCommandAttribute('Text', 'M114')
+    self.getCoordinateCmd.AddObserver(self.getCoordinateCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
 
 
     # Timer stuff
@@ -369,40 +392,26 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
       print "Healthy"
       return True
     else:
-      print "Healthy" # uncertain measurements, typically occur outside of tumor range
+      print "Healthy 2" # uncertain measurements, typically occur outside of tumor range
       return
 
 
-  def getCoordinatesForTesting(self):
-    self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    self.printerCmd.SetCommandName('SendText')
-    self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    self.printerCmd.SetCommandTimeoutSec(1.0)
-    self.printerCmd.SetCommandAttribute('Text', 'M114')
-    slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
-    self.printerCmd.AddObserver(self.printerCmd.CommandCompletedEvent, self.onPrinterCommandCompletedForTesting)
-
-  def onPrinterCommandCompletedForTesting(self, observer, eventid):
-    coordinateValues = self.printerCmd.GetResponseMessage()
-    print("Command completed with status: " + self.printerCmd.StatusToString(self.printerCmd.GetStatus()))
-    print("Response message: " + coordinateValues)
-    print("Full response: " + self.printerCmd.GetResponseText())
 
   def get_coordinates(self):
-    self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    self.printerCmd.SetCommandName('SendText')
-    self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    self.printerCmd.SetCommandTimeoutSec(1.0)
-    self.printerCmd.SetCommandAttribute('Text', 'M114')
-    slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
-    self.printerCmd.AddObserver(self.printerCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
+    #self.getCoordinateCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    #self.getCoordinateCmd.SetCommandName('SendText')
+    #self.getCoordinateCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    #self.getCoordinateCmd.SetCommandTimeoutSec(1.0)
+    #self.getCoordinateCmd.SetCommandAttribute('Text', 'M114')
+    slicer.modules.openigtlinkremote.logic().SendCommand(self.getCoordinateCmd, self.serialIGTLNode.GetID())
+    #self.getCoordinateCmd.AddObserver(self.getCoordinateCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
 
 
   def onPrinterCommandCompleted(self, observer, eventid):
-    coordinateValues = self.printerCmd.GetResponseMessage()
-    print("Command completed with status: " + self.printerCmd.StatusToString(self.printerCmd.GetStatus()))
+    coordinateValues = self.getCoordinateCmd.GetResponseMessage()
+    print("Command completed with status: " + self.getCoordinateCmd.StatusToString(self.getCoordinateCmd.GetStatus()))
     print("Response message: " + coordinateValues)
-    print("Full response: " + self.printerCmd.GetResponseText())
+    print("Full response: " + self.getCoordinateCmd.GetResponseText())
     # parsing the string for specific coordinate values
     mylist = coordinateValues.split(" ")
 
@@ -502,37 +511,39 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
     self.printerCmd.AddObserver(self.printerCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
 
-  def xLoop(self):
+  def xLoop(self, timeValue, xResolution):
     # it takes 50000 seconds for the x to go back and forth once at a resolution of 10 mm per step
-    for xCoordinateValue in xrange(0,700000, 50000):
-      self.xWidthForward(xCoordinateValue)
-      self.xWidthBackwards(xCoordinateValue)
 
-  def yLoop(self):
+    lengthOfOneWidth = 25 * timeValue
+    for xCoordinateValue in xrange(0,24*lengthOfOneWidth, lengthOfOneWidth): # 24 for the amount of times x must oscillate back and forth (eventually will be 120 / y resolution
+      self.xWidthForward(xCoordinateValue, timeValue, xResolution)
+      self.xWidthBackwards(xCoordinateValue, timeValue, xResolution)
+
+  def yLoop(self, timeDelayMs):
     # y delay is increasing in alternating intervals therefore there are 2 for loops at alternating coordinates and times
     for yValue in xrange(5,120,10):
       #TODO: fix this interval (doesn't work sometimes)
-      delayMs = (yValue-5)*5000 + 28000 # interval for y movement on righthand side of bed
+      delayMs = (yValue-5)*2500 + 14*timeDelayMs # interval for y movement on righthand side of bed, will be 120/ xresolution * 14 * time value
       self.yMovement(delayMs,yValue)
     for yValue2 in xrange(10,120,10):
-      delayMs2 = (yValue2-10)*5000 + 52000 # interval for y movement on lefthand side of bed
+      delayMs2 = (yValue2-10)*2500 + 26*timeDelayMs # interval for y movement on lefthand side of bed, will be 120/ x resolution * 26 * time value
       self.yMovement(delayMs2, yValue2)
 
-  def xWidthForward(self, xCoordinate): #used to be passed xCoordinate
+  def xWidthForward(self, xCoordinate, timeValue, xResolution): #used to be passed xCoordinate
     # Move the width of the bed forward in the positive x direction
     # Corresponds to a timer called in printer interactor widget
     self.scanTimer = qt.QTimer()
-    for xValue in xrange(0,130,10): # increment by 10 until 120
-      delayMs  = xCoordinate + xValue*200 + 2000 # initiate the timer so that commands are sent at 2 second intervals
+    for xValue in xrange(0,120,xResolution): # increment by 10 until 120
+      delayMs  = xCoordinate + xValue*(timeValue/10) + timeValue
       self.XMovement(delayMs, xValue)
 
 
-  def xWidthBackwards(self, xCoordinate):
+  def xWidthBackwards(self, xCoordinate, timeValue, xResolution):
     # Move the width of the bed backwards in the negative x direction
     # Corresponds to a timer called in printer interactor widget
     self.scanTimer = qt.QTimer()
-    for xValue in xrange(120,-10,-10):
-      delayMs = abs(xValue-120)* 200 +26000 + xCoordinate
+    for xValue in xrange(120,0,-xResolution):
+      delayMs = abs(xValue-120)* (timeValue/10) +13*timeValue + xCoordinate
       self.XMovement(delayMs, xValue)
 
 
