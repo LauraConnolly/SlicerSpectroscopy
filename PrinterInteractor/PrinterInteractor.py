@@ -197,13 +197,13 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     xResolution = self.xResolution_spinbox.value
     yResolution = self.yResolution_spinbox.value
     self.logic.xLoop(self.timeValue, xResolution) # calls a loop to toggle printer back and forth in the x direction
-    self.logic.yLoop(self.timeValue) # calls a loop to increment the printer back in the y direction
+    self.logic.yLoop(self.timeValue, yResolution) # calls a loop to increment the printer back in the y direction
 
     # tissue analysis
     self.tumorTimer = qt.QTimer()
     self.iterationTimingValue = 0
 
-    for self.iterationTimingValue in range(0,300*self.timeValue,self.timeValue): # 300 can be changed to x resolution by y resolution
+    for self.iterationTimingValue in range(0,(yResolution*xResolution)*self.timeValue,self.timeValue): # 300 can be changed to x resolution by y resolution
       self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
       self.iterationTimingValue = self.iterationTimingValue + self.timeValue
 
@@ -519,15 +519,22 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
       self.xWidthForward(xCoordinateValue, timeValue, xResolution)
       self.xWidthBackwards(xCoordinateValue, timeValue, xResolution)
 
-  def yLoop(self, timeDelayMs):
+
+
+
+  def yLoop(self, timeValue, yResolution):
     # y delay is increasing in alternating intervals therefore there are 2 for loops at alternating coordinates and times
-    for yValue in xrange(5,120,10):
+    #for yValue in xrange(5,120,10):
       #TODO: fix this interval (doesn't work sometimes)
-      delayMs = (yValue-5)*2500 + 14*timeDelayMs # interval for y movement on righthand side of bed, will be 120/ xresolution * 14 * time value
-      self.yMovement(delayMs,yValue)
-    for yValue2 in xrange(10,120,10):
-      delayMs2 = (yValue2-10)*2500 + 26*timeDelayMs # interval for y movement on lefthand side of bed, will be 120/ x resolution * 26 * time value
-      self.yMovement(delayMs2, yValue2)
+     # delayMs = (yValue-5)*2500 + 14*timeDelayMs # interval for y movement on righthand side of bed, will be 120/ xresolution * 14 * time value
+     # self.yMovement(delayMs,yValue)
+    #for yValue2 in xrange(10,120,10):
+     # delayMs2 = (yValue2-10)*2500 + 26*timeDelayMs # interval for y movement on lefthand side of bed, will be 120/ x resolution * 26 * time value
+      #self.yMovement(delayMs2, yValue2)
+     for yValue in xrange(yResolution,120,yResolution):
+       delayMs = ((yValue)/yResolution)* 13 * timeValue
+       self.yMovement(delayMs, yValue)
+
 
   def xWidthForward(self, xCoordinate, timeValue, xResolution): #used to be passed xCoordinate
     # Move the width of the bed forward in the positive x direction
@@ -550,6 +557,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
   def yMovement(self, timevar, movevar):
     self.randomScanTimer = qt.QTimer()
     self.randomScanTimer.singleShot(timevar, lambda: self.controlledYMovement(movevar))
+
 
   def XMovement(self,timevar, movevar):
     self.randomScanTimer = qt.QTimer()
