@@ -196,16 +196,16 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.timeValue = self.timeDelay_spinbox.value
     xResolution = self.xResolution_spinbox.value
     yResolution = self.yResolution_spinbox.value
-    self.logic.xLoop(self.timeValue, xResolution) # calls a loop to toggle printer back and forth in the x direction
+    self.logic.xLoop(self.timeValue, xResolution, yResolution) # calls a loop to toggle printer back and forth in the x direction
     self.logic.yLoop(self.timeValue, yResolution) # calls a loop to increment the printer back in the y direction
 
     # tissue analysis
     self.tumorTimer = qt.QTimer()
     self.iterationTimingValue = 0
 
-    for self.iterationTimingValue in range(0,(yResolution*xResolution)*self.timeValue,self.timeValue): # 300 can be changed to x resolution by y resolution
+    for self.iterationTimingValue in range(0,(yResolution*xResolution*2)*self.timeValue,self.timeValue): # 300 can be changed to x resolution by y resolution
       self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
-      self.iterationTimingValue = self.iterationTimingValue + self.timeValue
+      self.iterationTimingValue = self.iterationTimingValue + self.timeValue # COMMENT OUT MAYBE!
 
  # def onRandomScanButton(self):
  #   self.onSerialIGLTSelectorChanged()
@@ -511,11 +511,11 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
     self.printerCmd.AddObserver(self.printerCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
 
-  def xLoop(self, timeValue, xResolution):
+  def xLoop(self, timeValue, xResolution, yResolution):
     # it takes 50000 seconds for the x to go back and forth once at a resolution of 10 mm per step
-
+    oscillatingTime = 120 / yResolution
     lengthOfOneWidth = 25 * timeValue
-    for xCoordinateValue in xrange(0,24*lengthOfOneWidth, lengthOfOneWidth): # 24 for the amount of times x must oscillate back and forth (eventually will be 120 / y resolution
+    for xCoordinateValue in xrange(0,oscillatingTime*lengthOfOneWidth, lengthOfOneWidth): # 24 for the amount of times x must oscillate back and forth (eventually will be 120 / y resolution
       self.xWidthForward(xCoordinateValue, timeValue, xResolution)
       self.xWidthBackwards(xCoordinateValue, timeValue, xResolution)
 
@@ -531,9 +531,17 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     #for yValue2 in xrange(10,120,10):
      # delayMs2 = (yValue2-10)*2500 + 26*timeDelayMs # interval for y movement on lefthand side of bed, will be 120/ x resolution * 26 * time value
       #self.yMovement(delayMs2, yValue2)
-     for yValue in xrange(yResolution,120,yResolution):
-       delayMs = ((yValue)/yResolution)* 13 * timeValue
+    for yValue in xrange(yResolution,yResolution*2,yResolution): #used to be yResolution * 2
+       delayMs = ((yValue)/yResolution)* (14) * timeValue  #(13- yValue/ yResolution)
        self.yMovement(delayMs, yValue)
+
+    for yValue in xrange(yResolution*2,120,yResolution): #used to be yResolution * 2
+       delayMs = ((yValue)/yResolution)* (13) * timeValue  #(13- yValue/ yResolution)
+       self.yMovement(delayMs, yValue)
+
+   # for yValue in xrange(yResolution*2,120,yResolution*2):
+    #   delayMs = ((yValue)/(yResolution*2))* (28 - (yValue/yResolution) +1) * timeValue
+     #  self.yMovement(delayMs, yValue)
 
 
   def xWidthForward(self, xCoordinate, timeValue, xResolution): #used to be passed xCoordinate
