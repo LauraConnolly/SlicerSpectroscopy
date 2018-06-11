@@ -522,6 +522,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
 
 
+
+
+
   def yLoop(self, timeValue, yResolution):
     # y delay is increasing in alternating intervals therefore there are 2 for loops at alternating coordinates and times
     #for yValue in xrange(5,120,10):
@@ -531,17 +534,29 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     #for yValue2 in xrange(10,120,10):
      # delayMs2 = (yValue2-10)*2500 + 26*timeDelayMs # interval for y movement on lefthand side of bed, will be 120/ x resolution * 26 * time value
       #self.yMovement(delayMs2, yValue2)
-    for yValue in xrange(yResolution,yResolution*2,yResolution): #used to be yResolution * 2
-       delayMs = ((yValue)/yResolution)* (14) * timeValue  #(13- yValue/ yResolution)
-       self.yMovement(delayMs, yValue)
 
-    for yValue in xrange(yResolution*2,120,yResolution): #used to be yResolution * 2
-       delayMs = ((yValue)/yResolution)* (13) * timeValue  #(13- yValue/ yResolution)
-       self.yMovement(delayMs, yValue)
+    #for yValue in xrange(yResolution,120,yResolution*2): #used to be yResolution * 2
+     #  delayMs = ((yValue)/yResolution)* (13) * timeValue  #(13- yValue/ yResolution)
+      # self.yMovement(delayMs, yValue)
 
-   # for yValue in xrange(yResolution*2,120,yResolution*2):
-    #   delayMs = ((yValue)/(yResolution*2))* (28 - (yValue/yResolution) +1) * timeValue
-     #  self.yMovement(delayMs, yValue)
+    #for yValue in xrange(yResolution*2,120,yResolution*2): #used to be yResolution * 2
+     #  delayMs = ((yValue)/yResolution)* (12) * timeValue  #(13- yValue/ yResolution)
+      # self.yMovement(delayMs, yValue)
+    #self.yMovement(timeValue, yResolution)
+    self.yMovement(13*timeValue, yResolution)
+    self.yMovement(26.5*timeValue, yResolution*2)
+    self.i=0
+    self.j=0
+    for yValue in xrange(yResolution*3,120, yResolution*2):
+      delayMs = 38.5*timeValue + ((25*timeValue)*(self.i))
+      self.yMovement(delayMs, yValue)
+      self.i= self.i+1
+    for yValue in xrange(yResolution*4, 120, yResolution*2):
+      delayMs = 51.5*timeValue + ((25*timeValue)*(self.j))
+      self.yMovement(delayMs, yValue)
+      self.j=self.j + 1
+
+
 
 
   def xWidthForward(self, xCoordinate, timeValue, xResolution): #used to be passed xCoordinate
@@ -550,6 +565,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.scanTimer = qt.QTimer()
     for xValue in xrange(0,120,xResolution): # increment by 10 until 120
       delayMs  = xCoordinate + xValue*(timeValue/10) + timeValue
+      #print(delayMs, xValue)
       self.XMovement(delayMs, xValue)
 
 
@@ -560,12 +576,19 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     for xValue in xrange(120,0,-xResolution):
       delayMs = abs(xValue-120)* (timeValue/10) +13*timeValue + xCoordinate
       self.XMovement(delayMs, xValue)
+      #print(delayMs,xValue)
 
 
-  def yMovement(self, timevar, movevar):
+  def yMovement(self, timeValue, yResolution):
     self.randomScanTimer = qt.QTimer()
-    self.randomScanTimer.singleShot(timevar, lambda: self.controlledYMovement(movevar))
-
+    #self.randomScanTimer.singleShot(timeValue*13.5, lambda: self.controlledYMovement(yResolution))
+    #self.randomScanTimer.singleShot(timeValue*26.5, lambda: self.controlledYMovement(yResolution*2))
+    #self.randomScanTimer.singleShot(timeValue*38.5, lambda: self.controlledYMovement(yResolution*3))
+    #self.randomScanTimer.singleShot(timeValue*51.5, lambda: self.controlledYMovement(yResolution*4))
+    #self.randomScanTimer.singleShot(timeValue*63.5, lambda: self.controlledYMovement(yResolution*5))
+    #self.randomScanTimer.singleShot(timeValue*76.5, lambda: self.controlledYMovement(yResolution*6))
+    #self.randomScanTimer.singleShot(timeValue*88.5, lambda: self.controlledYMovement(yResolution*7))
+    self.randomScanTimer.singleShot(timeValue, lambda: self.controlledYMovement(yResolution))
 
   def XMovement(self,timevar, movevar):
     self.randomScanTimer = qt.QTimer()
