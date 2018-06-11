@@ -43,6 +43,8 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
 
   def setup(self):
+
+
     ScriptedLoadableModuleWidget.setup(self)
 
     # Instantiate and connect widgets ...
@@ -142,9 +144,10 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     # Time per reading
     #
     self.timeDelay_spinbox = qt.QSpinBox()
-    self.timeDelay_spinbox.setMinimum(500)
-    self.timeDelay_spinbox.setMaximum(2000)
+    self.timeDelay_spinbox.setMinimum(1000)
+    self.timeDelay_spinbox.setMaximum(5000)
     self.timeDelay_spinbox.setValue(1000)
+    self.timeDelay_spinbox.setSingleStep(1000)
     connect_to_printerFormLayout.addRow("Time for data delay (ms) :", self.timeDelay_spinbox)
     # Testing button
     #
@@ -202,47 +205,20 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     # tissue analysis
     self.tumorTimer = qt.QTimer()
     self.iterationTimingValue = 0
-
-    for self.iterationTimingValue in range(0,(yResolution*xResolution*2)*self.timeValue,self.timeValue): # 300 can be changed to x resolution by y resolution
+    stopsToVisitX = 120 / xResolution
+    stopsToVisitY = 120/ yResolution
+    for self.iterationTimingValue in range(0,(stopsToVisitX*stopsToVisitY*self.timeValue) + self.timeValue,self.timeValue): # 300 can be changed to x resolution by y resolution
       self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
       self.iterationTimingValue = self.iterationTimingValue + self.timeValue # COMMENT OUT MAYBE!
 
- # def onRandomScanButton(self):
- #   self.onSerialIGLTSelectorChanged()
- #   self.randomScanTimer = qt.QTimer()
 
-    # Random data sets of 120 points from online generator
-    #randomx = [84, 38, 74, 109, 48, 70, 17, 90, 92, 113, 115, 65, 67, 51, 114, 60, 108, 1, 119, 45, 5, 80, 20, 69, 75, 77, 52, 9, 41, 37, 95, 32, 7, 63, 118, 4, 72, 89, 50, 3, 78, 42, 64, 59, 104, 105, 100, 16, 55, 29, 68, 33, 117, 57, 56, 79, 53, 116, 26, 106, 22, 27, 23, 61, 111, 2, 86, 62, 73, 58, 101, 12, 110, 8, 91, 96, 25, 112, 46, 88, 54, 15, 85, 76, 120, 24, 71, 19, 81, 94, 93, 102, 49, 35, 47, 6, 34, 107, 103, 83, 44, 28, 82, 31, 40, 13, 10, 21, 14, 97, 18, 30, 0, 66, 87, 39, 43, 36, 11, 98]
-    #randomy = [31, 42, 58, 76, 99, 71, 84, 32, 79, 98, 59, 34, 39, 12, 37, 91, 60, 104, 52, 46, 51, 82, 107, 100, 74, 38, 10, 96, 35, 41, 50, 27, 117, 67, 102, 112, 47, 69, 109, 25, 85, 97, 33, 73, 3, 2, 68, 88, 15, 0, 118, 65, 20, 11, 103, 21, 26, 80, 18, 57, 14, 17, 55, 101, 115, 81, 48, 106, 43, 30, 90, 45, 56, 40, 77, 86, 72, 61, 83, 92, 23, 63, 93, 105, 4, 16, 64, 78, 9, 24, 62, 1, 75, 13, 8, 70, 120, 95, 94, 116, 54, 89, 53, 19, 22, 66, 49, 44, 29, 119, 110, 28, 113, 5, 7, 6, 87, 111, 114, 108]
-
-   # for arrayIndex in range(0, 120):
-    #  delayMs = arrayIndex*7000 +7000; # largest distance to travel takes approximatley 7 seconds therefore the waitime between position movements is 7 seconds
-     # self.logic.XMovement(delayMs, randomx[arrayIndex])
-     # self.logic.YMovement(delayMs, randomy[arrayIndex])
-
-
-    # tissue analysis
-    # initiate a timer to distinguish the tissue every 2 seconds based on spectral reading
-   # self.tumorTimer = qt.QTimer()
-
-    #self.timeValue = 0
-    #for self.timeValue in xrange(0,420000,2000):
-     # self.tumorTimer.singleShot(self.timeValue, lambda: self.tissueDecision())
-      #self.timeValue = self.timeValue + 2000
 
 
   def onStopButton(self):
     self.onSerialIGLTSelectorChanged()
     self.logic.emergencyStop()
-    # self.tumorTimer.cancel()
 
 
-  def onTumorButton(self):
-    self.ondoubleArrayNodeChanged()
-    self.onSerialIGLTSelectorChanged()
-    self.logic.tumorDetection(self.outputArraySelector.currentNode())
-
-    self.logic.get_coordinates()
 
 
   def tissueDecision(self):
@@ -297,6 +273,31 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.getCoordinateCmd.SetCommandTimeoutSec(1.0)
     self.getCoordinateCmd.SetCommandAttribute('Text', 'M114')
     self.getCoordinateCmd.AddObserver(self.getCoordinateCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
+    # instantiate home command
+    self.homeCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    self.homeCmd.SetCommandName('SendText')
+    self.homeCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    self.homeCmd.SetCommandTimeoutSec(1.0)
+    self.homeCmd.SetCommandAttribute('Text', 'G28 X Y ')
+    # instantiate emergency stop command
+    self.emergStopCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    self.emergStopCmd.SetCommandName('SendText')
+    self.emergStopCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    self.emergStopCmd.SetCommandTimeoutSec(1.0)
+    self.emergStopCmd.SetCommandAttribute('Text', 'M112')
+    # instantiate x command
+    self.xControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    self.xControlCmd.SetCommandName('SendText')
+    self.xControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    self.xControlCmd.SetCommandTimeoutSec(1.0)
+
+    # instantiate y command
+    self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+    self.yControlCmd.SetCommandName('SendText')
+    self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+    self.yControlCmd.SetCommandTimeoutSec(1.0)
+
+
 
 
     # Timer stuff
@@ -392,19 +393,14 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
       print "Healthy"
       return True
     else:
-      print "Healthy 2" # uncertain measurements, typically occur outside of tumor range
+      print "Healthy " # uncertain measurements, typically occur outside of tumor range
       return
 
 
 
   def get_coordinates(self):
-    #self.getCoordinateCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    #self.getCoordinateCmd.SetCommandName('SendText')
-    #self.getCoordinateCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    #self.getCoordinateCmd.SetCommandTimeoutSec(1.0)
-    #self.getCoordinateCmd.SetCommandAttribute('Text', 'M114')
     slicer.modules.openigtlinkremote.logic().SendCommand(self.getCoordinateCmd, self.serialIGTLNode.GetID())
-    #self.getCoordinateCmd.AddObserver(self.getCoordinateCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
+
 
 
   def onPrinterCommandCompleted(self, observer, eventid):
@@ -492,72 +488,40 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
 
   def home(self):
-    # Return to home axis
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G28 X Y ')
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
+
+    slicer.modules.openigtlinkremote.logic().SendCommand(self.homeCmd, self.serialIGTLNode.GetID())
 
   def emergencyStop(self):
     # Writes to the printer to automatically stop all motors
     # Requires reboot
-    self.printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    self.printerCmd.SetCommandName('SendText')
-    self.printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    self.printerCmd.SetCommandTimeoutSec(1.0)
-    self.printerCmd.SetCommandAttribute('Text', 'M112')
-    slicer.modules.openigtlinkremote.logic().SendCommand(self.printerCmd, self.serialIGTLNode.GetID())
-    self.printerCmd.AddObserver(self.printerCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
-
-  def xLoop(self, timeValue, xResolution, yResolution):
-    # it takes 50000 seconds for the x to go back and forth once at a resolution of 10 mm per step
-    oscillatingTime = 120 / yResolution
-    lengthOfOneWidth = 25 * timeValue
-    for xCoordinateValue in xrange(0,oscillatingTime*lengthOfOneWidth, lengthOfOneWidth): # 24 for the amount of times x must oscillate back and forth (eventually will be 120 / y resolution
-      self.xWidthForward(xCoordinateValue, timeValue, xResolution)
-      self.xWidthBackwards(xCoordinateValue, timeValue, xResolution)
-
-
-
-
-
+    slicer.modules.openigtlinkremote.logic().SendCommand(self.emergStopCmd, self.serialIGTLNode.GetID())
+    self.emergStopCmd.AddObserver(self.emergStopCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
 
 
   def yLoop(self, timeValue, yResolution):
-    # y delay is increasing in alternating intervals therefore there are 2 for loops at alternating coordinates and times
-    #for yValue in xrange(5,120,10):
-      #TODO: fix this interval (doesn't work sometimes)
-     # delayMs = (yValue-5)*2500 + 14*timeDelayMs # interval for y movement on righthand side of bed, will be 120/ xresolution * 14 * time value
-     # self.yMovement(delayMs,yValue)
-    #for yValue2 in xrange(10,120,10):
-     # delayMs2 = (yValue2-10)*2500 + 26*timeDelayMs # interval for y movement on lefthand side of bed, will be 120/ x resolution * 26 * time value
-      #self.yMovement(delayMs2, yValue2)
-
-    #for yValue in xrange(yResolution,120,yResolution*2): #used to be yResolution * 2
-     #  delayMs = ((yValue)/yResolution)* (13) * timeValue  #(13- yValue/ yResolution)
-      # self.yMovement(delayMs, yValue)
-
-    #for yValue in xrange(yResolution*2,120,yResolution*2): #used to be yResolution * 2
-     #  delayMs = ((yValue)/yResolution)* (12) * timeValue  #(13- yValue/ yResolution)
-      # self.yMovement(delayMs, yValue)
-    #self.yMovement(timeValue, yResolution)
-    self.yMovement(13*timeValue, yResolution)
+    # specific intervals correspond to timeValues divisible by 1000
+    self.yMovement(13.5*timeValue, yResolution)
     self.yMovement(26.5*timeValue, yResolution*2)
     self.i=0
     self.j=0
-    for yValue in xrange(yResolution*3,120, yResolution*2):
+    for yValue in xrange(yResolution*3,120+yResolution, yResolution*2):
       delayMs = 38.5*timeValue + ((25*timeValue)*(self.i))
       self.yMovement(delayMs, yValue)
       self.i= self.i+1
-    for yValue in xrange(yResolution*4, 120, yResolution*2):
+    for yValue in xrange(yResolution*4, 120 + yResolution, yResolution*2):
       delayMs = 51.5*timeValue + ((25*timeValue)*(self.j))
       self.yMovement(delayMs, yValue)
       self.j=self.j + 1
 
-
-
+# Fix this so that it moves every 2 seconds not 1 second
+  
+  def xLoop(self, timeValue, xResolution, yResolution):
+    # necessary for looping the x commands on static intervals
+    oscillatingTime = (120 / yResolution)/2
+    lengthOfOneWidth = 25 * timeValue
+    for xCoordinateValue in xrange(0,(oscillatingTime*lengthOfOneWidth) + lengthOfOneWidth, lengthOfOneWidth):
+      self.xWidthForward(xCoordinateValue, timeValue, xResolution)
+      self.xWidthBackwards(xCoordinateValue, timeValue, xResolution)
 
   def xWidthForward(self, xCoordinate, timeValue, xResolution): #used to be passed xCoordinate
     # Move the width of the bed forward in the positive x direction
@@ -565,7 +529,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.scanTimer = qt.QTimer()
     for xValue in xrange(0,120,xResolution): # increment by 10 until 120
       delayMs  = xCoordinate + xValue*(timeValue/10) + timeValue
-      #print(delayMs, xValue)
       self.XMovement(delayMs, xValue)
 
 
@@ -576,18 +539,12 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     for xValue in xrange(120,0,-xResolution):
       delayMs = abs(xValue-120)* (timeValue/10) +13*timeValue + xCoordinate
       self.XMovement(delayMs, xValue)
-      #print(delayMs,xValue)
 
+
+# Movement Controls (single shot, lambda timers for simple G Code message sending)
 
   def yMovement(self, timeValue, yResolution):
     self.randomScanTimer = qt.QTimer()
-    #self.randomScanTimer.singleShot(timeValue*13.5, lambda: self.controlledYMovement(yResolution))
-    #self.randomScanTimer.singleShot(timeValue*26.5, lambda: self.controlledYMovement(yResolution*2))
-    #self.randomScanTimer.singleShot(timeValue*38.5, lambda: self.controlledYMovement(yResolution*3))
-    #self.randomScanTimer.singleShot(timeValue*51.5, lambda: self.controlledYMovement(yResolution*4))
-    #self.randomScanTimer.singleShot(timeValue*63.5, lambda: self.controlledYMovement(yResolution*5))
-    #self.randomScanTimer.singleShot(timeValue*76.5, lambda: self.controlledYMovement(yResolution*6))
-    #self.randomScanTimer.singleShot(timeValue*88.5, lambda: self.controlledYMovement(yResolution*7))
     self.randomScanTimer.singleShot(timeValue, lambda: self.controlledYMovement(yResolution))
 
   def XMovement(self,timevar, movevar):
@@ -596,20 +553,12 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
 
   def controlledXMovement(self, xCoordinate): # x movement
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 X%d' % (xCoordinate))
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
+    self.xControlCmd.SetCommandAttribute('Text', 'G1 X%d' % (xCoordinate))
+    slicer.modules.openigtlinkremote.logic().SendCommand(self.xControlCmd, self.serialIGTLNode.GetID())
 
   def controlledYMovement(self, yCoordinate): # y movement
-    printerCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-    printerCmd.SetCommandName('SendText')
-    printerCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-    printerCmd.SetCommandTimeoutSec(1.0)
-    printerCmd.SetCommandAttribute('Text', 'G1 Y%d' % (yCoordinate))
-    slicer.modules.openigtlinkremote.logic().SendCommand(printerCmd, self.serialIGTLNode.GetID())
+    self.yControlCmd.SetCommandAttribute('Text', 'G1 Y%d' % (yCoordinate))
+    slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, self.serialIGTLNode.GetID())
 
 
 class PrinterInteractorTest(ScriptedLoadableModuleTest):
