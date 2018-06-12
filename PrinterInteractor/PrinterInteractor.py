@@ -67,6 +67,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     connect_to_printerFormLayout.addRow(self.homeButton)
     self.homeButton.connect('clicked(bool)', self.onHomeButton)
     #
+    # Tumor Button
+    #
+    self.tumorButton = qt.QPushButton("Tumor?")
+    self.tumorButton.toolTip = "Run the algorithm"
+    self.tumorButton.enabled = True
+    connect_to_printerFormLayout.addRow(self.tumorButton)
+    self.tumorButton.connect('clicked(bool)', self.onTumorButton)
+    #
     # IGT Link Connector
     #
     self.inputSelector = slicer.qMRMLNodeComboBox()
@@ -102,28 +110,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.outputArraySelector.setMRMLScene(slicer.mrmlScene)
     self.outputArraySelector.setToolTip("Pick the output to the algorithm.")
     connect_to_printerFormLayout.addRow("Output spectrum array: ", self.outputArraySelector)
-
-    #
-    # Tumor distinction button
-    #
-    #self.tumorButton = qt.QPushButton("Tumor?")
-    #self.tumorButton.toolTip = "Run the algorithm"
-    #self.tumorButton.enabled = True
-    #connect_to_printerFormLayout.addRow(self.tumorButton)
-    #self.tumorButton.connect('clicked(bool)', self.onTumorButton)
-    #
-
-    #
-    # Random scanning
-    #
-    #self.randomScanButton = qt.QPushButton("Random Scan")
-    #self.randomScanButton.toolTip = " Begin random surface scan"
-    #self.randomScanButton.toolTip = True
-    #connect_to_printerFormLayout.addRow(self.randomScanButton)
-    #self.randomScanButton.connect('clicked(bool)', self.onRandomScanButton)
-    #
-
-
     #
     # X Resolution
     #
@@ -163,14 +149,19 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.scanButton.enabled = True
     connect_to_printerFormLayout.addRow(self.scanButton)
     self.scanButton.connect('clicked(bool)', self.onScanButton)
+    self.scanButton.setStyleSheet("background-color: green; font: bold")
+
     #
     # Stop button
     #
     self.stopButton = qt.QPushButton("STOP")
-    self.stopButton.toolTip = "Immediately stop printer motors, requires restart."
+    self.stopButton.toolTip = "Requires restart."
     self.stopButton.enabled = True
     connect_to_printerFormLayout.addRow(self.stopButton)
     self.stopButton.connect('clicked(bool)', self.onStopButton)
+    self.stopButton.setStyleSheet("background-color: red; font: bold")
+
+
     self.layout.addStretch(1)
 
   def onStopMotorButton(self):
@@ -212,7 +203,9 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
       self.iterationTimingValue = self.iterationTimingValue + self.timeValue # COMMENT OUT MAYBE!
 
 
-
+  def onTumorButton(self):
+    self.onSerialIGLTSelectorChanged()
+    self.logic.tumorDetection(self.outputArraySelector.currentNode())
 
   def onStopButton(self):
     self.onSerialIGLTSelectorChanged()
@@ -504,14 +497,15 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
   def yLoop(self, timeValue, yResolution, xResolution):
     # specific intervals correspond to timeValues divisible by 1000
+    # The variances in intervals were timed specifically to account for mechanical delays with the printer
     firstDistance = (120/ xResolution)
     secondDistance = 2*(120/ xResolution)
-    self.yMovement((firstDistance+ 2)*timeValue, yResolution) # 13.5
-    self.yMovement((secondDistance+1)*timeValue, yResolution*2) # 25.5
+    self.yMovement((firstDistance+ 2)*timeValue, yResolution)
+    self.yMovement((secondDistance+1)*timeValue, yResolution*2)
     self.i=0
     self.j=0
     for yValue in xrange(yResolution*3,120+yResolution, yResolution*2):
-      delayMs = (((secondDistance + firstDistance)+ 2)*timeValue) + ((secondDistance*timeValue)*(self.i)) # used to be 38.5
+      delayMs = (((secondDistance + firstDistance)+ 2)*timeValue) + ((secondDistance*timeValue)*(self.i))
       self.yMovement(delayMs, yValue)
       self.i= self.i+1
     for yValue in xrange(yResolution*4, 120 + yResolution, yResolution*2):
