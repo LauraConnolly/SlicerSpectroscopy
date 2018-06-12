@@ -200,7 +200,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     xResolution = self.xResolution_spinbox.value
     yResolution = self.yResolution_spinbox.value
     self.logic.xLoop(self.timeValue, xResolution, yResolution) # calls a loop to toggle printer back and forth in the x direction
-    self.logic.yLoop(self.timeValue, yResolution) # calls a loop to increment the printer back in the y direction
+    self.logic.yLoop(self.timeValue, yResolution, xResolution) # calls a loop to increment the printer back in the y direction
 
     # tissue analysis
     self.tumorTimer = qt.QTimer()
@@ -296,6 +296,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.yControlCmd.SetCommandName('SendText')
     self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
     self.yControlCmd.SetCommandTimeoutSec(1.0)
+
+    #
+    self.timePerXWidth = 26.5
 
 
 
@@ -498,18 +501,21 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.emergStopCmd.AddObserver(self.emergStopCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
 
 
-  def yLoop(self, timeValue, yResolution):
+
+  def yLoop(self, timeValue, yResolution, xResolution):
     # specific intervals correspond to timeValues divisible by 1000
-    self.yMovement(13.5*timeValue, yResolution)
-    self.yMovement(26.5*timeValue, yResolution*2)
+    firstDistance = (120/ xResolution)
+    secondDistance = 2*(120/ xResolution)
+    self.yMovement((firstDistance+ 2)*timeValue, yResolution) # 13.5
+    self.yMovement((secondDistance+1)*timeValue, yResolution*2) # 25.5
     self.i=0
     self.j=0
     for yValue in xrange(yResolution*3,120+yResolution, yResolution*2):
-      delayMs = 38.5*timeValue + ((25*timeValue)*(self.i))
+      delayMs = (((secondDistance + firstDistance)+ 2)*timeValue) + ((secondDistance*timeValue)*(self.i)) # used to be 38.5
       self.yMovement(delayMs, yValue)
       self.i= self.i+1
     for yValue in xrange(yResolution*4, 120 + yResolution, yResolution*2):
-      delayMs = 51.5*timeValue + ((25*timeValue)*(self.j))
+      delayMs = ((((2*secondDistance)+1))*timeValue) + ((secondDistance*timeValue)*(self.j))
       self.yMovement(delayMs, yValue)
       self.j=self.j + 1
 
@@ -517,9 +523,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
   
   def xLoop(self, timeValue, xResolution, yResolution):
     # necessary for looping the x commands on static intervals
-    oscillatingTime = (120 / yResolution)/2
-    lengthOfOneWidth = 25 * timeValue
-    for xCoordinateValue in xrange(0,(oscillatingTime*lengthOfOneWidth) + lengthOfOneWidth, lengthOfOneWidth):
+    oscillatingTime = (120 / yResolution)/2 # determines how many times the scanner should oscillate back and forth
+    lengthOfOneWidth = ((120/ xResolution)*2) * timeValue
+    #lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
+    for xCoordinateValue in xrange(0,(oscillatingTime*lengthOfOneWidth) + lengthOfOneWidth, lengthOfOneWidth): # calls forwards and backwards as necessary
       self.xWidthForward(xCoordinateValue, timeValue, xResolution)
       self.xWidthBackwards(xCoordinateValue, timeValue, xResolution)
 
@@ -528,7 +535,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     # Corresponds to a timer called in printer interactor widget
     self.scanTimer = qt.QTimer()
     for xValue in xrange(0,120,xResolution): # increment by 10 until 120
-      delayMs  = xCoordinate + xValue*(timeValue/10) + timeValue
+      delayMs = xCoordinate + xValue * (timeValue / xResolution) # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
       self.XMovement(delayMs, xValue)
 
 
@@ -537,7 +544,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     # Corresponds to a timer called in printer interactor widget
     self.scanTimer = qt.QTimer()
     for xValue in xrange(120,0,-xResolution):
-      delayMs = abs(xValue-120)* (timeValue/10) +13*timeValue + xCoordinate
+      delayMs = abs(xValue-120)* (timeValue/xResolution) +(120/xResolution +1)*timeValue + xCoordinate # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
       self.XMovement(delayMs, xValue)
 
 
