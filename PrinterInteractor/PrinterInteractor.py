@@ -130,10 +130,10 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     # Time per reading
     #
     self.timeDelay_spinbox = qt.QSpinBox()
-    self.timeDelay_spinbox.setMinimum(1000)
+    self.timeDelay_spinbox.setMinimum(0)
     self.timeDelay_spinbox.setMaximum(5000)
     self.timeDelay_spinbox.setValue(1000)
-    self.timeDelay_spinbox.setSingleStep(1000)
+   # self.timeDelay_spinbox.setSingleStep(1000)
     connect_to_printerFormLayout.addRow("Time for data delay (ms) :", self.timeDelay_spinbox)
     # Testing button
     #
@@ -419,7 +419,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     zvalues = mylist[2].split(":")
     zcoordinate = float(zvalues[1])
 
-    # Create 1 distance array to store distances from origin in order to determine the width of the specimen
+    # Create 1 distance array to store distances from origin in order to determine the width of the specimen and the approximate surface area
 
     self.numberOfFiducials = 28; # can be adjusted depending on how many fiducial points are required for an accurate reading
     if self.distanceArrayCreated < 1:
@@ -437,7 +437,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
       distance = self.calculateDistance(xcoordinate,ycoordinate) #compute the distance of each fiducial from the point (0,0)
       #for i in xrange(1,9,1): #should be len(distanceArray)
       self.distanceArray[self.iterationVariable] = distance
-      if self.iterationVariable < 27:
+      if self.iterationVariable < 27: # change to appropriate number of fiducials for accurate measurement
         self.iterationVariable = self.iterationVariable + 1 # continue storing distances in the array until enough fiducials have been collected for an accurate measurement
         #print(self.distanceArray)
       else:
