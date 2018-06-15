@@ -7,6 +7,7 @@ import time
 import functools
 import argparse
 import math
+import signal
 
 #
 # PrinterInteractor
@@ -35,6 +36,8 @@ and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR0132
 #
 # PrinterInteractorWidget
 #
+
+
 
 class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
   """Uses ScriptedLoadableModuleWidget base class, available at:
@@ -123,7 +126,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     #
     self.yResolution_spinbox = qt.QSpinBox()
     self.yResolution_spinbox.setMinimum(0)
-    self.yResolution_spinbox.setMaximum(120)
+    self.yResolution_spinbox.setMaximum(30)
     self.yResolution_spinbox.setValue(0)
     connect_to_printerFormLayout.addRow("Y resolution (mm/ step):", self.yResolution_spinbox)
     #
@@ -193,14 +196,16 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.logic.xLoop(self.timeValue, xResolution, yResolution) # calls a loop to toggle printer back and forth in the x direction
     self.logic.yLoop(self.timeValue, yResolution, xResolution) # calls a loop to increment the printer back in the y direction
 
-    # tissue analysis
+      # tissue analysis
     self.tumorTimer = qt.QTimer()
     self.iterationTimingValue = 0
     stopsToVisitX = 120 / xResolution
     stopsToVisitY = 120/ yResolution
+
     for self.iterationTimingValue in range(0,(stopsToVisitX*stopsToVisitY*self.timeValue) + self.timeValue,self.timeValue): # 300 can be changed to x resolution by y resolution
       self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
       self.iterationTimingValue = self.iterationTimingValue + self.timeValue # COMMENT OUT MAYBE!
+
 
 
   def onTumorButton(self):
@@ -208,9 +213,9 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.logic.tumorDetection(self.outputArraySelector.currentNode())
 
   def onStopButton(self):
+
     self.onSerialIGLTSelectorChanged()
     self.logic.emergencyStop()
-
 
 
 
@@ -220,6 +225,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     self.onSerialIGLTSelectorChanged()
     if self.logic.tumorDetection(self.outputArraySelector.currentNode()) == False: #add a fiducial if the the tumor detecting function returns false
       self.logic.get_coordinates()
+
 
 
 
@@ -246,6 +252,11 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
+  _xpoints = []
+  _ypoints = []
+  _anglepoints = []
+  _hull_points = [[],[]]
+
   def __init__(self):
     self.baud_rate = 115200
     self.serialIGTLNode = None
@@ -259,6 +270,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     self.nodeCreated = 0
     self.distanceArrayCreated = 0
     self.iterationVariable = 1
+    self.fiducialCount = 1
     # instantiate coordinate values
     self.getCoordinateCmd = slicer.vtkSlicerOpenIGTLinkCommand()
     self.getCoordinateCmd.SetCommandName('SendText')
@@ -292,6 +304,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     #
     self.timePerXWidth = 26.5
+
+
 
 
 
@@ -419,38 +433,96 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     zvalues = mylist[2].split(":")
     zcoordinate = float(zvalues[1])
 
-    # Create 1 distance array to store distances from origin in order to determine the width of the specimen and the approximate surface area
 
-    self.numberOfFiducials = 28; # can be adjusted depending on how many fiducial points are required for an accurate reading
-    if self.distanceArrayCreated < 1:
-      self.distanceArray = [None] * self.numberOfFiducials  # create an array to store the distance of each fiducial point from point (0,0)
-      self.distanceArrayCreated = 1
+
+
+
+    # Distance computation
+    # Create 1 distance array to store distances from origin in order to determine the width of the specimen and the approximate surface area
+    #self.numberOfFiducials = 28; # can be adjusted depending on how many fiducial points are required for an accurate reading
+    #if self.distanceArrayCreated < 1:
+     # self.distanceArray = [None] * self.numberOfFiducials  # create an array to store the distance of each fiducial point from point (0,0)
+      #self.distanceArrayCreated = 1
 
     if self.nodeCreated < 1: # make sure to only create one node
       self.fiducialMarker(xcoordinate,ycoordinate,zcoordinate)
       self.nodeCreated = self.nodeCreated + 1
-      distance = self.calculateDistance(xcoordinate,ycoordinate)  # compute the distance of each fiducial from the point (0,0)
-      self.distanceArray[0] = distance #  Store the first value in the first position in the array
+      #distance = self.calculateDistance(xcoordinate,ycoordinate)  # compute the distance of each fiducial from the point (0,0)
+      #self.distanceArray[0] = distance #  Store the first value in the first position in the array
     else:
       self.addToCurrentNode(xcoordinate, ycoordinate, zcoordinate) # add fiducials to existing node
-      self.numberOfFiducials = self.numberOfFiducials + 1
-      distance = self.calculateDistance(xcoordinate,ycoordinate) #compute the distance of each fiducial from the point (0,0)
+      #self.numberOfFiducials = self.numberOfFiducials + 1
+      #distance = self.calculateDistance(xcoordinate,ycoordinate) #compute the distance of each fiducial from the point (0,0)
       #for i in xrange(1,9,1): #should be len(distanceArray)
-      self.distanceArray[self.iterationVariable] = distance
-      if self.iterationVariable < 27: # change to appropriate number of fiducials for accurate measurement
-        self.iterationVariable = self.iterationVariable + 1 # continue storing distances in the array until enough fiducials have been collected for an accurate measurement
+      #self.distanceArray[self.iterationVariable] = distance
+      #if self.iterationVariable < 27: # change to appropriate number of fiducials for accurate measurement
+       # self.iterationVariable = self.iterationVariable + 1 # continue storing distances in the array until enough fiducials have been collected for an accurate measurement
         #print(self.distanceArray)
+      #else:
+       # width = self.calculateMetric(self.distanceArray)
+        #surfaceArea = width * width
+        #print('Width is: %.2f' % width)
+        #print('SurfaceArea is: %.2f' % surfaceArea)
+    self._xpoints.append(xcoordinate)
+    self._ypoints.append(ycoordinate)
+
+    for i in xrange(0,len(self._xpoints)):
+      originx = self._xpoints[0]
+      originy = self._ypoints[0]
+
+      if len(self._xpoints) < 2:
+        return
       else:
-        width = self.calculateMetric(self.distanceArray)
-        surfaceArea = width * width
-        print('Width is: %.2f' % width)
-        print('SurfaceArea is: %.2f' % surfaceArea)
+        point1y = self._ypoints[i]
+        point1x = self._xpoints[i]
+
+      angle= math.atan2(point1y-originy, point1x - originx)*180 / math.pi;
+      self._anglepoints.append(angle)
+      print(self._anglepoints)
+
+
+
+
 
   def calculateMetric(self, distanceArray):
     maxDistance = max(distanceArray)
     minDistance = min(distanceArray)
     Width = maxDistance - minDistance
     return Width
+
+  def calculateDistance(self, xcoordinate, ycoordinate):
+    distance = math.sqrt((xcoordinate * xcoordinate) + (ycoordinate * ycoordinate))
+    return distance
+
+  # Convex hull algorithm
+
+  def addToPointsArray(self, point):
+      self._points.append(point)
+
+  def getOrientation(self, origin, point1, point2):
+    orientation = ((xcoordinate2 - xorigin) * (ycoordinate2 - yorigin)) - ((xcoordinate1- xorigin)*(ycoordinate1 - yorigin))
+    return orientation
+
+  #def computeConvexHull(self):
+   # points = self._points
+
+    #start = points[0]
+    #minXval = start.x
+    #for p in point[1:]:
+     # if p.x < minXval:
+      #  minXval = p.x
+       # start = p
+
+  #  point = start
+  #  self._hull_points.append(start)
+
+  #  far_point = None
+
+  #  while far_point is not start:
+
+
+
+
 
   def fiducialMarker(self, xcoordinate, ycoordinate, zcoordinate):
     self.fiducialNode = slicer.vtkMRMLMarkupsFiducialNode()
@@ -459,10 +531,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
   def addToCurrentNode(self, xcoordinate, ycoordinate, zcoordinate):
     self.fiducialNode.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
+    self.fiducialCount = self.fiducialCount + 1
+    print(self.fiducialCount)
 
-  def calculateDistance(self, xcoordinate, ycoordinate):
-    distance = math.sqrt((xcoordinate * xcoordinate) + (ycoordinate * ycoordinate))
-    return distance
+
   #
   # function written for testing and understanding spectral data acquisition
   def testFunc(self ,outputArrayNode):
