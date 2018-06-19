@@ -138,11 +138,13 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         connect_to_printerFormLayout.addRow("Time for data delay (ms) :", self.timeDelay_spinbox)
         # Testing button
         #
-        # self.testingButton = qt.QPushButton("Test spectra")
-        # self.testingButton.toolTip = "Immediately stop printer motors, requires restart."
-        # self.testingButton.enabled = True
-        # connect_to_printerFormLayout.addRow(self.testingButton)
-        # self.testingButton.connect('clicked(bool)', self.onTestingButton)
+        self.testingButton = qt.QPushButton("Test spectra")
+        self.testingButton.toolTip = "Immediately stop printer motors, requires restart."
+        self.testingButton.enabled = True
+        connect_to_printerFormLayout.addRow(self.testingButton)
+        self.testingButton.connect('clicked(bool)', self.onTestingButton)
+
+
         self.createModelButton = qt.QPushButton("Model")
         self.createModelButton.toolTip = "Begin systematic surface scan"
         self.createModelButton.enabled = True
@@ -212,18 +214,17 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.timeValue = self.timeDelay_spinbox.value
         xResolution = self.xResolution_spinbox.value
         yResolution = self.yResolution_spinbox.value
-        self.logic.xLoop(self.timeValue, xResolution,
-                         yResolution)  # calls a loop to toggle printer back and forth in the x direction
-        self.logic.yLoop(self.timeValue, yResolution,
-                         xResolution)  # calls a loop to increment the printer back in the y direction
+        self.logic.xLoop(self.timeValue, xResolution, yResolution)  # calls a loop to toggle printer back and forth in the x direction
+        self.logic.yLoop(self.timeValue, yResolution, xResolution)  # calls a loop to increment the printer back in the y direction
+
+
 
         # tissue analysis
         self.tumorTimer = qt.QTimer()
         self.iterationTimingValue = 0
         stopsToVisitX = 120 / xResolution
         stopsToVisitY = 120 / yResolution
-        for self.iterationTimingValue in range(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + self.timeValue,
-                                               self.timeValue):  # 300 can be changed to x resolution by y resolution
+        for self.iterationTimingValue in range(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + self.timeValue, self.timeValue):  # 300 can be changed to x resolution by y resolution
             self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
             self.iterationTimingValue = self.iterationTimingValue + self.timeValue  # COMMENT OUT MAYBE!
 
@@ -241,7 +242,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-        if self.logic.tumorDetection(self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
+        if self.logic.spectrumComparison(self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
             self.logic.get_coordinates()
 
     def onCreateModelButton(self):
@@ -256,6 +257,11 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
         self.logic.setTumorBoundaries()
+
+    def onTestingButton(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+        self.logic.spectrumComparison(self.outputArraySelector.currentNode())
 
 
 # in order to access and read specific data points use this function
@@ -288,7 +294,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.resolution = 100
         self.addNode = False
         self.fiducialNodeID = None
-        self.nodeCreated = 0
+        self.pointGenerated = 0
         self.distanceArrayCreated = 0
         self.iterationVariable = 1
         self.pointNumber = 1
@@ -299,6 +305,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.referenceSpectra = vtk.vtkPolyData()
         self.spectra = vtk.vtkPoints()
 
+        self.currentSpectrum = vtk.vtkPoints()
+
+        self.averageDifferences = 0
 
         # instantiate coordinate values
         self.getCoordinateCmd = slicer.vtkSlicerOpenIGTLinkCommand()
@@ -397,12 +406,12 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         probedPoints.GetPointData().GetScalars().Modified()
 
     def getSpectralData(self, outputArrayNode):
-        self.outputArrayNode = outputArrayNode
-        pointsArray = self.outputArrayNode.GetArray()
+        self.referenceOutputArrayNode = outputArrayNode
+        referencePointsArray = self.referenceOutputArrayNode.GetArray()
 
         self.spectra.SetNumberOfPoints(100)
         for i in xrange(0,101,1):
-            self.spectra.SetPoint(i,pointsArray.GetTuple(i))
+            self.spectra.SetPoint(i,referencePointsArray.GetTuple(i))
         print"Spectra collected."
 
 
@@ -412,43 +421,32 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         print "Boundaries set."
          # 10 specifies coordinates to be float values
 
-    #def spectrumComparison(self, outputArrayNode):
+    def spectrumComparison(self, outputArrayNode):
+        self.currentOutputArrayNode = outputArrayNode
+        currentPointsArray = self.currentOutputArrayNode.GetArray()
+
+        self.currentSpectrum.SetNumberOfPoints(100)
+        for i in xrange(0,101,1):
+            self.currentSpectrum.SetPoint(i,currentPointsArray.GetTuple(i))
+
+   
+        self.averageDifferences = 0
+
+        for j in xrange(0,101,1):
+            x = self.currentSpectrum.GetPoint(j)
+            y = self.spectra.GetPoint(j)
+            self.averageDifferences = self.averageDifferences + (x[1]- y[1])
 
 
 
-    def tumorDetection(self, outputArrayNode):
-        self.outputArrayNode = outputArrayNode
-        pointsArray = self.outputArrayNode.GetArray()
-        # point contains a wavelength and a corresponding intensity
-        # each data point has 2 rows of data, one corresponding to wavelength and one corresponding to intensity
-        self.componentIndexWavelength = 0
-        self.componentIndexIntensity = 1
-        # TODO: fix this data aquisition
-        # commented out lines are possible improvements or useful for different probes
-        # Data is acquired from probe in a double array with each index corresponding to either wavelength or intensity
-        # There are 100 points (tuples) each consisting of one wavelength and a corresponding intensity
-        # The first index (0) is where wavelength values are stored
-        # The second index (1) is where intensities are stored
-        # test lines that could be useful eventually
-        # numberOfPoints = pointsArray.GetNumberOfTuples() #access the number of points received from the spectra
-        # for pointIndex in xrange(numberOfPoints): #could potentially loop to check a certain range of data points
-        # wavelengthValue = pointsArray.GetComponent(63,0) #checks the 187th point in the data stream
-        # intensityValue = pointsArray.GetComponent(62, 1)
-
-        tumorCheck = pointsArray.GetComponent(62,1)  # Access the intensity value of the 62nd data point which corresponds to approximatley the 696th wavelength
-        healthyCheck = pointsArray.GetComponent(68,
-                                                1)  # Access the intensity value of the 68th data point which corresponds to approximatley the 750th wavelength
-
-        # Decision Loop
-        if tumorCheck < 0.07:
-            print "Tumor"
+        if (self.averageDifferences) < 2:
+            print " tumor"
             return False
-        elif tumorCheck == 1 and healthyCheck == 1:
-            print "Healthy"
-            return True
         else:
-            print "Healthy "  # uncertain measurements, typically occur outside of tumor range
-            return
+            print "healthy"
+            return True
+
+
 
     def get_coordinates(self):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.getCoordinateCmd, self.serialIGTLNode.GetID())
@@ -474,9 +472,11 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         zvalues = mylist[2].split(":")
         zcoordinate = float(zvalues[1])
 
-        self.dataCollection = self.fiducialMarker( xcoordinate, ycoordinate, zcoordinate)
+        self.dataCollection = self.createPolyDataPoint( xcoordinate, ycoordinate, zcoordinate)
 
 
+
+        #TODO: come back to this and determine in the distance calculation is helpful
 
         #self.createModel(self.dataCollection)
 
@@ -488,9 +488,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
           #                           None] * self.numberOfFiducials  # create an array to store the distance of each fiducial point from point (0,0)
            # self.distanceArrayCreated = 1
 
-       # if self.nodeCreated < 1:  # make sure to only create one node
-        #    self.fiducialMarker(xcoordinate, ycoordinate, zcoordinate)
-         #   self.nodeCreated = self.nodeCreated + 1
+       # if self.pointGenerated < 1:  # make sure to only create one node
+        #    self.createPolyDataPoint(xcoordinate, ycoordinate, zcoordinate)
+         #   self.pointGenerated = self.pointGenerated + 1
           #  distance = self.calculateDistance(xcoordinate,
                                               #ycoordinate)  # compute the distance of each fiducial from the point (0,0)
            # self.distanceArray[0] = distance  # Store the first value in the first position in the array
@@ -516,31 +516,23 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         Width = maxDistance - minDistance
         return Width
 
-    def fiducialMarker(self, xcoordinate, ycoordinate, zcoordinate):
-        if self.nodeCreated < 1:
-            self.dataPoints.SetNumberOfPoints(17) # this number will change
-            self.nodeCreated = self.nodeCreated + 1
+    def createPolyDataPoint(self, xcoordinate, ycoordinate, zcoordinate):
+        if self.pointGenerated < 1:
+            self.dataPoints.SetNumberOfPoints(100) # allocate space for up to 100 data points
+            self.pointGenerated = self.pointGenerated + 1
             self.dataPoints.SetPoint(0,xcoordinate, ycoordinate, zcoordinate) # 10 specifies coordinates to be float values
         else:
             self.dataPoints.SetPoint(self.pointNumber, xcoordinate, ycoordinate, zcoordinate)  # 10 specifies coordinates to be float values
             self.pointNumber = self.pointNumber + 1
-        #self.dataCollection.SetPoints(dataPoints)
+
 
 
     def createModel(self):
         self.dataCollection = vtk.vtkPolyData()
         self.dataCollection.SetPoints(self.dataPoints)
-        #print(self.dataCollection)
+
         slicer.modules.models.logic().AddModel(self.dataCollection)
 
-
-
-
-        #slicer.mrmlScene.AddNode(self.fiducialNode)
-        #self.fiducialNode.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
-
-    #def addToCurrentNode(self, xcoordinate, ycoordinate, zcoordinate):
-        #self.fiducialNode.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
 
 
     def calculateDistance(self, xcoordinate, ycoordinate):
