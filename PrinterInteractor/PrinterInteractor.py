@@ -143,6 +143,28 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         # self.testingButton.enabled = True
         # connect_to_printerFormLayout.addRow(self.testingButton)
         # self.testingButton.connect('clicked(bool)', self.onTestingButton)
+        self.createModelButton = qt.QPushButton("Model")
+        self.createModelButton.toolTip = "Begin systematic surface scan"
+        self.createModelButton.enabled = True
+        connect_to_printerFormLayout.addRow(self.createModelButton)
+        self.createModelButton.connect('clicked(bool)', self.onCreateModelButton)
+        self.createModelButton.setStyleSheet("background-color: green; font: bold")
+        # learn spectra button
+
+        self.learnSpectraButton = qt.QPushButton("Learn Spectra")
+        self.learnSpectraButton.toolTip = "Begin systematic surface scan"
+        self.learnSpectraButton.enabled = True
+        connect_to_printerFormLayout.addRow(self.learnSpectraButton)
+        self.learnSpectraButton.connect('clicked(bool)', self.onLearnSpectraButton)
+        self.learnSpectraButton.setStyleSheet("background-color: green; font: bold")
+
+
+        self.SetTumorBoundariesButton = qt.QPushButton("Set Tumor Boundaries")
+        self.SetTumorBoundariesButton.toolTip = "Begin systematic surface scan"
+        self.SetTumorBoundariesButton.enabled = True
+        connect_to_printerFormLayout.addRow(self.SetTumorBoundariesButton)
+        self.SetTumorBoundariesButton.connect('clicked(bool)', self.onSetTumorBoundaries)
+        self.SetTumorBoundariesButton.setStyleSheet("background-color: green; font: bold")
         # Surface scan button
         #
         self.scanButton = qt.QPushButton("GO")
@@ -222,6 +244,19 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         if self.logic.tumorDetection(self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
             self.logic.get_coordinates()
 
+    def onCreateModelButton(self):
+        self.logic.createModel()
+
+    def onLearnSpectraButton(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+        self.logic.getSpectralData(self.outputArraySelector.currentNode())
+
+    def onSetTumorBoundaries(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+        self.logic.setTumorBoundaries()
+
 
 # in order to access and read specific data points use this function
 # def onTestingButton(self):
@@ -256,6 +291,15 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.nodeCreated = 0
         self.distanceArrayCreated = 0
         self.iterationVariable = 1
+        self.pointNumber = 1
+        # Polydata attributes
+        self.dataCollection = vtk.vtkPolyData()
+        self.dataPoints = vtk.vtkPoints()
+
+        self.referenceSpectra = vtk.vtkPolyData()
+        self.spectra = vtk.vtkPoints()
+
+
         # instantiate coordinate values
         self.getCoordinateCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.getCoordinateCmd.SetCommandName('SendText')
@@ -352,6 +396,26 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         probedPoints.GetPointData().GetScalars().Modified()
 
+    def getSpectralData(self, outputArrayNode):
+        self.outputArrayNode = outputArrayNode
+        pointsArray = self.outputArrayNode.GetArray()
+
+        self.spectra.SetNumberOfPoints(100)
+        for i in xrange(0,101,1):
+            self.spectra.SetPoint(i,pointsArray.GetTuple(i))
+        print"Spectra collected."
+
+
+    def setTumorBoundaries(self):
+        self.referenceSpectra = vtk.vtkPolyData()
+        self.referenceSpectra.SetPoints(self.spectra)
+        print "Boundaries set."
+         # 10 specifies coordinates to be float values
+
+    #def spectrumComparison(self, outputArrayNode):
+
+
+
     def tumorDetection(self, outputArrayNode):
         self.outputArrayNode = outputArrayNode
         pointsArray = self.outputArrayNode.GetArray()
@@ -371,8 +435,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         # wavelengthValue = pointsArray.GetComponent(63,0) #checks the 187th point in the data stream
         # intensityValue = pointsArray.GetComponent(62, 1)
 
-        tumorCheck = pointsArray.GetComponent(62,
-                                              1)  # Access the intensity value of the 62nd data point which corresponds to approximatley the 696th wavelength
+        tumorCheck = pointsArray.GetComponent(62,1)  # Access the intensity value of the 62nd data point which corresponds to approximatley the 696th wavelength
         healthyCheck = pointsArray.GetComponent(68,
                                                 1)  # Access the intensity value of the 68th data point which corresponds to approximatley the 750th wavelength
 
@@ -411,12 +474,12 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         zvalues = mylist[2].split(":")
         zcoordinate = float(zvalues[1])
 
-        for i in xrange(0,7,1):
-          dataCollection = self.fiducialMarker(xcoordinate, ycoordinate, zcoordinate)
+        self.dataCollection = self.fiducialMarker( xcoordinate, ycoordinate, zcoordinate)
 
-          i = i + 1
-          if i == 6:
-            slicer.modules.models.logic().AddModel(dataCollection)
+
+
+        #self.createModel(self.dataCollection)
+
         # Create 1 distance array to store distances from origin in order to determine the width of the specimen and the approximate surface area
 
         #self.numberOfFiducials = 28;  # can be adjusted depending on how many fiducial points are required for an accurate reading
@@ -454,11 +517,21 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         return Width
 
     def fiducialMarker(self, xcoordinate, ycoordinate, zcoordinate):
-        dataCollection = vtk.vtkPolyData()
-        dataPoints = vtk.vtkPoints()
-        dataPoints.InsertPoint(10,xcoordinate, ycoordinate, zcoordinate) # 10 specifies coordinates to be float values
-        dataCollection.SetPoints(dataPoints)
-        return dataCollection
+        if self.nodeCreated < 1:
+            self.dataPoints.SetNumberOfPoints(17) # this number will change
+            self.nodeCreated = self.nodeCreated + 1
+            self.dataPoints.SetPoint(0,xcoordinate, ycoordinate, zcoordinate) # 10 specifies coordinates to be float values
+        else:
+            self.dataPoints.SetPoint(self.pointNumber, xcoordinate, ycoordinate, zcoordinate)  # 10 specifies coordinates to be float values
+            self.pointNumber = self.pointNumber + 1
+        #self.dataCollection.SetPoints(dataPoints)
+
+
+    def createModel(self):
+        self.dataCollection = vtk.vtkPolyData()
+        self.dataCollection.SetPoints(self.dataPoints)
+        #print(self.dataCollection)
+        slicer.modules.models.logic().AddModel(self.dataCollection)
 
 
 
