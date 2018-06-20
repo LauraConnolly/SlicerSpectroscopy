@@ -112,6 +112,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.outputArraySelector.setToolTip("Pick the output to the algorithm.")
         connect_to_printerFormLayout.addRow("Output spectrum array: ", self.outputArraySelector)
         #
+        # Shape Selector
+        #
+        self.shapeSelector = qt.QSpinBox()
+        self.shapeSelector.setMinimum(0)
+        self.shapeSelector.setMaximum(6)
+        self.shapeSelector.setValue(0)
+        connect_to_printerFormLayout.addRow("Number of vertices:", self.shapeSelector)
+
         # X Resolution
         #
         self.xResolution_spinbox = qt.QSpinBox()
@@ -144,7 +152,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         connect_to_printerFormLayout.addRow(self.testingButton)
         self.testingButton.connect('clicked(bool)', self.onTestingButton)
 
-
         self.createModelButton = qt.QPushButton("Model")
         self.createModelButton.toolTip = "Begin systematic surface scan"
         self.createModelButton.enabled = True
@@ -159,7 +166,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         connect_to_printerFormLayout.addRow(self.learnSpectraButton)
         self.learnSpectraButton.connect('clicked(bool)', self.onLearnSpectraButton)
         self.learnSpectraButton.setStyleSheet("background-color: green; font: bold")
-
 
         self.SetTumorBoundariesButton = qt.QPushButton("Set Tumor Boundaries")
         self.SetTumorBoundariesButton.toolTip = "Begin systematic surface scan"
@@ -185,6 +191,12 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         connect_to_printerFormLayout.addRow(self.stopButton)
         self.stopButton.connect('clicked(bool)', self.onStopButton)
         self.stopButton.setStyleSheet("background-color: red; font: bold")
+
+        self.geometricAnalysisButton = qt.QPushButton("Geometric Analysis")
+        self.geometricAnalysisButton.toolTip = "Requires restart."
+        self.geometricAnalysisButton.enabled = True
+        connect_to_printerFormLayout.addRow(self.geometricAnalysisButton)
+        self.geometricAnalysisButton.connect('clicked(bool)', self.onGeometricAnalysis)
 
         self.layout.addStretch(1)
 
@@ -214,21 +226,20 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.timeValue = self.timeDelay_spinbox.value
         xResolution = self.xResolution_spinbox.value
         yResolution = self.yResolution_spinbox.value
-        self.logic.xLoop(self.timeValue, xResolution, yResolution)  # calls a loop to toggle printer back and forth in the x direction
-        self.logic.yLoop(self.timeValue, yResolution, xResolution)  # calls a loop to increment the printer back in the y direction
-
-
+        self.logic.xLoop(self.timeValue, xResolution,
+                         yResolution)  # calls a loop to toggle printer back and forth in the x direction
+        self.logic.yLoop(self.timeValue, yResolution,
+                         xResolution)  # calls a loop to increment the printer back in the y direction
 
         # tissue analysis
         self.tumorTimer = qt.QTimer()
         self.iterationTimingValue = 0
         stopsToVisitX = 120 / xResolution
         stopsToVisitY = 120 / yResolution
-        for self.iterationTimingValue in range(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + self.timeValue, self.timeValue):  # 300 can be changed to x resolution by y resolution
+        for self.iterationTimingValue in range(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + self.timeValue,
+                                               self.timeValue):  # 300 can be changed to x resolution by y resolution
             self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
             self.iterationTimingValue = self.iterationTimingValue + self.timeValue  # COMMENT OUT MAYBE!
-
-
 
     def onTumorButton(self):
         self.onSerialIGLTSelectorChanged()
@@ -242,11 +253,13 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-        if self.logic.spectrumComparison(self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
+        if self.logic.spectrumComparison(
+                self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
             self.logic.get_coordinates()
 
     def onCreateModelButton(self):
         self.logic.createModel()
+        # self.logic.createVTKCellArray()
 
     def onLearnSpectraButton(self):
         self.ondoubleArrayNodeChanged()
@@ -262,6 +275,18 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
         self.logic.spectrumComparison(self.outputArraySelector.currentNode())
+
+    def onGeometricAnalysis(self):
+        if self.shapeSelector.value == 0:
+            print("Area : ", self.logic.VertexAnalysis())
+        if self.shapeSelector.value == 1:
+            print(" Area: ", self.logic.squareAnalysis())
+        if self.shapeSelector.value == 2:
+            print ("Length:", self.logic.LineAnalysis())
+        if self.shapeSelector.value == 3:
+            print("Area:", self.logic.triangleAnalysis())
+        if self.shapeSelector.value == 4:
+            print(" Area: ", self.logic.squareAnalysis())
 
 
 # in order to access and read specific data points use this function
@@ -283,6 +308,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
   Uses ScriptedLoadableModuleLogic base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
+    _distanceArray = []
+    _yHeightArray = []
 
     def __init__(self):
         self.baud_rate = 115200
@@ -298,8 +325,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.distanceArrayCreated = 0
         self.iterationVariable = 1
         self.pointNumber = 1
+        self.spectraCollectedflag = 0
         # Polydata attributes
-        self.dataCollection = vtk.vtkPolyData()
+        # self.dataCollection = vtk.vtkPolyData()
         self.dataPoints = vtk.vtkPoints()
 
         self.referenceSpectra = vtk.vtkPolyData()
@@ -410,43 +438,46 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         referencePointsArray = self.referenceOutputArrayNode.GetArray()
 
         self.spectra.SetNumberOfPoints(100)
-        for i in xrange(0,101,1):
-            self.spectra.SetPoint(i,referencePointsArray.GetTuple(i))
-        print"Spectra collected."
+        for i in xrange(0, 101, 1):
+            self.spectra.SetPoint(i, referencePointsArray.GetTuple(i))
 
+        self.spectraCollectedflag = 1
+        print"Spectra collected."
 
     def setTumorBoundaries(self):
         self.referenceSpectra = vtk.vtkPolyData()
         self.referenceSpectra.SetPoints(self.spectra)
         print "Boundaries set."
-         # 10 specifies coordinates to be float values
+        # 10 specifies coordinates to be float values
 
     def spectrumComparison(self, outputArrayNode):
+
+        if self.spectraCollectedflag == 0:
+            print " Error: reference spectrum not collected."
+            return
+
         self.currentOutputArrayNode = outputArrayNode
         currentPointsArray = self.currentOutputArrayNode.GetArray()
 
         self.currentSpectrum.SetNumberOfPoints(100)
-        for i in xrange(0,101,1):
-            self.currentSpectrum.SetPoint(i,currentPointsArray.GetTuple(i))
+        for i in xrange(0, 101, 1):
+            self.currentSpectrum.SetPoint(i, currentPointsArray.GetTuple(i))
 
-   
         self.averageDifferences = 0
 
-        for j in xrange(0,101,1):
+        for j in xrange(0, 101, 1):
             x = self.currentSpectrum.GetPoint(j)
             y = self.spectra.GetPoint(j)
-            self.averageDifferences = self.averageDifferences + (x[1]- y[1])
+            self.averageDifferences = self.averageDifferences + (x[1] - y[1])
 
+        print(self.averageDifferences)
 
-
-        if (self.averageDifferences) < 2:
+        if (self.averageDifferences) < 10:
             print " tumor"
             return False
         else:
             print "healthy"
             return True
-
-
 
     def get_coordinates(self):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.getCoordinateCmd, self.serialIGTLNode.GetID())
@@ -472,43 +503,89 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         zvalues = mylist[2].split(":")
         zcoordinate = float(zvalues[1])
 
-        self.dataCollection = self.createPolyDataPoint( xcoordinate, ycoordinate, zcoordinate)
+        self.dataCollection = self.createPolyDataPoint(xcoordinate, ycoordinate, zcoordinate)
 
+        distance = self.calculateDistance(xcoordinate, ycoordinate)
+        self._distanceArray.append(distance)
+        self._yHeightArray.append(ycoordinate)
+        print(self._distanceArray)
 
+    def VertexAnalysis(self):
+        return self.circleAreaAnalysis(self._distanceArray)  # will change to function call
 
-        #TODO: come back to this and determine in the distance calculation is helpful
+    def LineAnalysis(self):
+        return self.doubleVertexAnalysis(self._distanceArray)
 
-        #self.createModel(self.dataCollection)
+    def triangleAnalysis(self):
+        return self.triangleAreaAnalysis(self._distanceArray)
+
+    def squareAnalysis(self):
+        return self.fourVertexAnalysis(self._distanceArray)
+
+    def pentagonAnalysis(self):
+        return self.fiveVertexAnalysis(self._distanceArray)
+
+    def circleAreaAnalysis(self, distanceArray):
+        Width = self.calculateMetric(distanceArray)
+        Area = (((Width) / 2) ** 2) * math.pi
+
+    def fourVertexAnalysis(self, distanceArray):
+        Width = self.calculateMetric(distanceArray)
+
+        Area = Width ** 2
+        return Area
+
+    # def fiveVertexAnalysis(self, distanceArray):
+
+    def doubleVertexAnalysis(self, distanceArray):
+        Width = self.calculateMetric(distanceArray)
+
+        Length = Width
+        return Length
+
+    def triangleAreaAnalysis(self, distanceArray):
+        self.getTriangleBaseandHeight(distanceArray)
+        Area = (self.Base * self.Height) / 2
+        return Area
+
+        # TODO: come back to this and determine in the distance calculation is helpful
+
+        # self.createModel(self.dataCollection)
 
         # Create 1 distance array to store distances from origin in order to determine the width of the specimen and the approximate surface area
 
-        #self.numberOfFiducials = 28;  # can be adjusted depending on how many fiducial points are required for an accurate reading
-        #if self.distanceArrayCreated < 1:
-         #   self.distanceArray = [
-          #                           None] * self.numberOfFiducials  # create an array to store the distance of each fiducial point from point (0,0)
-           # self.distanceArrayCreated = 1
+    # if self.pointGenerated < 1:  # make sure to only create one node
+    #    self.createPolyDataPoint(xcoordinate, ycoordinate, zcoordinate)
+    #   self.pointGenerated = self.pointGenerated + 1
+    #  distance = self.calculateDistance(xcoordinate,
+    # ycoordinate)  # compute the distance of each fiducial from the point (0,0)
+    # self.distanceArray[0] = distance  # Store the first value in the first position in the array
+    # else:
+    #    self.addToCurrentNode(xcoordinate, ycoordinate, zcoordinate)  # add fiducials to existing node
+    #   self.numberOfFiducials = self.numberOfFiducials + 1
+    #  distance = self.calculateDistance(xcoordinate,
+    # ycoordinate)  # compute the distance of each fiducial from the point (0,0)
+    # for i in xrange(1,9,1): #should be len(distanceArray)
+    # self.distanceArray[self.iterationVariable] = distance
+    # if self.iterationVariable < 27:  # change to appropriate number of fiducials for accurate measurement
+    #   self.iterationVariable = self.iterationVariable + 1  # continue storing distances in the array until enough fiducials have been collected for an accurate measurement
+    # print(self.distanceArray)
+    # else:
+    #   width = self.calculateMetric(self.distanceArray)
+    #   surfaceArea = width * width
+    #  print('Width is: %.2f' % width)
+    # print('SurfaceArea is: %.2f' % surfaceArea)
 
-       # if self.pointGenerated < 1:  # make sure to only create one node
-        #    self.createPolyDataPoint(xcoordinate, ycoordinate, zcoordinate)
-         #   self.pointGenerated = self.pointGenerated + 1
-          #  distance = self.calculateDistance(xcoordinate,
-                                              #ycoordinate)  # compute the distance of each fiducial from the point (0,0)
-           # self.distanceArray[0] = distance  # Store the first value in the first position in the array
-       # else:
-        #    self.addToCurrentNode(xcoordinate, ycoordinate, zcoordinate)  # add fiducials to existing node
-         #   self.numberOfFiducials = self.numberOfFiducials + 1
-          #  distance = self.calculateDistance(xcoordinate,
-                                             # ycoordinate)  # compute the distance of each fiducial from the point (0,0)
-            # for i in xrange(1,9,1): #should be len(distanceArray)
-           # self.distanceArray[self.iterationVariable] = distance
-            #if self.iterationVariable < 27:  # change to appropriate number of fiducials for accurate measurement
-             #   self.iterationVariable = self.iterationVariable + 1  # continue storing distances in the array until enough fiducials have been collected for an accurate measurement
-                # print(self.distanceArray)
-            #else:
-             #   width = self.calculateMetric(self.distanceArray)
-             #   surfaceArea = width * width
-              #  print('Width is: %.2f' % width)
-               # print('SurfaceArea is: %.2f' % surfaceArea)
+    def getTriangleBaseandHeight(self, distanceArray):
+        self.Base = min(distanceArray)
+        self.Height = max(distanceArray) - self.Base
+        return self.Base, self.Height
+
+    # def calculateSideLength(self, distanceArray, yHeightArray):
+    #    minDistance = min(distanceArray)
+    #   yHeight = min(yHeightArray)
+    #  for i in xrange(0,20,1):
+    #     maxXforY = distanceArray[i]
 
     def calculateMetric(self, distanceArray):
         maxDistance = max(distanceArray)
@@ -518,22 +595,33 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def createPolyDataPoint(self, xcoordinate, ycoordinate, zcoordinate):
         if self.pointGenerated < 1:
-            self.dataPoints.SetNumberOfPoints(100) # allocate space for up to 100 data points
+            self.dataPoints.SetNumberOfPoints(100)  # allocate space for up to 100 data points
             self.pointGenerated = self.pointGenerated + 1
-            self.dataPoints.SetPoint(0,xcoordinate, ycoordinate, zcoordinate) # 10 specifies coordinates to be float values
+            self.dataPoints.SetPoint(0, xcoordinate, ycoordinate,
+                                     zcoordinate)  # 10 specifies coordinates to be float values
         else:
-            self.dataPoints.SetPoint(self.pointNumber, xcoordinate, ycoordinate, zcoordinate)  # 10 specifies coordinates to be float values
+            self.dataPoints.SetPoint(self.pointNumber, xcoordinate, ycoordinate,
+                                     zcoordinate)  # 10 specifies coordinates to be float values
             self.pointNumber = self.pointNumber + 1
 
-
+    def createVTKCellArray(self):
+        self.dataArray = slicer.vtkCommonDataModelPython.vtkCellArray
+        self.dataArray.SetNumberOfCells(100)  # allocate space for up to 100 data points
+        self.dataArray.SetCells(self.dataPoints)
+        vertices = np.array([[0, 0, 0],
+                             [1, 0, 0],
+                             [1, 1, 0],
+                             [0, 1, 0]])
+        faces = np.hstack([[4, 0, 1, 2, 3]])
+        surf = vtkInterface.PolyData(vertices, faces)
+        surf.Plot(scalars=np.arange(1))
 
     def createModel(self):
         self.dataCollection = vtk.vtkPolyData()
         self.dataCollection.SetPoints(self.dataPoints)
 
         slicer.modules.models.logic().AddModel(self.dataCollection)
-
-
+        print "Model created from all data points collected."
 
     def calculateDistance(self, xcoordinate, ycoordinate):
         distance = math.sqrt((xcoordinate * xcoordinate) + (ycoordinate * ycoordinate))
@@ -592,7 +680,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def xLoop(self, timeValue, xResolution, yResolution):
         # necessary for looping the x commands on static intervals
         oscillatingTime = (
-                                      120 / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
+                                  120 / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
         lengthOfOneWidth = ((120 / xResolution) * 2) * timeValue
         # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
         for xCoordinateValue in xrange(0, (oscillatingTime * lengthOfOneWidth) + lengthOfOneWidth,
@@ -606,7 +694,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.scanTimer = qt.QTimer()
         for xValue in xrange(0, 120, xResolution):  # increment by 10 until 120
             delayMs = xCoordinate + xValue * (
-                        timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
+                    timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
             self.XMovement(delayMs, xValue)
 
     def xWidthBackwards(self, xCoordinate, timeValue, xResolution):
@@ -615,7 +703,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.scanTimer = qt.QTimer()
         for xValue in xrange(120, 0, -xResolution):
             delayMs = abs(xValue - 120) * (timeValue / xResolution) + (
-                        120 / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
+                    120 / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
             self.XMovement(delayMs, xValue)
 
     # Movement Controls (single shot, lambda timers for simple G Code message sending)
