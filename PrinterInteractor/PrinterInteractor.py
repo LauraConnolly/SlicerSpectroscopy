@@ -253,8 +253,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-        if self.logic.spectrumComparison(
-                self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
+        if self.logic.spectrumComparison(self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
             self.logic.get_coordinates()
 
     def onCreateModelButton(self):
@@ -287,6 +286,10 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
             print("Area:", self.logic.triangleAnalysis())
         if self.shapeSelector.value == 4:
             print(" Area: ", self.logic.squareAnalysis())
+
+         # pentagon area analysis isn't working
+        if self.shapeSelector.value == 5:
+            print(" Area: ", self.logic.pentagonAnalysis())
 
 
 # in order to access and read specific data points use this function
@@ -326,6 +329,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.iterationVariable = 1
         self.pointNumber = 1
         self.spectraCollectedflag = 0
+        self.maxXforY = 0
         # Polydata attributes
         # self.dataCollection = vtk.vtkPolyData()
         self.dataPoints = vtk.vtkPoints()
@@ -523,11 +527,12 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         return self.fourVertexAnalysis(self._distanceArray)
 
     def pentagonAnalysis(self):
-        return self.fiveVertexAnalysis(self._distanceArray)
+        return self.fiveVertexAnalysis(self._distanceArray, self._yHeightArray)
 
     def circleAreaAnalysis(self, distanceArray):
         Width = self.calculateMetric(distanceArray)
         Area = (((Width) / 2) ** 2) * math.pi
+        return Area
 
     def fourVertexAnalysis(self, distanceArray):
         Width = self.calculateMetric(distanceArray)
@@ -535,7 +540,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         Area = Width ** 2
         return Area
 
-    # def fiveVertexAnalysis(self, distanceArray):
+    def fiveVertexAnalysis(self, distanceArray, yHeightArray):
+        self.minDistance = min(distanceArray)
+        self.calculateSideLength(distanceArray, yHeightArray)
+        SideLength = self.maxXforY - self.minDistance
+        print(SideLength)
+        Area = (1/4) * (math.sqrt(5*(5+2*math.sqrt(5)))) * ((SideLength) ** 2)
+        return Area
 
     def doubleVertexAnalysis(self, distanceArray):
         Width = self.calculateMetric(distanceArray)
@@ -550,42 +561,27 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         # TODO: come back to this and determine in the distance calculation is helpful
 
-        # self.createModel(self.dataCollection)
 
-        # Create 1 distance array to store distances from origin in order to determine the width of the specimen and the approximate surface area
 
-    # if self.pointGenerated < 1:  # make sure to only create one node
-    #    self.createPolyDataPoint(xcoordinate, ycoordinate, zcoordinate)
-    #   self.pointGenerated = self.pointGenerated + 1
-    #  distance = self.calculateDistance(xcoordinate,
-    # ycoordinate)  # compute the distance of each fiducial from the point (0,0)
-    # self.distanceArray[0] = distance  # Store the first value in the first position in the array
-    # else:
-    #    self.addToCurrentNode(xcoordinate, ycoordinate, zcoordinate)  # add fiducials to existing node
-    #   self.numberOfFiducials = self.numberOfFiducials + 1
-    #  distance = self.calculateDistance(xcoordinate,
-    # ycoordinate)  # compute the distance of each fiducial from the point (0,0)
-    # for i in xrange(1,9,1): #should be len(distanceArray)
-    # self.distanceArray[self.iterationVariable] = distance
-    # if self.iterationVariable < 27:  # change to appropriate number of fiducials for accurate measurement
-    #   self.iterationVariable = self.iterationVariable + 1  # continue storing distances in the array until enough fiducials have been collected for an accurate measurement
-    # print(self.distanceArray)
-    # else:
-    #   width = self.calculateMetric(self.distanceArray)
-    #   surfaceArea = width * width
-    #  print('Width is: %.2f' % width)
-    # print('SurfaceArea is: %.2f' % surfaceArea)
 
     def getTriangleBaseandHeight(self, distanceArray):
         self.Base = min(distanceArray)
         self.Height = max(distanceArray) - self.Base
         return self.Base, self.Height
 
-    # def calculateSideLength(self, distanceArray, yHeightArray):
-    #    minDistance = min(distanceArray)
-    #   yHeight = min(yHeightArray)
-    #  for i in xrange(0,20,1):
-    #     maxXforY = distanceArray[i]
+    def calculateSideLength(self, distanceArray, yHeightArray):
+
+        yMin = min(yHeightArray)
+
+        for i in xrange(0,4,1):
+            if yHeightArray[i] == yMin:
+                 if distanceArray[i] > distanceArray[i-1]:
+                     self.maxXforY = distanceArray[i]
+        return self.maxXforY
+
+
+
+
 
     def calculateMetric(self, distanceArray):
         maxDistance = max(distanceArray)
@@ -597,24 +593,11 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         if self.pointGenerated < 1:
             self.dataPoints.SetNumberOfPoints(100)  # allocate space for up to 100 data points
             self.pointGenerated = self.pointGenerated + 1
-            self.dataPoints.SetPoint(0, xcoordinate, ycoordinate,
-                                     zcoordinate)  # 10 specifies coordinates to be float values
+            self.dataPoints.SetPoint(0, xcoordinate, ycoordinate, zcoordinate)  # 10 specifies coordinates to be float values
         else:
-            self.dataPoints.SetPoint(self.pointNumber, xcoordinate, ycoordinate,
-                                     zcoordinate)  # 10 specifies coordinates to be float values
+            self.dataPoints.SetPoint(self.pointNumber, xcoordinate, ycoordinate, zcoordinate)  # 10 specifies coordinates to be float values
             self.pointNumber = self.pointNumber + 1
 
-    def createVTKCellArray(self):
-        self.dataArray = slicer.vtkCommonDataModelPython.vtkCellArray
-        self.dataArray.SetNumberOfCells(100)  # allocate space for up to 100 data points
-        self.dataArray.SetCells(self.dataPoints)
-        vertices = np.array([[0, 0, 0],
-                             [1, 0, 0],
-                             [1, 1, 0],
-                             [0, 1, 0]])
-        faces = np.hstack([[4, 0, 1, 2, 3]])
-        surf = vtkInterface.PolyData(vertices, faces)
-        surf.Plot(scalars=np.arange(1))
 
     def createModel(self):
         self.dataCollection = vtk.vtkPolyData()
