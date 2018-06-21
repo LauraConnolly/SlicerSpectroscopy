@@ -114,11 +114,11 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #
         # Shape Selector
         #
-        self.shapeSelector = qt.QSpinBox()
-        self.shapeSelector.setMinimum(0)
-        self.shapeSelector.setMaximum(6)
-        self.shapeSelector.setValue(0)
-        connect_to_printerFormLayout.addRow("Number of vertices:", self.shapeSelector)
+        #self.shapeSelector = qt.QSpinBox()
+        #self.shapeSelector.setMinimum(0)
+        #self.shapeSelector.setMaximum(6)
+        #self.shapeSelector.setValue(0)
+        #connect_to_printerFormLayout.addRow("Number of vertices:", self.shapeSelector)
 
         # X Resolution
         #
@@ -146,11 +146,11 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         connect_to_printerFormLayout.addRow("Time for data delay (ms) :", self.timeDelay_spinbox)
         # Testing button
         #
-        self.testingButton = qt.QPushButton("Test spectra")
-        self.testingButton.toolTip = "Immediately stop printer motors, requires restart."
-        self.testingButton.enabled = True
-        connect_to_printerFormLayout.addRow(self.testingButton)
-        self.testingButton.connect('clicked(bool)', self.onTestingButton)
+        self.moveMiddleButton = qt.QPushButton("Middle")
+        self.moveMiddleButton.toolTip = "Immediately stop printer motors, requires restart."
+        self.moveMiddleButton.enabled = True
+        connect_to_printerFormLayout.addRow(self.moveMiddleButton)
+        self.moveMiddleButton.connect('clicked(bool)', self.onTestingButton)
 
         self.createModelButton = qt.QPushButton("Model")
         self.createModelButton.toolTip = "Begin systematic surface scan"
@@ -192,11 +192,11 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.stopButton.connect('clicked(bool)', self.onStopButton)
         self.stopButton.setStyleSheet("background-color: red; font: bold")
 
-        self.geometricAnalysisButton = qt.QPushButton("Geometric Analysis")
-        self.geometricAnalysisButton.toolTip = "Requires restart."
-        self.geometricAnalysisButton.enabled = True
-        connect_to_printerFormLayout.addRow(self.geometricAnalysisButton)
-        self.geometricAnalysisButton.connect('clicked(bool)', self.onGeometricAnalysis)
+        #self.geometricAnalysisButton = qt.QPushButton("Geometric Analysis")
+        #self.geometricAnalysisButton.toolTip = "Requires restart."
+        #self.geometricAnalysisButton.enabled = True
+        #connect_to_printerFormLayout.addRow(self.geometricAnalysisButton)
+        #self.geometricAnalysisButton.connect('clicked(bool)', self.onGeometricAnalysis)
 
         self.layout.addStretch(1)
 
@@ -236,7 +236,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.iterationTimingValue = 0
         stopsToVisitX = 120 / xResolution
         stopsToVisitY = 120 / yResolution
-        for self.iterationTimingValue in range(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + self.timeValue,
+        for self.iterationTimingValue in range(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + 10*self.timeValue,
                                                self.timeValue):  # 300 can be changed to x resolution by y resolution
             self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
             self.iterationTimingValue = self.iterationTimingValue + self.timeValue  # COMMENT OUT MAYBE!
@@ -257,9 +257,9 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
             self.logic.get_coordinates()
 
     def onCreateModelButton(self):
-        self.logic.createModel()
+        #self.logic.createModel()
         # self.logic.createVTKCellArray()
-
+        self.logic.createTriangles()
     def onLearnSpectraButton(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
@@ -273,7 +273,8 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     def onTestingButton(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-        self.logic.spectrumComparison(self.outputArraySelector.currentNode())
+        self.logic.middleMovement()
+        #self.logic.spectrumComparison(self.outputArraySelector.currentNode())
 
     def onGeometricAnalysis(self):
         if self.shapeSelector.value == 0:
@@ -330,16 +331,22 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.pointNumber = 1
         self.spectraCollectedflag = 0
         self.maxXforY = 0
+        self.fiducialCount = 0
         # Polydata attributes
         # self.dataCollection = vtk.vtkPolyData()
         self.dataPoints = vtk.vtkPoints()
-
+        self.trianglePoints = vtk.vtkPoints()
+        self.Triangles = vtk.vtkCellArray()
+        self.tumorThreshold = vtk.vtkPoints()
+        self.thresholdPointGenerated = 0
         self.referenceSpectra = vtk.vtkPolyData()
         self.spectra = vtk.vtkPoints()
+        self.changingVariable = 0
 
         self.currentSpectrum = vtk.vtkPoints()
 
         self.averageDifferences = 0
+        self.colours = vtk.vtkNamedColors()
 
         # instantiate coordinate values
         self.getCoordinateCmd = slicer.vtkSlicerOpenIGTLinkCommand()
@@ -371,6 +378,12 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.yControlCmd.SetCommandName('SendText')
         self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
         self.yControlCmd.SetCommandTimeoutSec(1.0)
+
+        # instantiate move middle command
+        self.printerControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+        self.printerControlCmd.SetCommandName('SendText')
+        self.printerControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+        self.printerControlCmd.SetCommandTimeoutSec(1.0)
 
         #
         self.timePerXWidth = 26.5
@@ -472,11 +485,11 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         for j in xrange(0, 101, 1):
             x = self.currentSpectrum.GetPoint(j)
             y = self.spectra.GetPoint(j)
-            self.averageDifferences = self.averageDifferences + (x[1] - y[1])
+            self.averageDifferences = self.averageDifferences + (y[1] - x[1])
 
         print(self.averageDifferences)
 
-        if (self.averageDifferences) < 10:
+        if (self.averageDifferences) < 7: # 10 WAS MOST ACCURATE YESTERDAY
             print " tumor"
             return False
         else:
@@ -508,11 +521,61 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         zcoordinate = float(zvalues[1])
 
         self.dataCollection = self.createPolyDataPoint(xcoordinate, ycoordinate, zcoordinate)
+        if self.fiducialCount < 1:
 
+            self.fiducialMarker(xcoordinate, ycoordinate, zcoordinate)
+            self.fiducialCount = self.fiducialCount + 1
+        else:
+            self.addToCurrentNode(xcoordinate, ycoordinate, zcoordinate)
         distance = self.calculateDistance(xcoordinate, ycoordinate)
         self._distanceArray.append(distance)
         self._yHeightArray.append(ycoordinate)
-        print(self._distanceArray)
+        #print(self._distanceArray)
+
+    def fiducialMarker(self, xcoordinate, ycoordinate, zcoordinate):
+        self.fiducialNode = slicer.vtkMRMLMarkupsFiducialNode()
+        slicer.mrmlScene.AddNode(self.fiducialNode)
+        self.fiducialNode.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
+
+    def addToCurrentNode(self, xcoordinate, ycoordinate, zcoordinate):
+        self.fiducialNode.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
+        self.fiducialCount = self.fiducialCount + 1
+        print(self.fiducialCount)
+
+    def createPolyDataPoint(self, xcoordinate, ycoordinate, zcoordinate):
+        if self.pointGenerated < 1:
+            self.dataPoints.SetNumberOfPoints(700)  # allocate space for up to 100 data points
+            self.trianglePoints.SetNumberOfPoints(700)
+            self.trianglePoints.InsertNextPoint(xcoordinate, ycoordinate, zcoordinate)
+            self.pointGenerated = self.pointGenerated + 1
+            self.dataPoints.SetPoint(0, xcoordinate, ycoordinate, zcoordinate)  # 10 specifies coordinates to be float values
+        else:
+            self.dataPoints.SetPoint(self.pointNumber, xcoordinate, ycoordinate, zcoordinate)  # 10 specifies coordinates to be float values
+            self.trianglePoints.InsertNextPoint(xcoordinate, ycoordinate, zcoordinate)
+            self.pointNumber = self.pointNumber + 1
+            print(self.pointNumber)
+
+    def createTriangles(self):
+        self.Triangle = vtk.vtkTriangle()
+        self.Triangle.GetPointIds().SetId(self.changingVariable,self.changingVariable)
+        self.Triangle.GetPointIds().SetId(self.changingVariable + 1,self.changingVariable + 1)
+        self.Triangle.GetPointIds().SetId(self.changingVariable + 2,self.changingVariable + 2)
+        self.Triangles.InsertNextCell( self.Triangle)
+        self.trianglePolyDataCollection = vtk.vtkPolyData()
+        self.trianglePolyDataCollection.SetPoints (self.trianglePoints)
+        self.trianglePolyDataCollection.SetPolys( self.Triangle)
+
+
+
+
+    def createModel(self):
+        self.dataCollection = vtk.vtkPolyData()
+        self.dataCollection.SetPoints(self.dataPoints)
+
+        slicer.modules.models.logic().AddModel(self.dataCollection)
+        print "Model created from all data points collected."
+
+     # Geometric analysis based on how many vertices the object being scanned has and distance between polydata points
 
     def VertexAnalysis(self):
         return self.circleAreaAnalysis(self._distanceArray)  # will change to function call
@@ -559,11 +622,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         Area = (self.Base * self.Height) / 2
         return Area
 
-        # TODO: come back to this and determine in the distance calculation is helpful
-
-
-
-
     def getTriangleBaseandHeight(self, distanceArray):
         self.Base = min(distanceArray)
         self.Height = max(distanceArray) - self.Base
@@ -580,31 +638,12 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         return self.maxXforY
 
 
-
-
-
     def calculateMetric(self, distanceArray):
         maxDistance = max(distanceArray)
         minDistance = min(distanceArray)
         Width = maxDistance - minDistance
         return Width
 
-    def createPolyDataPoint(self, xcoordinate, ycoordinate, zcoordinate):
-        if self.pointGenerated < 1:
-            self.dataPoints.SetNumberOfPoints(100)  # allocate space for up to 100 data points
-            self.pointGenerated = self.pointGenerated + 1
-            self.dataPoints.SetPoint(0, xcoordinate, ycoordinate, zcoordinate)  # 10 specifies coordinates to be float values
-        else:
-            self.dataPoints.SetPoint(self.pointNumber, xcoordinate, ycoordinate, zcoordinate)  # 10 specifies coordinates to be float values
-            self.pointNumber = self.pointNumber + 1
-
-
-    def createModel(self):
-        self.dataCollection = vtk.vtkPolyData()
-        self.dataCollection.SetPoints(self.dataPoints)
-
-        slicer.modules.models.logic().AddModel(self.dataCollection)
-        print "Model created from all data points collected."
 
     def calculateDistance(self, xcoordinate, ycoordinate):
         distance = math.sqrt((xcoordinate * xcoordinate) + (ycoordinate * ycoordinate))
@@ -699,6 +738,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.randomScanTimer = qt.QTimer()
         self.randomScanTimer.singleShot(timevar, lambda: self.controlledXMovement(movevar))
 
+
+
     def controlledXMovement(self, xCoordinate):  # x movement
         self.xControlCmd.SetCommandAttribute('Text', 'G1 X%d' % (xCoordinate))
         slicer.modules.openigtlinkremote.logic().SendCommand(self.xControlCmd, self.serialIGTLNode.GetID())
@@ -706,7 +747,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def controlledYMovement(self, yCoordinate):  # y movement
         self.yControlCmd.SetCommandAttribute('Text', 'G1 Y%d' % (yCoordinate))
         slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, self.serialIGTLNode.GetID())
-
+    def middleMovement(self):
+        self.printerControlCmd.SetCommandAttribute('Text', 'G1 X60 Y60')
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.printerControlCmd, self.serialIGTLNode.GetID())
 
 class PrinterInteractorTest(ScriptedLoadableModuleTest):
     """
