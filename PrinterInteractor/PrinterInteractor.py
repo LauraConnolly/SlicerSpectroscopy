@@ -258,8 +258,10 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
     def onCreateModelButton(self):
         #self.logic.createModel()
+
+        self.logic.convexHull()
         # self.logic.createVTKCellArray()
-        self.logic.createTriangles()
+        #self.logic.createTriangles()
     def onLearnSpectraButton(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
@@ -342,6 +344,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.referenceSpectra = vtk.vtkPolyData()
         self.spectra = vtk.vtkPoints()
         self.changingVariable = 0
+        self.projectedHull = vtk.vtkPoints()
+        self.points = vtk.vtkPoints()
+
 
         self.currentSpectrum = vtk.vtkPoints()
 
@@ -387,6 +392,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         #
         self.timePerXWidth = 26.5
+
+        self.dataList = vtk.vtkIdList()
 
         # Timer stuff
 
@@ -489,7 +496,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         print(self.averageDifferences)
 
-        if (self.averageDifferences) < 7: # 10 WAS MOST ACCURATE YESTERDAY
+        if (self.averageDifferences) < 0: # 10 WAS MOST ACCURATE YESTERDAY
             print " tumor"
             return False
         else:
@@ -544,36 +551,103 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def createPolyDataPoint(self, xcoordinate, ycoordinate, zcoordinate):
         if self.pointGenerated < 1:
+            self.dataList.SetNumberOfIds(700)
             self.dataPoints.SetNumberOfPoints(700)  # allocate space for up to 100 data points
-            self.trianglePoints.SetNumberOfPoints(700)
-            self.trianglePoints.InsertNextPoint(xcoordinate, ycoordinate, zcoordinate)
+            #self.points.InsertNextPoint(xcoordinate, ycoordinate, zcoordinate)
             self.pointGenerated = self.pointGenerated + 1
-            self.dataPoints.SetPoint(0, xcoordinate, ycoordinate, zcoordinate)  # 10 specifies coordinates to be float values
+            #self.dataList.InsertNextId(xcoordinate, ycoordinate, zcoordinate)
+            self.dataPoints.SetPoint(0, xcoordinate, ycoordinate, zcoordinate)
         else:
             self.dataPoints.SetPoint(self.pointNumber, xcoordinate, ycoordinate, zcoordinate)  # 10 specifies coordinates to be float values
-            self.trianglePoints.InsertNextPoint(xcoordinate, ycoordinate, zcoordinate)
+
             self.pointNumber = self.pointNumber + 1
-            print(self.pointNumber)
-
-    def createTriangles(self):
-        self.Triangle = vtk.vtkTriangle()
-        self.Triangle.GetPointIds().SetId(self.changingVariable,self.changingVariable)
-        self.Triangle.GetPointIds().SetId(self.changingVariable + 1,self.changingVariable + 1)
-        self.Triangle.GetPointIds().SetId(self.changingVariable + 2,self.changingVariable + 2)
-        self.Triangles.InsertNextCell( self.Triangle)
-        self.trianglePolyDataCollection = vtk.vtkPolyData()
-        self.trianglePolyDataCollection.SetPoints (self.trianglePoints)
-        self.trianglePolyDataCollection.SetPolys( self.Triangle)
+            #self.points.InsertNextPoint(xcoordinate, ycoordinate, zcoordinate)
+            #self.dataList.InsertNextId(xcoordinate, ycoordinate, zcoordinate)
 
 
+
+    def convexHull(self):
+        pointsForHull = vtk.vtkPoints()
+        pointsForHull.InsertNextPoint(0.0,0.0,0.0)
+        pointsForHull.InsertNextPoint(0.1,0.1,0.1)
+        pointsForHull.InsertNextPoint(1.0,0.0,0.0)
+        pointsForHull.InsertNextPoint(0.0,1.0,0.0)
+        pointsForHull.InsertNextPoint(0.0,0.0,1.0)
+
+        hullPolydata = vtk.vtkPolyData()
+        hullPolydata.SetPoints(pointsForHull)
+
+        pointsWriter = vtk.vtkXMLPolyDataWriter()
+        pointsWriter.SetFileName("points.vtp")
+        pointsWriter.SetInputData(hullPolydata)
+        pointsWriter.Write()
+
+        delaunay = vtk.vtkDelaunay3D()
+        delaunay.SetInputData(hullPolydata)
+        #print(hullPolydata)
+        delaunay.Update()
+
+        ugWriter = vtk.vtkXMLUnstructuredGridWriter()
+        ugWriter.SetInputConnection(delaunay.GetOutputPort())
+        ugWriter.SetFileName("delanuay.vtu")
+        ugWriter.Write()
+
+        surfaceFilter = vtk.vtkDataSetSurfaceFilter()
+        surfaceFilter.SetInputConnection(delaunay.GetOutputPort())
+        surfaceFilter.Update()
+
+        outputWriter = vtk.vtkXMLPolyDataWriter()
+        outputWriter.SetFileName("output.vtp")
+        outputWriter.SetInputData(surfaceFilter.GetOutput())
+        outputWriter.Write()
+
+        print(surfaceFilter.GetOutputPointId())
+        #print(surfaceFilter.GetOutput())
+        #print(delaunay.SetInputData(hullPolydata))
+
+        #newPoints = vtk.vtkPoints
+        #newPoints.InsertNextPoint()
+        #accesiblePolyData = vtk.vtkPolyData()
+        #accesiblePolyData.SetPoints(surfaceFilter.GetOutput())
 
 
     def createModel(self):
-        self.dataCollection = vtk.vtkPolyData()
-        self.dataCollection.SetPoints(self.dataPoints)
 
-        slicer.modules.models.logic().AddModel(self.dataCollection)
-        print "Model created from all data points collected."
+         pph = vtk.vtkPointsProjectedHull()
+         pph.GetPoints(self.dataList, 0)
+        #points = vtk.vtkPoints()
+        #points.InsertNextPoint(0.0,0.0,0.0)
+        #points.InsertNextPoint(0.1,0.1,0.1)
+        #points.InsertNextPoint(1.0,0.0,0.0)
+        #points.InsertNextPoint(0.0,1.0,0.0)
+        #points.InsertNextPoint(0.0,0.0, 1.0)
+
+        #polydata = vtk.vtkPolyData()
+        #polydata.SetPoints(points)
+        #pointsWriter = vtk.vtkXMLPolyDataWriter()#
+
+        #pointsWriter.SetInputData(polydata)
+        #pointsWriter.Write()
+        #de = vtk.vtkDelaunay3D()
+        #de.SetInputData(polydata)
+        #de.Update()
+
+        #ugWriter = vtk.vtkXMLUnstructuredGridWriter()
+        #ugWriter.SetInputConnection(de.GetOutputPort())
+        #3ugWriter.Write()
+
+        #sf = vtk.vtkDataSetSurfaceFilter()
+        #sf.SetInputConnection(de.GetOutputPort())
+        #sf.Update()
+
+        #outputWriter = vtk.vtkXMLPolyDataWriter
+        #outputWriter.SetInputData(sf.GetOutput())
+        #outputWriter.Write()
+
+        #self.dataCollection = vtk.vtkPolyData()
+        #self.dataCollection.SetPoints(self.dataPoints)
+        #slicer.modules.models.logic().AddModel(self.dataCollection)
+
 
      # Geometric analysis based on how many vertices the object being scanned has and distance between polydata points
 
