@@ -152,7 +152,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         connect_to_printerFormLayout.addRow(self.moveMiddleButton)
         self.moveMiddleButton.connect('clicked(bool)', self.onTestingButton)
 
-        self.createModelButton = qt.QPushButton("Model")
+        self.createModelButton = qt.QPushButton("Edge Tracing")
         self.createModelButton.toolTip = "Begin systematic surface scan"
         self.createModelButton.enabled = True
         connect_to_printerFormLayout.addRow(self.createModelButton)
@@ -243,17 +243,23 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
     def onTumorButton(self):
         self.onSerialIGLTSelectorChanged()
-        self.logic.tumorDetection(self.outputArraySelector.currentNode())
+        self.logic.spectrumComparisonUV(self.outputArraySelector.currentNode())
 
     def onStopButton(self):
         self.onSerialIGLTSelectorChanged()
         self.logic.emergencyStop()
 
+        #changed to spectrum comparison UV
     def tissueDecision(self):
 
+        self.decision = 0 # change to 0 for Uv probe and 1 for black and white
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-        if self.logic.spectrumComparison(self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
+        if self.decision == 0:
+         if self.logic.spectrumComparisonUV(self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
+            self.logic.get_coordinates()
+        else:
+          if self.logic.spectrumComparison(self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
             self.logic.get_coordinates()
 
     def onCreateModelButton(self):
@@ -316,6 +322,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
   """
     _distanceArray = []
     _yHeightArray = []
+    _yHullArray = []
+    _xHullArray = []
 
     def __init__(self):
         self.baud_rate = 115200
@@ -346,7 +354,11 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.changingVariable = 0
         self.projectedHull = vtk.vtkPoints()
         self.points = vtk.vtkPoints()
+        self.pointsForHull = vtk.vtkPoints()
+        self.polys = vtk.vtkCellArray()
 
+        self.pointsForEdgeTracing = vtk.vtkPoints()
+        self.timeVariable = 2000
 
         self.currentSpectrum = vtk.vtkPoints()
 
@@ -389,6 +401,12 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.printerControlCmd.SetCommandName('SendText')
         self.printerControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
         self.printerControlCmd.SetCommandTimeoutSec(1.0)
+
+        # instantiate move X and Y command
+        self.xyControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+        self.xyControlCmd.SetCommandName('SendText')
+        self.xyControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+        self.xyControlCmd.SetCommandTimeoutSec(1.0)
 
         #
         self.timePerXWidth = 26.5
@@ -496,12 +514,47 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         print(self.averageDifferences)
 
-        if (self.averageDifferences) < 0: # 10 WAS MOST ACCURATE YESTERDAY
+
+
+        if (self.averageDifferences) < 1 and (self.averageDifferences) > 0 : # < 7 for white and black
             print " tumor"
             return False
         else:
             print "healthy"
             return True
+
+
+    def spectrumComparisonUV(self, outputArrayNode):
+
+        self.outputArrayNode = outputArrayNode
+        pointsArray = self.outputArrayNode.GetArray()
+            # point contains a wavelength and a corresponding intensity
+            # each data point has 2 rows of data, one corresponding to wavelength and one corresponding to intensity
+        self.componentIndexWavelength = 0
+        self.componentIndexIntensity = 1
+            # TODO: fix this data aquisition
+            # commented out lines are possible improvements or useful for different probes
+            # Data is acquired from probe in a double array with each index corresponding to either wavelength or intensity
+            # There are 100 points (tuples) each consisting of one wavelength and a corresponding intensity
+            # The first index (0) is where wavelength values are stored
+            # The second index (1) is where intensities are stored
+            # test lines that could be useful eventually
+            # numberOfPoints = pointsArray.GetNumberOfTuples() #access the number of points received from the spectra
+            # for pointIndex in xrange(numberOfPoints): #could potentially loop to check a certain range of data points
+            # wavelengthValue = pointsArray.GetComponent(63,0) #checks the 187th point in the data stream
+            # intensityValue = pointsArray.GetComponent(62, 1)
+
+        tumorCheck = pointsArray.GetComponent(35,1)
+        print(tumorCheck)
+        # Access the intensity value of the 62nd data point which corresponds to approximatley the 696th wavelength
+        #healthyCheck = pointsArray.GetComponent(35,0)  # Access the intensity value of the 68th data point which corresponds to approximatley the 750th wavelength
+        #print(tumorCheck)
+        #if tumorCheck > 0.8:
+        #    print "tumor"
+        #    return False
+        #else:
+        #    print "healthy"
+        #    return True
 
     def get_coordinates(self):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.getCoordinateCmd, self.serialIGTLNode.GetID())
@@ -551,73 +604,112 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def createPolyDataPoint(self, xcoordinate, ycoordinate, zcoordinate):
         if self.pointGenerated < 1:
-            self.dataList.SetNumberOfIds(700)
             self.dataPoints.SetNumberOfPoints(700)  # allocate space for up to 100 data points
-            #self.points.InsertNextPoint(xcoordinate, ycoordinate, zcoordinate)
             self.pointGenerated = self.pointGenerated + 1
-            #self.dataList.InsertNextId(xcoordinate, ycoordinate, zcoordinate)
+            self.pointsForHull.InsertNextPoint(xcoordinate, ycoordinate, zcoordinate)
             self.dataPoints.SetPoint(0, xcoordinate, ycoordinate, zcoordinate)
         else:
             self.dataPoints.SetPoint(self.pointNumber, xcoordinate, ycoordinate, zcoordinate)  # 10 specifies coordinates to be float values
-
+            self.pointsForHull.InsertNextPoint(xcoordinate, ycoordinate, zcoordinate)
             self.pointNumber = self.pointNumber + 1
-            #self.points.InsertNextPoint(xcoordinate, ycoordinate, zcoordinate)
-            #self.dataList.InsertNextId(xcoordinate, ycoordinate, zcoordinate)
-
-
 
     def convexHull(self):
-	
-		# TODO: get this to be points the scanner picks up
-        pointsForHull = vtk.vtkPoints()
-        pointsForHull.InsertNextPoint(0.0,0.0,0.0)
-        pointsForHull.InsertNextPoint(0.1,0.1,0.1)
-        pointsForHull.InsertNextPoint(1.0,0.0,0.0)
-        pointsForHull.InsertNextPoint(0.0,1.0,0.0)
-        pointsForHull.InsertNextPoint(0.0,0.0,1.0)
 
-        hullPolydata = vtk.vtkPolyData()
-        hullPolydata.SetPoints(pointsForHull)
+        # TODO: get this to be points the scanner picks up
 
-        pointsWriter = vtk.vtkXMLPolyDataWriter()
-        pointsWriter.SetFileName("points.vtp")
-        pointsWriter.SetInputData(hullPolydata)
-        pointsWriter.Write()
+        #self.pointsForHull.InsertNextPoint(0.0, 0.0, 0.0)
+        #self.pointsForHull.InsertNextPoint(0.1, 0.1, 0.0)
+        #self.pointsForHull.InsertNextPoint(1.0, 0.0, 0.0)
+        #self.pointsForHull.InsertNextPoint(0.0, 1.0, 0.0)
+        #self.pointsForHull.InsertNextPoint(0.0, 2.0, 0.0)
+        #self.pointsForHull.InsertNextPoint(1.0, 2.0, 0.0)
+        #self.pointsForHull.InsertNextPoint(1.6, 2.0, 0.0)
+        #self.pointsForHull.InsertNextPoint(0.0, 0.7, 0.0)
+        #self.pointsForHull.InsertNextPoint(0.3, 2.3, 0.0)
+        #self.polys.InsertNextCell(9)
+        #self.polys.InsertCellPoint(0)
+        #self.polys.InsertCellPoint(1)
+        ##self.polys.InsertCellPoint(2)
+        #self.polys.InsertCellPoint(3)
+        #self.polys.InsertCellPoint(4)
+        #self.polys.InsertCellPoint(5)
+        #self.polys.InsertCellPoint(6)
+        #self.polys.InsertCellPoint(7)
+        #self.polys.InsertCellPoint(8)
 
-        delaunay = vtk.vtkDelaunay3D()
-        delaunay.SetInputData(hullPolydata)
-        #print(hullPolydata)
-        delaunay.Update()
+        self.hullPolydata = vtk.vtkPolyData()
+        self.hullPolydata.SetPoints(self.pointsForHull)
+        #self.hullPolydata.SetPolys(polys)
 
-        ugWriter = vtk.vtkXMLUnstructuredGridWriter()
-        ugWriter.SetInputConnection(delaunay.GetOutputPort())
-        ugWriter.SetFileName("delanuay.vtu")
-        ugWriter.Write()
+        hull = vtk.vtkConvexHull2D()
+        hull.SetInputData(self.hullPolydata)
+        hull.Update()
 
-        surfaceFilter = vtk.vtkDataSetSurfaceFilter()
-        surfaceFilter.SetInputConnection(delaunay.GetOutputPort())
-        surfaceFilter.Update()
 
-        outputWriter = vtk.vtkXMLPolyDataWriter()
-        outputWriter.SetFileName("output.vtp")
-        outputWriter.SetInputData(surfaceFilter.GetOutput())
-        outputWriter.Write()
+        #extract = vtk.vtkExtractEdges()
+        #extract.SetInputConnection(delaunay.GetOutputPort())
+        print(hull.GetOutput())
+        #delaunay.Update()
 
-        print(surfaceFilter.GetOutput())
-        #print(surfaceFilter.GetOutput())
-        #print(delaunay.SetInputData(hullPolydata))
-		
-		pointLimit = surfaceFilter.GetOutput().GetNumberOfPoints()
-		
-        pointsForEdgeTracing = vtk.vtkPoints
-		for i in xrange(0,pointLimit):
-			pointsForEdgeTracing.InsertNextPoint(surfaceFilter.GetOutput().GetPoint(i))
-		
-		# TODO: use these output points in edge tracing algorithm
-		# pointsForEdgeTracing.GetPoint(i), parse for coordinates, pass to moving function
-		return pointsForEdgeTracing
-        #accesiblePolyData = vtk.vtkPolyData()
-        #accesiblePolyData.SetPoints(surfaceFilter.GetOutput())
+        # pointsWriter = vtk.vtkXMLPolyDataWriter()
+        # pointsWriter.SetFileName("points.vtp")
+        # pointsWriter.SetInputData(self.hullPolydata)
+        # pointsWriter.Write()
+
+        #delaunay = vtk.vtkDelaunay2D()
+        #delaunay.SetInputData(self.hullPolydata)
+        #delaunay.SetSourceData(self.hullPolydata)
+        #delaunay.SetTolerance(0.001)
+
+        #mapMesh = vtk.vtkPolyDataMapper()
+        #mapMesh.SetInputConnection(delaunay.GetOutputPort())
+        #meshActor = vtk.vtkActor()
+        #meshActor.SetMapper(mapMesh)
+
+        #ugWriter = vtk.vtkXMLUnstructuredGridWriter()
+        #ugWriter.SetInputConnection(delaunay.GetOutputPort())
+        #ugWriter.SetFileName("delanuay.vtu")
+        #ugWriter.Write()
+
+        #surfaceFilter = vtk.vtkDataSetSurfaceFilter()
+        #surfaceFilter.SetInputConnection(delaunay.GetOutputPort())
+        #surfaceFilter.Update()
+        #
+        #outputWriter = vtk.vtkXMLPolyDataWriter()
+        #outputWriter.SetFileName("output.vtp")
+        #outputWriter.SetInputData(surfaceFilter.GetOutput())
+
+        #outputWriter.Write()
+
+        # good stuff starts
+        pointLimit = hull.GetOutput().GetNumberOfPoints()
+
+        #print(delaunay.GetBoundingTriangulation())
+
+
+        for i in xrange(0, pointLimit):
+            self.pointsForEdgeTracing.InsertNextPoint(hull.GetOutput().GetPoint(i))
+
+        #print(self.pointsForEdgeTracing.GetNumberOfPoints())
+
+    # TODO: use these output points in edge tracing algorithm
+    # pointsForEdgeTracing.GetPoint(i), parse for coordinates, pass to moving function
+
+        self.getCoordinatesForEdgeTracing(self.pointsForEdgeTracing, pointLimit)
+        #return pointsForEdgeTracing
+
+
+    def getCoordinatesForEdgeTracing(self, pointsForEdgeTracing, pointLimit):
+
+        for i in xrange(0,pointLimit):
+            pointVal = pointsForEdgeTracing.GetPoint(i)
+            xcoordinate = pointVal[0]
+            ycoordinate = pointVal[1]
+            self._xHullArray.append(xcoordinate)
+            self._yHullArray.append(ycoordinate)
+            self.slowEdgeTracing(xcoordinate, ycoordinate, self.timeVariable)
+            self.timeVariable = self.timeVariable + 2000
+
 
 
     def createModel(self):
@@ -821,6 +913,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.randomScanTimer = qt.QTimer()
         self.randomScanTimer.singleShot(timevar, lambda: self.controlledXMovement(movevar))
 
+    def slowEdgeTracing(self, xcoordinate, ycoordinate, timevar):
+        self.edgetimer = qt.QTimer()
+        self.edgetimer.singleShot(timevar, lambda: self.controlledXYMovement(xcoordinate, ycoordinate))
+
+    def controlledXYMovement(self, xcoordinate, ycoordinate):
+        self.xyControlCmd.SetCommandAttribute('Text', 'G1 X%d Y%d' % (xcoordinate, ycoordinate))
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.xyControlCmd, self.serialIGTLNode.GetID())
 
 
     def controlledXMovement(self, xCoordinate):  # x movement
@@ -830,8 +929,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def controlledYMovement(self, yCoordinate):  # y movement
         self.yControlCmd.SetCommandAttribute('Text', 'G1 Y%d' % (yCoordinate))
         slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, self.serialIGTLNode.GetID())
+
     def middleMovement(self):
-        self.printerControlCmd.SetCommandAttribute('Text', 'G1 X60 Y60')
+        self.printerControlCmd.SetCommandAttribute('Text', 'G1 X60 Y40')
         slicer.modules.openigtlinkremote.logic().SendCommand(self.printerControlCmd, self.serialIGTLNode.GetID())
 
 class PrinterInteractorTest(ScriptedLoadableModuleTest):
