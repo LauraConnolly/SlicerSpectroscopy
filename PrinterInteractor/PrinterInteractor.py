@@ -326,6 +326,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     _xHullArray = []
 
     def __init__(self):
+        # some of these need to go
         self.baud_rate = 115200
         self.serialIGTLNode = None
         self.doubleArrayNode = None
@@ -516,7 +517,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
 
 
-        if (self.averageDifferences) < 1 and (self.averageDifferences) > 0 : # < 7 for white and black
+        if abs(self.averageDifferences) <7 : # < 7 for white and black
             print " tumor"
             return False
         else:
@@ -544,17 +545,18 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             # wavelengthValue = pointsArray.GetComponent(63,0) #checks the 187th point in the data stream
             # intensityValue = pointsArray.GetComponent(62, 1)
 
-        tumorCheck = pointsArray.GetComponent(35,1)
+        #tumorCheck = pointsArray.GetComponent(26,0)
+        tumorCheck = pointsArray.GetComponent(26,1) # check the 395th wavelength to determine if it sees the invisible ink or not 
         print(tumorCheck)
         # Access the intensity value of the 62nd data point which corresponds to approximatley the 696th wavelength
         #healthyCheck = pointsArray.GetComponent(35,0)  # Access the intensity value of the 68th data point which corresponds to approximatley the 750th wavelength
         #print(tumorCheck)
-        #if tumorCheck > 0.8:
-        #    print "tumor"
-        #    return False
-        #else:
-        #    print "healthy"
-        #    return True
+        if tumorCheck < 0.8:
+            print "tumor"
+            return False
+        else:
+            print "healthy"
+            return True
 
     def get_coordinates(self):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.getCoordinateCmd, self.serialIGTLNode.GetID())
@@ -615,88 +617,24 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def convexHull(self):
 
-        # TODO: get this to be points the scanner picks up
-
-        #self.pointsForHull.InsertNextPoint(0.0, 0.0, 0.0)
-        #self.pointsForHull.InsertNextPoint(0.1, 0.1, 0.0)
-        #self.pointsForHull.InsertNextPoint(1.0, 0.0, 0.0)
-        #self.pointsForHull.InsertNextPoint(0.0, 1.0, 0.0)
-        #self.pointsForHull.InsertNextPoint(0.0, 2.0, 0.0)
-        #self.pointsForHull.InsertNextPoint(1.0, 2.0, 0.0)
-        #self.pointsForHull.InsertNextPoint(1.6, 2.0, 0.0)
-        #self.pointsForHull.InsertNextPoint(0.0, 0.7, 0.0)
-        #self.pointsForHull.InsertNextPoint(0.3, 2.3, 0.0)
-        #self.polys.InsertNextCell(9)
-        #self.polys.InsertCellPoint(0)
-        #self.polys.InsertCellPoint(1)
-        ##self.polys.InsertCellPoint(2)
-        #self.polys.InsertCellPoint(3)
-        #self.polys.InsertCellPoint(4)
-        #self.polys.InsertCellPoint(5)
-        #self.polys.InsertCellPoint(6)
-        #self.polys.InsertCellPoint(7)
-        #self.polys.InsertCellPoint(8)
 
         self.hullPolydata = vtk.vtkPolyData()
         self.hullPolydata.SetPoints(self.pointsForHull)
-        #self.hullPolydata.SetPolys(polys)
 
         hull = vtk.vtkConvexHull2D()
         hull.SetInputData(self.hullPolydata)
         hull.Update()
 
 
-        #extract = vtk.vtkExtractEdges()
-        #extract.SetInputConnection(delaunay.GetOutputPort())
-        print(hull.GetOutput())
-        #delaunay.Update()
+        #print(hull.GetOutput())
 
-        # pointsWriter = vtk.vtkXMLPolyDataWriter()
-        # pointsWriter.SetFileName("points.vtp")
-        # pointsWriter.SetInputData(self.hullPolydata)
-        # pointsWriter.Write()
-
-        #delaunay = vtk.vtkDelaunay2D()
-        #delaunay.SetInputData(self.hullPolydata)
-        #delaunay.SetSourceData(self.hullPolydata)
-        #delaunay.SetTolerance(0.001)
-
-        #mapMesh = vtk.vtkPolyDataMapper()
-        #mapMesh.SetInputConnection(delaunay.GetOutputPort())
-        #meshActor = vtk.vtkActor()
-        #meshActor.SetMapper(mapMesh)
-
-        #ugWriter = vtk.vtkXMLUnstructuredGridWriter()
-        #ugWriter.SetInputConnection(delaunay.GetOutputPort())
-        #ugWriter.SetFileName("delanuay.vtu")
-        #ugWriter.Write()
-
-        #surfaceFilter = vtk.vtkDataSetSurfaceFilter()
-        #surfaceFilter.SetInputConnection(delaunay.GetOutputPort())
-        #surfaceFilter.Update()
-        #
-        #outputWriter = vtk.vtkXMLPolyDataWriter()
-        #outputWriter.SetFileName("output.vtp")
-        #outputWriter.SetInputData(surfaceFilter.GetOutput())
-
-        #outputWriter.Write()
-
-        # good stuff starts
         pointLimit = hull.GetOutput().GetNumberOfPoints()
-
-        #print(delaunay.GetBoundingTriangulation())
-
 
         for i in xrange(0, pointLimit):
             self.pointsForEdgeTracing.InsertNextPoint(hull.GetOutput().GetPoint(i))
 
-        #print(self.pointsForEdgeTracing.GetNumberOfPoints())
-
-    # TODO: use these output points in edge tracing algorithm
-    # pointsForEdgeTracing.GetPoint(i), parse for coordinates, pass to moving function
-
         self.getCoordinatesForEdgeTracing(self.pointsForEdgeTracing, pointLimit)
-        #return pointsForEdgeTracing
+
 
 
     def getCoordinatesForEdgeTracing(self, pointsForEdgeTracing, pointLimit):
@@ -713,41 +651,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
 
     def createModel(self):
-
-         pph = vtk.vtkPointsProjectedHull()
-         pph.GetPoints(self.dataList, 0)
-        #points = vtk.vtkPoints()
-        #points.InsertNextPoint(0.0,0.0,0.0)
-        #points.InsertNextPoint(0.1,0.1,0.1)
-        #points.InsertNextPoint(1.0,0.0,0.0)
-        #points.InsertNextPoint(0.0,1.0,0.0)
-        #points.InsertNextPoint(0.0,0.0, 1.0)
-
-        #polydata = vtk.vtkPolyData()
-        #polydata.SetPoints(points)
-        #pointsWriter = vtk.vtkXMLPolyDataWriter()#
-
-        #pointsWriter.SetInputData(polydata)
-        #pointsWriter.Write()
-        #de = vtk.vtkDelaunay3D()
-        #de.SetInputData(polydata)
-        #de.Update()
-
-        #ugWriter = vtk.vtkXMLUnstructuredGridWriter()
-        #ugWriter.SetInputConnection(de.GetOutputPort())
-        #3ugWriter.Write()
-
-        #sf = vtk.vtkDataSetSurfaceFilter()
-        #sf.SetInputConnection(de.GetOutputPort())
-        #sf.Update()
-
-        #outputWriter = vtk.vtkXMLPolyDataWriter
-        #outputWriter.SetInputData(sf.GetOutput())
-        #outputWriter.Write()
-
-        #self.dataCollection = vtk.vtkPolyData()
-        #self.dataCollection.SetPoints(self.dataPoints)
-        #slicer.modules.models.logic().AddModel(self.dataCollection)
+        # not necessary
+        self.dataCollection = vtk.vtkPolyData()
+        self.dataCollection.SetPoints(self.dataPoints)
+        slicer.modules.models.logic().AddModel(self.dataCollection)
 
 
      # Geometric analysis based on how many vertices the object being scanned has and distance between polydata points
