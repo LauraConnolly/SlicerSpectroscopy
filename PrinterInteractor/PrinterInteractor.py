@@ -567,6 +567,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
 
     def convexHull(self):
+	
+		# TODO: get this to be points the scanner picks up
         pointsForHull = vtk.vtkPoints()
         pointsForHull.InsertNextPoint(0.0,0.0,0.0)
         pointsForHull.InsertNextPoint(0.1,0.1,0.1)
@@ -601,12 +603,19 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         outputWriter.SetInputData(surfaceFilter.GetOutput())
         outputWriter.Write()
 
-        print(surfaceFilter.GetOutputPointId())
+        print(surfaceFilter.GetOutput())
         #print(surfaceFilter.GetOutput())
         #print(delaunay.SetInputData(hullPolydata))
-
-        #newPoints = vtk.vtkPoints
-        #newPoints.InsertNextPoint()
+		
+		pointLimit = surfaceFilter.GetOutput().GetNumberOfPoints()
+		
+        pointsForEdgeTracing = vtk.vtkPoints
+		for i in xrange(0,pointLimit):
+			pointsForEdgeTracing.InsertNextPoint(surfaceFilter.GetOutput().GetPoint(i))
+		
+		# TODO: use these output points in edge tracing algorithm
+		# pointsForEdgeTracing.GetPoint(i), parse for coordinates, pass to moving function
+		return pointsForEdgeTracing
         #accesiblePolyData = vtk.vtkPolyData()
         #accesiblePolyData.SetPoints(surfaceFilter.GetOutput())
 
