@@ -510,6 +510,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         print "Boundaries set."
         # 10 specifies coordinates to be float values
 
+
+     # used for spectrum acquisition where there is a distinctive different between the spectra of the material of interest and surrounding material
     def spectrumComparison(self, outputArrayNode):
 
         if self.spectraCollectedflag == 0:
@@ -542,6 +544,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             return True
 
 
+        # used with UV laser to distinguish between spectrums that vary by an insignificant amount at a specific wavelength / data point
+
     def spectrumComparisonUV(self, outputArrayNode):
 
         self.outputArrayNode = outputArrayNode
@@ -562,9 +566,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             # wavelengthValue = pointsArray.GetComponent(63,0) #checks the 187th point in the data stream
             # intensityValue = pointsArray.GetComponent(62, 1)
 
-        #tumorCheck = pointsArray.GetComponent(26,0)
+        #wavelengthCheck = pointsArray.GetComponent(26,0) # use to varify which wavelength the tumor Check intensity corresponds to
         tumorCheck = pointsArray.GetComponent(26,1) # check the 395th wavelength to determine if it sees the invisible ink or not
-        #print(tumorCheck)
 
         if tumorCheck < 0.85: #0.9 on white paper
             print "tumor"
@@ -640,7 +643,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         hull.SetInputData(self.hullPolydata)
         hull.Update()
 
-
         #print(hull.GetOutput())
 
         pointLimit = hull.GetOutput().GetNumberOfPoints()
@@ -671,7 +673,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.dataCollection.SetPoints(self.dataPoints)
         slicer.modules.models.logic().AddModel(self.dataCollection)
 
-
+     # TODO: reduce the amount of functions this code uses
      # Geometric analysis based on how many vertices the object being scanned has and distance between polydata points
 
     def VertexAnalysis(self):
