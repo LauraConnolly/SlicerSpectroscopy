@@ -57,8 +57,18 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         connect_to_printerCollapsibleButton.text = "Connect to Printer"
         self.layout.addWidget(connect_to_printerCollapsibleButton)
 
-        # Layout within the dummy collapsible button
+        geometricAnalysisCollapsibleButton = ctk.ctkCollapsibleButton()
+        geometricAnalysisCollapsibleButton.text = "Geometric Analysis"
+        self.layout.addWidget(geometricAnalysisCollapsibleButton)
+
+        # Layout within the connect to printer collapsible button
         connect_to_printerFormLayout = qt.QFormLayout(connect_to_printerCollapsibleButton)
+
+        # Layout within the geometric analysis collapsible button
+        geometricAnalysisCollapsibleButtonFormLayout = qt.QFormLayout(geometricAnalysisCollapsibleButton)
+
+                                                    # Connect to printer buttons
+
         #
         # Home Button
         #
@@ -68,13 +78,13 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         connect_to_printerFormLayout.addRow(self.homeButton)
         self.homeButton.connect('clicked(bool)', self.onHomeButton)
         #
-        # Tumor Button
+        #Center button
         #
-        self.tumorButton = qt.QPushButton("Tumor?")
-        self.tumorButton.toolTip = "Run the algorithm"
-        self.tumorButton.enabled = True
-        connect_to_printerFormLayout.addRow(self.tumorButton)
-        self.tumorButton.connect('clicked(bool)', self.onTumorButton)
+        self.moveMiddleButton = qt.QPushButton("Center")
+        self.moveMiddleButton.toolTip = "Move to the middle of the stage, helpful for acquiring reference spectrum ."
+        self.moveMiddleButton.enabled = True
+        connect_to_printerFormLayout.addRow(self.moveMiddleButton)
+        self.moveMiddleButton.connect('clicked(bool)', self.onTestingButton)
         #
         # IGT Link Connector
         #
@@ -92,12 +102,19 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #
         # Port Selector
         #
-        self.portSelector = qt.QComboBox()
-        self.portSelector.insertItem(1, "PORT 1")
-        self.portSelector.insertItem(2, "PORT 2")
-        self.portSelector.insertItem(3, "PORT 3")
-        self.portSelector.insertItem(4, "PORT 4")
-        connect_to_printerFormLayout.addRow("Port :", self.portSelector)
+        #self.portSelector = qt.QComboBox()
+        #self.portSelector.insertItem(1, "PORT 1")
+        #self.portSelector.insertItem(2, "PORT 2")
+        #self.portSelector.insertItem(3, "PORT 3")
+        #self.portSelector.insertItem(4, "PORT 4")
+        #connect_to_printerFormLayout.addRow("Port :", self.portSelector)
+        #
+        # Wavelength Selector
+        #
+        self.laserSelector = qt.QComboBox()
+        self.laserSelector.insertItem(1, "UV: 395 nm ")
+        self.laserSelector.insertItem(2, "RED: 660 nm")
+        connect_to_printerFormLayout.addRow("Laser Wavelength :", self.laserSelector)
         #
         # Output array selector
         #
@@ -112,14 +129,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.outputArraySelector.setToolTip("Pick the output to the algorithm.")
         connect_to_printerFormLayout.addRow("Output spectrum array: ", self.outputArraySelector)
         #
-        # Shape Selector
-        #
-        #self.shapeSelector = qt.QSpinBox()
-        #self.shapeSelector.setMinimum(0)
-        #self.shapeSelector.setMaximum(6)
-        #self.shapeSelector.setValue(0)
-        #connect_to_printerFormLayout.addRow("Number of vertices:", self.shapeSelector)
-
         # X Resolution
         #
         self.xResolution_spinbox = qt.QSpinBox()
@@ -144,35 +153,23 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.timeDelay_spinbox.setValue(1000)
         # self.timeDelay_spinbox.setSingleStep(1000)
         connect_to_printerFormLayout.addRow("Time for data delay (ms) :", self.timeDelay_spinbox)
-        # Testing button
         #
-        self.moveMiddleButton = qt.QPushButton("Middle")
-        self.moveMiddleButton.toolTip = "Immediately stop printer motors, requires restart."
-        self.moveMiddleButton.enabled = True
-        connect_to_printerFormLayout.addRow(self.moveMiddleButton)
-        self.moveMiddleButton.connect('clicked(bool)', self.onTestingButton)
-
-        self.createModelButton = qt.QPushButton("Edge Tracing")
-        self.createModelButton.toolTip = "Begin systematic surface scan"
+        #edge tracing button
+        #
+        self.createModelButton = qt.QPushButton("Trace Edges")
+        self.createModelButton.toolTip = "B"
         self.createModelButton.enabled = True
         connect_to_printerFormLayout.addRow(self.createModelButton)
-        self.createModelButton.connect('clicked(bool)', self.onCreateModelButton)
-        self.createModelButton.setStyleSheet("background-color: green; font: bold")
+        self.createModelButton.connect('clicked(bool)', self.onFindConvexHull)
+
         # learn spectra button
 
-        self.learnSpectraButton = qt.QPushButton("Learn Spectra")
+        self.learnSpectraButton = qt.QPushButton("Learn Spectra (necessary for 660 nm wavelength)")
         self.learnSpectraButton.toolTip = "Begin systematic surface scan"
         self.learnSpectraButton.enabled = True
         connect_to_printerFormLayout.addRow(self.learnSpectraButton)
         self.learnSpectraButton.connect('clicked(bool)', self.onLearnSpectraButton)
-        self.learnSpectraButton.setStyleSheet("background-color: green; font: bold")
-
-        self.SetTumorBoundariesButton = qt.QPushButton("Set Tumor Boundaries")
-        self.SetTumorBoundariesButton.toolTip = "Begin systematic surface scan"
-        self.SetTumorBoundariesButton.enabled = True
-        connect_to_printerFormLayout.addRow(self.SetTumorBoundariesButton)
-        self.SetTumorBoundariesButton.connect('clicked(bool)', self.onSetTumorBoundaries)
-        self.SetTumorBoundariesButton.setStyleSheet("background-color: green; font: bold")
+        #
         # Surface scan button
         #
         self.scanButton = qt.QPushButton("GO")
@@ -192,11 +189,27 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.stopButton.connect('clicked(bool)', self.onStopButton)
         self.stopButton.setStyleSheet("background-color: red; font: bold")
 
-        #self.geometricAnalysisButton = qt.QPushButton("Geometric Analysis")
-        #self.geometricAnalysisButton.toolTip = "Requires restart."
-        #self.geometricAnalysisButton.enabled = True
-        #connect_to_printerFormLayout.addRow(self.geometricAnalysisButton)
-        #self.geometricAnalysisButton.connect('clicked(bool)', self.onGeometricAnalysis)
+
+                                                # geometric analysis buttons
+        #
+        # Shape Selector
+        #
+        self.shapeSelector = qt.QSpinBox()
+        self.shapeSelector.setMinimum(0)
+        self.shapeSelector.setMaximum(6)
+        self.shapeSelector.setValue(0)
+        geometricAnalysisCollapsibleButtonFormLayout.addRow("Number of vertices:", self.shapeSelector)
+        #
+        # geometric analysis button
+        #
+        self.geometricAnalysisButton = qt.QPushButton("Geometric Analysis")
+        self.geometricAnalysisButton.toolTip = "Requires restart."
+        self.geometricAnalysisButton.enabled = True
+        geometricAnalysisCollapsibleButtonFormLayout.addRow(self.geometricAnalysisButton)
+        self.geometricAnalysisButton.connect('clicked(bool)', self.onGeometricAnalysis)
+
+
+
 
         self.layout.addStretch(1)
 
@@ -214,9 +227,16 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.logic.setdoubleArrayNode(doubleArrayNode=self.inputSelector.currentNode())
         pass
 
+
     def onHomeButton(self, SerialIGTLNode):
         self.onSerialIGLTSelectorChanged()
         self.logic.home()
+
+        # TODO: change name, this is the function that moves middle
+    def onTestingButton(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+        self.logic.middleMovement()
 
     def onScanButton(self):
         self.onSerialIGLTSelectorChanged()
@@ -251,38 +271,35 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
         #changed to spectrum comparison UV
     def tissueDecision(self):
-
-        self.decision = 0 # change to 0 for Uv probe and 1 for black and white
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-        if self.decision == 0:
+
+        if (self.laserSelector.currentIndex) == 0 :
          if self.logic.spectrumComparisonUV(self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
             self.logic.get_coordinates()
-        else:
+        elif (self.laserSelector.currentIndex) == 1:
           if self.logic.spectrumComparison(self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
             self.logic.get_coordinates()
+        else:
+            return
 
-    def onCreateModelButton(self):
-        #self.logic.createModel()
+        # May not need these
+    def onFindConvexHull(self):
+         self.logic.convexHull()
 
-        self.logic.convexHull()
-        # self.logic.createVTKCellArray()
-        #self.logic.createTriangles()
+
+    #def onSetTumorBoundaries(self):
+     #   self.ondoubleArrayNodeChanged()
+      #  self.onSerialIGLTSelectorChanged()
+       # self.logic.setTumorBoundaries()
+
     def onLearnSpectraButton(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
         self.logic.getSpectralData(self.outputArraySelector.currentNode())
 
-    def onSetTumorBoundaries(self):
-        self.ondoubleArrayNodeChanged()
-        self.onSerialIGLTSelectorChanged()
-        self.logic.setTumorBoundaries()
 
-    def onTestingButton(self):
-        self.ondoubleArrayNodeChanged()
-        self.onSerialIGLTSelectorChanged()
-        self.logic.middleMovement()
-        #self.logic.spectrumComparison(self.outputArraySelector.currentNode())
+
 
     def onGeometricAnalysis(self):
         if self.shapeSelector.value == 0:
@@ -546,12 +563,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             # intensityValue = pointsArray.GetComponent(62, 1)
 
         #tumorCheck = pointsArray.GetComponent(26,0)
-        tumorCheck = pointsArray.GetComponent(26,1) # check the 395th wavelength to determine if it sees the invisible ink or not 
-        print(tumorCheck)
-        # Access the intensity value of the 62nd data point which corresponds to approximatley the 696th wavelength
-        #healthyCheck = pointsArray.GetComponent(35,0)  # Access the intensity value of the 68th data point which corresponds to approximatley the 750th wavelength
+        tumorCheck = pointsArray.GetComponent(26,1) # check the 395th wavelength to determine if it sees the invisible ink or not
         #print(tumorCheck)
-        if tumorCheck < 0.8:
+
+        if tumorCheck < 0.85: #0.9 on white paper
             print "tumor"
             return False
         else:
@@ -838,7 +853,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, self.serialIGTLNode.GetID())
 
     def middleMovement(self):
-        self.printerControlCmd.SetCommandAttribute('Text', 'G1 X60 Y40')
+        self.printerControlCmd.SetCommandAttribute('Text', 'G1 X60 Y60')
         slicer.modules.openigtlinkremote.logic().SendCommand(self.printerControlCmd, self.serialIGTLNode.GetID())
 
 class PrinterInteractorTest(ScriptedLoadableModuleTest):
