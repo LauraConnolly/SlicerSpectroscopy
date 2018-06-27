@@ -426,6 +426,12 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.xyControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
         self.xyControlCmd.SetCommandTimeoutSec(1.0)
 
+        # instantiate move Z command
+        self.zControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+        self.zControlCmd.SetCommandName('SendText')
+        self.zControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+        self.zControlCmd.SetCommandTimeoutSec(1.0)
+
         #
         self.timePerXWidth = 26.5
 
@@ -663,9 +669,11 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             self._xHullArray.append(xcoordinate)
             self._yHullArray.append(ycoordinate)
             self.slowEdgeTracing(xcoordinate, ycoordinate, self.timeVariable)
+
             self.timeVariable = self.timeVariable + 2000
-
-
+        self.slowEdgeTracing(self._xHullArray[0], self._yHullArray[0], (2000*pointLimit + 2000))
+        self.ZMovement(2000, 35) # could be 35 or -5 depending on the last state
+        self.ZMovement(2000*pointLimit + 4000, 40) #back to 40
 
     def createModel(self):
         # not necessary
@@ -829,6 +837,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     # Movement Controls (single shot, lambda timers for simple G Code message sending)
 
+
     def yMovement(self, timeValue, yResolution):
         self.randomScanTimer = qt.QTimer()
         self.randomScanTimer.singleShot(timeValue, lambda: self.controlledYMovement(yResolution))
@@ -840,6 +849,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def slowEdgeTracing(self, xcoordinate, ycoordinate, timevar):
         self.edgetimer = qt.QTimer()
         self.edgetimer.singleShot(timevar, lambda: self.controlledXYMovement(xcoordinate, ycoordinate))
+
+    def ZMovement(self, timeValue, zcoordinate):
+        self.randomScanTimer = qt.QTimer()
+        self.randomScanTimer.singleShot(timeValue, lambda: self.controlledZMovement(zcoordinate))
 
     def controlledXYMovement(self, xcoordinate, ycoordinate):
         self.xyControlCmd.SetCommandAttribute('Text', 'G1 X%d Y%d' % (xcoordinate, ycoordinate))
@@ -853,6 +866,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def controlledYMovement(self, yCoordinate):  # y movement
         self.yControlCmd.SetCommandAttribute('Text', 'G1 Y%d' % (yCoordinate))
         slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, self.serialIGTLNode.GetID())
+
+    def controlledZMovement(self, zcoordinate):  # y movement
+        self.zControlCmd.SetCommandAttribute('Text', 'G1 Z%d' % (zcoordinate))
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.zControlCmd, self.serialIGTLNode.GetID())
 
     def middleMovement(self):
         self.printerControlCmd.SetCommandAttribute('Text', 'G1 X60 Y60')
