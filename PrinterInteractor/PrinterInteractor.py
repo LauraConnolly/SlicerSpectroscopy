@@ -57,15 +57,15 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         connect_to_printerCollapsibleButton.text = "Connect to Printer"
         self.layout.addWidget(connect_to_printerCollapsibleButton)
 
-        geometricAnalysisCollapsibleButton = ctk.ctkCollapsibleButton()
-        geometricAnalysisCollapsibleButton.text = "Geometric Analysis"
-        self.layout.addWidget(geometricAnalysisCollapsibleButton)
+        #geometricAnalysisCollapsibleButton = ctk.ctkCollapsibleButton()
+        #geometricAnalysisCollapsibleButton.text = "Geometric Analysis"
+        #self.layout.addWidget(geometricAnalysisCollapsibleButton)
 
         # Layout within the connect to printer collapsible button
         connect_to_printerFormLayout = qt.QFormLayout(connect_to_printerCollapsibleButton)
 
         # Layout within the geometric analysis collapsible button
-        geometricAnalysisCollapsibleButtonFormLayout = qt.QFormLayout(geometricAnalysisCollapsibleButton)
+        #geometricAnalysisCollapsibleButtonFormLayout = qt.QFormLayout(geometricAnalysisCollapsibleButton)
 
                                                     # Connect to printer buttons
 
@@ -189,24 +189,31 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.stopButton.connect('clicked(bool)', self.onStopButton)
         self.stopButton.setStyleSheet("background-color: red; font: bold")
 
+        # Testing button
+        self.testButton = qt.QPushButton("test")
+        self.testButton.toolTip = "Requires restart."
+        self.testButton.enabled = True
+        connect_to_printerFormLayout.addRow(self.testButton)
+        self.testButton.connect('clicked(bool)', self.onTestButton)
+
 
                                                 # geometric analysis buttons
         #
         # Shape Selector
         #
-        self.shapeSelector = qt.QSpinBox()
-        self.shapeSelector.setMinimum(0)
-        self.shapeSelector.setMaximum(6)
-        self.shapeSelector.setValue(0)
-        geometricAnalysisCollapsibleButtonFormLayout.addRow("Number of vertices:", self.shapeSelector)
+        #self.shapeSelector = qt.QSpinBox()
+        #self.shapeSelector.setMinimum(0)
+        #self.shapeSelector.setMaximum(6)
+        #self.shapeSelector.setValue(0)
+        #geometricAnalysisCollapsibleButtonFormLayout.addRow("Number of vertices:", self.shapeSelector)
         #
         # geometric analysis button
         #
-        self.geometricAnalysisButton = qt.QPushButton("Geometric Analysis")
-        self.geometricAnalysisButton.toolTip = "Requires restart."
-        self.geometricAnalysisButton.enabled = True
-        geometricAnalysisCollapsibleButtonFormLayout.addRow(self.geometricAnalysisButton)
-        self.geometricAnalysisButton.connect('clicked(bool)', self.onGeometricAnalysis)
+        #self.geometricAnalysisButton = qt.QPushButton("Geometric Analysis")
+        #self.geometricAnalysisButton.toolTip = "Requires restart."
+        #self.geometricAnalysisButton.enabled = True
+        #geometricAnalysisCollapsibleButtonFormLayout.addRow(self.geometricAnalysisButton)
+        #self.geometricAnalysisButton.connect('clicked(bool)', self.onGeometricAnalysis)
 
 
 
@@ -246,18 +253,15 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.timeValue = self.timeDelay_spinbox.value
         xResolution = self.xResolution_spinbox.value
         yResolution = self.yResolution_spinbox.value
-        self.logic.xLoop(self.timeValue, xResolution,
-                         yResolution)  # calls a loop to toggle printer back and forth in the x direction
-        self.logic.yLoop(self.timeValue, yResolution,
-                         xResolution)  # calls a loop to increment the printer back in the y direction
+        self.logic.xLoop(self.timeValue, xResolution,yResolution)  # calls a loop to toggle printer back and forth in the x direction
+        self.logic.yLoop(self.timeValue, yResolution, xResolution)  # calls a loop to increment the printer back in the y direction
 
         # tissue analysis
         self.tumorTimer = qt.QTimer()
         self.iterationTimingValue = 0
         stopsToVisitX = 120 / xResolution
         stopsToVisitY = 120 / yResolution
-        for self.iterationTimingValue in range(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + 10*self.timeValue,
-                                               self.timeValue):  # 300 can be changed to x resolution by y resolution
+        for self.iterationTimingValue in range(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + 10*self.timeValue, self.timeValue):  # 300 can be changed to x resolution by y resolution
             self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
             self.iterationTimingValue = self.iterationTimingValue + self.timeValue  # COMMENT OUT MAYBE!
 
@@ -283,6 +287,11 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         else:
             return
 
+    def onTestButton(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+        self.logic.spectrumComparisonUV(self.outputArraySelector.currentNode())
+
         # May not need these
     def onFindConvexHull(self):
          self.logic.convexHull()
@@ -298,24 +307,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.onSerialIGLTSelectorChanged()
         self.logic.getSpectralData(self.outputArraySelector.currentNode())
 
-
-
-
-    def onGeometricAnalysis(self):
-        if self.shapeSelector.value == 0:
-            print("Area : ", self.logic.VertexAnalysis())
-        if self.shapeSelector.value == 1:
-            print(" Area: ", self.logic.squareAnalysis())
-        if self.shapeSelector.value == 2:
-            print ("Length:", self.logic.LineAnalysis())
-        if self.shapeSelector.value == 3:
-            print("Area:", self.logic.triangleAnalysis())
-        if self.shapeSelector.value == 4:
-            print(" Area: ", self.logic.squareAnalysis())
-
-         # pentagon area analysis isn't working
-        if self.shapeSelector.value == 5:
-            print(" Area: ", self.logic.pentagonAnalysis())
 
 
 # in order to access and read specific data points use this function
@@ -350,12 +341,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.spectrumImageNode = None
         self.observerTags = []
         self.outputArrayNode = None
-        self.resolution = 100
-        self.addNode = False
-        self.fiducialNodeID = None
+        self.numberOfDataPoints = 100
         self.pointGenerated = 0
-        self.distanceArrayCreated = 0
-        self.iterationVariable = 1
         self.pointNumber = 1
         self.spectraCollectedflag = 0
         self.maxXforY = 0
@@ -363,17 +350,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         # Polydata attributes
         # self.dataCollection = vtk.vtkPolyData()
         self.dataPoints = vtk.vtkPoints()
-        self.trianglePoints = vtk.vtkPoints()
-        self.Triangles = vtk.vtkCellArray()
-        self.tumorThreshold = vtk.vtkPoints()
-        self.thresholdPointGenerated = 0
         self.referenceSpectra = vtk.vtkPolyData()
         self.spectra = vtk.vtkPoints()
-        self.changingVariable = 0
-        self.projectedHull = vtk.vtkPoints()
-        self.points = vtk.vtkPoints()
         self.pointsForHull = vtk.vtkPoints()
-        self.polys = vtk.vtkCellArray()
 
         self.pointsForEdgeTracing = vtk.vtkPoints()
         self.timeVariable = 2000
@@ -381,7 +360,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.currentSpectrum = vtk.vtkPoints()
 
         self.averageDifferences = 0
-        self.colours = vtk.vtkNamedColors()
 
         # instantiate coordinate values
         self.getCoordinateCmd = slicer.vtkSlicerOpenIGTLinkCommand()
@@ -435,8 +413,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         #
         self.timePerXWidth = 26.5
 
-        self.dataList = vtk.vtkIdList()
-
         # Timer stuff
 
     def setSerialIGTLNode(self, serialIGTLNode):
@@ -475,13 +451,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         # Create arrays of data
         a = self.outputArrayNode.GetArray()
-        a.SetNumberOfTuples(self.resolution)
+        a.SetNumberOfTuples(self.numberOfDataPoints)
 
         for row in xrange(numberOfRows):
             lineSource = vtk.vtkLineSource()
             lineSource.SetPoint1(0, row, 0)
             lineSource.SetPoint2(numberOfPoints - 1, row, 0)
-            lineSource.SetResolution(self.resolution - 1)
+            lineSource.SetResolution(self.numberOfDataPoints - 1)
             probeFilter = vtk.vtkProbeFilter()
             probeFilter.SetInputConnection(lineSource.GetOutputPort())
             if vtk.VTK_MAJOR_VERSION <= 5:
@@ -491,10 +467,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             probeFilter.Update()
             probedPoints = probeFilter.GetOutput()
             probedPointScalars = probedPoints.GetPointData().GetScalars()
-            for i in xrange(self.resolution):
+            for i in xrange(self.numberOfDataPoints):
                 a.SetComponent(i, row, probedPointScalars.GetTuple(i)[0])
 
-        for i in xrange(self.resolution):
+        for i in xrange(self.numberOfDataPoints):
             a.SetComponent(i, 2, 0)
 
         probedPoints.GetPointData().GetScalars().Modified()
@@ -573,9 +549,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             # intensityValue = pointsArray.GetComponent(62, 1)
 
         #wavelengthCheck = pointsArray.GetComponent(26,0) # use to varify which wavelength the tumor Check intensity corresponds to
-        tumorCheck = pointsArray.GetComponent(26,1) # check the 395th wavelength to determine if it sees the invisible ink or not
+        tumorCheck = pointsArray.GetComponent(26,1)# check the 395th wavelength to determine if it sees the invisible ink or not
 
-        if tumorCheck < 0.85: #0.9 on white paper
+
+
+
+
+        if tumorCheck < 0.5: #0.85- 0.9 on white paper
             print "tumor"
             return False
         else:
@@ -672,89 +652,14 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
             self.timeVariable = self.timeVariable + 2000
         self.slowEdgeTracing(self._xHullArray[0], self._yHullArray[0], (2000*pointLimit + 2000))
-        self.ZMovement(2000, 35) # could be 35 or -5 depending on the last state
-        self.ZMovement(2000*pointLimit + 4000, 40) #back to 40
+        self.ZMovement(2000, -5) # could be 35 or -5 depending on the last state
+        self.ZMovement(2000*pointLimit + 4000, 0) #back to 40
 
     def createModel(self):
         # not necessary
         self.dataCollection = vtk.vtkPolyData()
         self.dataCollection.SetPoints(self.dataPoints)
         slicer.modules.models.logic().AddModel(self.dataCollection)
-
-     # TODO: reduce the amount of functions this code uses
-     # Geometric analysis based on how many vertices the object being scanned has and distance between polydata points
-
-    def VertexAnalysis(self):
-        return self.circleAreaAnalysis(self._distanceArray)  # will change to function call
-
-    def LineAnalysis(self):
-        return self.doubleVertexAnalysis(self._distanceArray)
-
-    def triangleAnalysis(self):
-        return self.triangleAreaAnalysis(self._distanceArray)
-
-    def squareAnalysis(self):
-        return self.fourVertexAnalysis(self._distanceArray)
-
-    def pentagonAnalysis(self):
-        return self.fiveVertexAnalysis(self._distanceArray, self._yHeightArray)
-
-    def circleAreaAnalysis(self, distanceArray):
-        Width = self.calculateMetric(distanceArray)
-        Area = (((Width) / 2) ** 2) * math.pi
-        return Area
-
-    def fourVertexAnalysis(self, distanceArray):
-        Width = self.calculateMetric(distanceArray)
-
-        Area = Width ** 2
-        return Area
-
-    def fiveVertexAnalysis(self, distanceArray, yHeightArray):
-        self.minDistance = min(distanceArray)
-        self.calculateSideLength(distanceArray, yHeightArray)
-        SideLength = self.maxXforY - self.minDistance
-        print(SideLength)
-        Area = (1/4) * (math.sqrt(5*(5+2*math.sqrt(5)))) * ((SideLength) ** 2)
-        return Area
-
-    def doubleVertexAnalysis(self, distanceArray):
-        Width = self.calculateMetric(distanceArray)
-
-        Length = Width
-        return Length
-
-    def triangleAreaAnalysis(self, distanceArray):
-        self.getTriangleBaseandHeight(distanceArray)
-        Area = (self.Base * self.Height) / 2
-        return Area
-
-    def getTriangleBaseandHeight(self, distanceArray):
-        self.Base = min(distanceArray)
-        self.Height = max(distanceArray) - self.Base
-        return self.Base, self.Height
-
-    def calculateSideLength(self, distanceArray, yHeightArray):
-
-        yMin = min(yHeightArray)
-
-        for i in xrange(0,4,1):
-            if yHeightArray[i] == yMin:
-                 if distanceArray[i] > distanceArray[i-1]:
-                     self.maxXforY = distanceArray[i]
-        return self.maxXforY
-
-
-    def calculateMetric(self, distanceArray):
-        maxDistance = max(distanceArray)
-        minDistance = min(distanceArray)
-        Width = maxDistance - minDistance
-        return Width
-
-
-    def calculateDistance(self, xcoordinate, ycoordinate):
-        distance = math.sqrt((xcoordinate * xcoordinate) + (ycoordinate * ycoordinate))
-        return distance
 
     #
     # function written for testing and understanding spectral data acquisition
@@ -770,8 +675,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         numberOfPoints = pointsArray.GetNumberOfTuples()  # access the number of points received from the spectra
         print(numberOfPoints)
         # for pointIndex in xrange(60,80): #loop through the 60th - 80th data points
-        wavelengthValue = pointsArray.GetComponent(62,
-                                                   0)  # checks the 187th point in the data stream, corresponds to the 650-700 nm wavelength (area of interest)
+        wavelengthValue = pointsArray.GetComponent(62,0)  # checks the 187th point in the data stream, corresponds to the 650-700 nm wavelength (area of interest)
         intensityValue = pointsArray.GetComponent(62, 1)
         print(intensityValue)
         print(wavelengthValue)
@@ -804,7 +708,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             self.yMovement(delayMs, yValue)
             self.j = self.j + 1
 
-    # Fix this so that it moves every 2 seconds not 1 second
+
 
     def xLoop(self, timeValue, xResolution, yResolution):
         # necessary for looping the x commands on static intervals
@@ -822,8 +726,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         # Corresponds to a timer called in printer interactor widget
         self.scanTimer = qt.QTimer()
         for xValue in xrange(0, 120, xResolution):  # increment by 10 until 120
-            delayMs = xCoordinate + xValue * (
-                    timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
+            delayMs = xCoordinate + xValue * ( timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
             self.XMovement(delayMs, xValue)
 
     def xWidthBackwards(self, xCoordinate, timeValue, xResolution):
