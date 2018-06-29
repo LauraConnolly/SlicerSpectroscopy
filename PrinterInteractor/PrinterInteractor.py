@@ -474,7 +474,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         #
         self.timePerXWidth = 26.5
-
+        self.startNext = 0
         self.x = 0
         self.delayMs = 1000
         # Timer stuff
@@ -678,6 +678,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
 
                                              # automated edge tracing
+    def edgeTrace(self, outputArrayNode):
+        self.checkQuadrantValues(outputArrayNode)
+
+
 
     def automatedEdgeTracing(self, outputArrayNode):
         self.cutInTimer = qt.QTimer()
@@ -717,7 +721,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.readCoordinatesAtTimeInterval2(6000, outputArrayNode)
 
         self.callPrintFunc(6000)
-
+        self.startNext = 6000
+        self.startTrajectorySearch(outputArrayNode)
 
     def printFunc(self):
         print(self._tumorCheck)
@@ -808,7 +813,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def findTrajectory(self, outputArrayNode):
 
         self.trajectoryTimer = qt.QTimer()
-        index = len(self._tumorCheck) - 1
+        index = len(self._tumorCheck)
         y = len(self._savexcoordinate) - 1
 
         if self._tumorCheck[index - 4] ==1 and self._tumorCheck[index -3 ] == 0 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index -1 ] ==1:
@@ -820,8 +825,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             #self.readCoordinatesAtTimeInterval3(0, outputArrayNode)
 
             self.checkArray(outputArrayNode, -10, 1000)
-            self.checkArray(outputArrayNode, -15, 2000)
-            self.checkArray(outputArrayNode, -20, 3000)
+
+            #self.checkArray(outputArrayNode, -15,  2000)
+            #self.checkArray(outputArrayNode, -20,  3000)
 
         if self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index - 1] == 0:
             print "Quadrant 1"
@@ -859,12 +865,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             self.checkArray(outputArrayNode, -15, 2000)
             self.checkArray(outputArrayNode, -20, 3000)
 
-
-
-
-
-
-
+        self.restart()
     def restart(self):
         self.addedEdge == 0
 
@@ -873,10 +874,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def if1(self, outputArrayNode, stepVal, delay):
         if len(self._returnValue) != 0:
             self.get_coordinates()
+            print "yay"
             return
         else:
             self.callMovement(delay, self._savexcoordinate[0] + stepVal, self._saveycoordinate[0] + abs(stepVal))
             self.readCoordinatesAtTimeInterval3(delay, outputArrayNode)
+            return
+
 
 
 
@@ -884,13 +888,11 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         checkingTimer = qt.QTimer()
         checkingTimer.singleShot(delay, lambda: self.if1(outputArrayNode, stepVal, delay))
 
-    def checkArray2(self, delay, outputArrayNode, stepVal):
-        checkingTimer = qt.QTimer()
-        checkingTimer.singleShot(delay, lambda: self.if2(outputArrayNod, stepVal))
 
-    def checkArray3(self, delay, outputArrayNode, stepVal):
-        checkingTimer = qt.QTimer()
-        checkingTimer.singleShot(delay, lambda: self.if3(outputArrayNode, stepVal))
+
+    def startTrajectorySearch(self,outputArrayNode):
+        trajTimer = qt.QTimer()
+        trajTimer.singleShot(self.startNext,lambda: self.findTrajectory(outputArrayNode))
 
     #def checkForVal(self):
      #   self.x = len(self._returnValue)
