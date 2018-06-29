@@ -202,6 +202,18 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         connect_to_printerFormLayout.addRow(self.wheretoButton)
         self.wheretoButton.connect('clicked(bool)', self.onWhereToNext)
 
+        self.findTrajectoryButton = qt.QPushButton("Find Trajectory")
+        self.findTrajectoryButton.toolTip = "Requires restart."
+        self.findTrajectoryButton.enabled = True
+        connect_to_printerFormLayout.addRow(self.findTrajectoryButton)
+        self.findTrajectoryButton.connect('clicked(bool)', self.go)
+
+        self.singleShotButton = qt.QPushButton("test 2")
+        self.singleShotButton.toolTip = "Requires restart."
+        self.singleShotButton.enabled = True
+        connect_to_printerFormLayout.addRow(self.singleShotButton)
+        self.singleShotButton.connect('clicked(bool)', self.checkTimer)
+
                                                 # geometric analysis buttons
         #
         # Shape Selector
@@ -318,7 +330,15 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.onSerialIGLTSelectorChanged()
         self.logic.checkQuadrantValues(self.outputArraySelector.currentNode())
 
+    def go(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+        self.logic.findTrajectory(self.outputArraySelector.currentNode())
 
+    def checkTimer(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+        self.logic.keepGoing(self.outputArraySelector.currentNode())
 
 # in order to access and read specific data points use this function
 # def onTestingButton(self):
@@ -350,6 +370,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     # arrays for quadrant checker
     _tumorCheck = []
+    _tumorCheck2 = []
+
+    _returnValue = []
 
 
     def __init__(self):
@@ -393,6 +416,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.saveIterationValue = 0
 
         self.checkingQuadrants = 0
+
+        self.tumorFlag = 0
+
+        self.addedEdge = 0
 
 
 
@@ -448,6 +475,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         #
         self.timePerXWidth = 26.5
 
+        self.x = 0
+        self.delayMs = 1000
         # Timer stuff
 
     def setSerialIGTLNode(self, serialIGTLNode):
@@ -555,7 +584,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         if abs(self.averageDifferences) <7 : # < 7 for white and black
             print " tumor"
-            self.get_coordinates()
+            self.get_coordinates() # THIS LINE WILL BREAK ORIGINAL CODE
             return False
         else:
             print "healthy"
@@ -594,6 +623,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         if tumorCheck < 0.5: #0.85- 0.9 on white paper
             print "tumor"
             return False
+
         else:
             print "healthy"
             return True
@@ -622,17 +652,21 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         zvalues = mylist[2].split(":")
         self.zcoordinate = float(zvalues[1])
 
-        self._savexcoordinate.append(self.xcoordinate)
-        self._saveycoordinate.append(self.ycoordinate)
+        # added for automated edge tracing
+        if self.addedEdge == 0:
+            self._savexcoordinate.append(self.xcoordinate)
+            self._saveycoordinate.append(self.ycoordinate)
+            self.addedEdge = 1
 
 
         self.dataCollection = self.createPolyDataPoint(self.xcoordinate, self.ycoordinate, self.zcoordinate)
-        if self.fiducialCount < 1:
+                #  DON'T DELETE HOW WE ADD FIDUCIALS
+       # if self.fiducialCount < 1:
 
-            self.fiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
-            self.fiducialCount = self.fiducialCount + 1
-        else:
-            self.addToCurrentNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
+            #self.fiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
+            #self.fiducialCount = self.fiducialCount + 1
+        #else:
+          #  self.addToCurrentNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
 
 
          # random issues with this distance array
@@ -649,7 +683,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.cutInTimer = qt.QTimer()
         self.edgeTraceTimer = qt.QTimer()
 
-        # move forward until reference spectra is observed then return to that spot
+                              # move forward until reference spectra is observed then return to that spot
 
         for y in xrange(0,62,2):
             delayMs = ((y/2)*500) + 500
@@ -661,29 +695,29 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         self.moveBackToOriginalEdgePoint()
 
-        # move forward 5, backwards 5, right 5 and left 5
-        # if you detect healthy n
 
     def checkQuadrantValues(self, outputArrayNode):
-
+                                        # go right, back, left, forward until you determine which quadrant to continue in
         self.printTimer = qt.QTimer()
 
-        self.callMovement(1000, (self._savexcoordinate[0] + 10), (self._saveycoordinate[0])) # right 10
-        self.readCoordinatesAtTimeInterval2(1000,outputArrayNode)
+        index = len(self._savexcoordinate) - 1
+        self.callMovement(1000, (self._savexcoordinate[index] + 10), (self._saveycoordinate[index])) # right 10
+        self.readCoordinatesAtTimeInterval2(2000,outputArrayNode)
 
-        self.callMovement(2000, (self._savexcoordinate[0]), (self._saveycoordinate[0] - 10)) # back 10
-        self.readCoordinatesAtTimeInterval2(2000, outputArrayNode)
-
-        self.callMovement(3000, (self._savexcoordinate[0] - 10), (self._saveycoordinate[0])) # left 10
+        self.callMovement(2000, (self._savexcoordinate[index]), (self._saveycoordinate[index] - 10)) # back 10
         self.readCoordinatesAtTimeInterval2(3000, outputArrayNode)
 
-        self.callMovement(4000, (self._savexcoordinate[0]), (self._saveycoordinate[0] + 10)) # forward 10
+        self.callMovement(3000, (self._savexcoordinate[index] - 10), (self._saveycoordinate[index])) # left 10
         self.readCoordinatesAtTimeInterval2(4000, outputArrayNode)
 
-        self.callMovement(5000, (self._savexcoordinate[0]), (self._saveycoordinate[0])) # back to center
+        self.callMovement(4000, (self._savexcoordinate[index]), (self._saveycoordinate[index] + 10)) # forward 10
         self.readCoordinatesAtTimeInterval2(5000, outputArrayNode)
 
+        self.callMovement(5000, (self._savexcoordinate[index]), (self._saveycoordinate[index])) # back to center
+        self.readCoordinatesAtTimeInterval2(6000, outputArrayNode)
+
         self.callPrintFunc(6000)
+
 
     def printFunc(self):
         print(self._tumorCheck)
@@ -701,8 +735,12 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def readCoordinatesAtTimeInterval2(self, delay, outputArrayNode):
         self.edgeTraceTimer.singleShot(delay, lambda: self.spectrumComparison2(outputArrayNode))
 
+    def readCoordinatesAtTimeInterval3(self, delay, outputArrayNode):
+        self.edgeTraceTimer.singleShot(delay, lambda: self.spectrumComparison3(outputArrayNode))
+
     def moveBackToOriginalEdgePoint(self):
-        self.edgeTraceTimer.singleShot(15500, lambda: self.controlledXYMovement(self._savexcoordinate[0], self._saveycoordinate[0]))
+        x = len(self._savexcoordinate) - 1
+        self.edgeTraceTimer.singleShot(16500, lambda: self.controlledXYMovement(self._savexcoordinate[x], self._saveycoordinate[x]))
 
     def spectrumComparison2(self, outputArrayNode):
 
@@ -734,6 +772,159 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             print "healthy"
             self._tumorCheck.append(0)
             return True
+
+    def spectrumComparison3(self, outputArrayNode):
+
+        if self.spectraCollectedflag == 0:
+            print " Error: reference spectrum not collected."
+            return
+
+        self.currentOutputArrayNode = outputArrayNode
+        currentPointsArray = self.currentOutputArrayNode.GetArray()
+
+        self.currentSpectrum.SetNumberOfPoints(100)
+        for i in xrange(0, 101, 1):
+            self.currentSpectrum.SetPoint(i, currentPointsArray.GetTuple(i))
+
+        self.averageDifferences = 0
+
+        for j in xrange(0, 101, 1):
+            x = self.currentSpectrum.GetPoint(j)
+            y = self.spectra.GetPoint(j)
+            self.averageDifferences = self.averageDifferences + (y[1] - x[1])
+
+        print(self.averageDifferences)
+
+        if abs(self.averageDifferences) < 7:  # < 7 for white and black
+            print " tumor"
+            #self._tumorCheck.append(1)
+            return False
+        else:
+            print "healthy"
+            #self._tumorCheck.append(0)
+            self._returnValue.append(1)
+            return True
+
+    def findTrajectory(self, outputArrayNode):
+
+        self.trajectoryTimer = qt.QTimer()
+        index = len(self._tumorCheck) - 1
+        y = len(self._savexcoordinate) - 1
+
+        if self._tumorCheck[index - 4] ==1 and self._tumorCheck[index -3 ] == 0 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index -1 ] ==1:
+            print "Quadrant 2"
+            #for x in xrange(0, 2500, 500):
+                #self.readCoordinatesAtTimeInterval(x, outputArrayNode)
+
+            self.callMovement(0,self._savexcoordinate[y] -5, self._saveycoordinate[y] + 5)
+            #self.readCoordinatesAtTimeInterval3(0, outputArrayNode)
+
+            self.checkArray(outputArrayNode, -10, 1000)
+            self.checkArray(outputArrayNode, -15, 2000)
+            self.checkArray(outputArrayNode, -20, 3000)
+
+        if self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index - 1] == 0:
+            print "Quadrant 1"
+            # for x in xrange(0, 2500, 500):
+            # self.readCoordinatesAtTimeInterval(x, outputArrayNode)
+
+            self.callMovement(0, self._savexcoordinate[y] + 5, self._saveycoordinate[y] + 5)
+            # self.readCoordinatesAtTimeInterval3(0, outputArrayNode)
+
+            self.checkArray(outputArrayNode, 10, 1000)
+            self.checkArray(outputArrayNode, 15, 2000)
+            self.checkArray(outputArrayNode, 20, 3000)
+
+        if self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 0:
+            print "Quadrant 3"
+            # for x in xrange(0, 2500, 500):
+            # self.readCoordinatesAtTimeInterval(x, outputArrayNode)
+
+            self.callMovement(0, self._savexcoordinate[y] + 5, self._saveycoordinate[y] + 5)
+            # self.readCoordinatesAtTimeInterval3(0, outputArrayNode)
+
+            self.checkArray(outputArrayNode, 10, 1000)
+            self.checkArray(outputArrayNode, 15, 2000)
+            self.checkArray(outputArrayNode, 20, 3000)
+
+        if self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 0:
+            print "Quadrant 4"
+            # for x in xrange(0, 2500, 500):
+            # self.readCoordinatesAtTimeInterval(x, outputArrayNode)
+
+            self.callMovement(0, self._savexcoordinate[y] - 5, self._saveycoordinate[y] + 5)
+            # self.readCoordinatesAtTimeInterval3(0, outputArrayNode)
+
+            self.checkArray(outputArrayNode, -10, 1000)
+            self.checkArray(outputArrayNode, -15, 2000)
+            self.checkArray(outputArrayNode, -20, 3000)
+
+
+
+
+
+
+
+    def restart(self):
+        self.addedEdge == 0
+
+
+
+    def if1(self, outputArrayNode, stepVal, delay):
+        if len(self._returnValue) != 0:
+            self.get_coordinates()
+            return
+        else:
+            self.callMovement(delay, self._savexcoordinate[0] + stepVal, self._saveycoordinate[0] + abs(stepVal))
+            self.readCoordinatesAtTimeInterval3(delay, outputArrayNode)
+
+
+
+    def checkArray(self, outputArrayNode, stepVal, delay):
+        checkingTimer = qt.QTimer()
+        checkingTimer.singleShot(delay, lambda: self.if1(outputArrayNode, stepVal, delay))
+
+    def checkArray2(self, delay, outputArrayNode, stepVal):
+        checkingTimer = qt.QTimer()
+        checkingTimer.singleShot(delay, lambda: self.if2(outputArrayNod, stepVal))
+
+    def checkArray3(self, delay, outputArrayNode, stepVal):
+        checkingTimer = qt.QTimer()
+        checkingTimer.singleShot(delay, lambda: self.if3(outputArrayNode, stepVal))
+
+    #def checkForVal(self):
+     #   self.x = len(self._returnValue)
+
+
+            #print(len(self._returnValue))
+
+            #self.trajectoryTimer.connect(self.controlledXYMovement(self._savexcoordinate[0] - 20, self._saveycoordinate[0] + 20))
+            #if self.tumorFlag == 1:
+                #self.trajectoryTimer.stop()
+                #print " off path"
+
+
+        # testing single shot timer stop
+
+    def singleShotTimer(self):
+        testingTimer = qt.QTimer()
+        testingTimer.setInterval(10000)
+        testingTimer.setSingleShot(True)
+        testingTimer.connect(self.printer)
+        testingTimer.start()
+
+
+
+
+
+
+
+
+
+    def printer(self):
+        print " tick"
+
+
 
 
     def fiducialMarker(self, xcoordinate, ycoordinate, zcoordinate):
