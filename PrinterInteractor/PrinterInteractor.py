@@ -196,6 +196,11 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         connect_to_printerFormLayout.addRow(self.testButton)
         self.testButton.connect('clicked(bool)', self.onTestButton)
 
+        self.wheretoButton = qt.QPushButton("where to next?")
+        self.wheretoButton.toolTip = "Requires restart."
+        self.wheretoButton.enabled = True
+        connect_to_printerFormLayout.addRow(self.wheretoButton)
+        self.wheretoButton.connect('clicked(bool)', self.onWhereToNext)
 
                                                 # geometric analysis buttons
         #
@@ -290,7 +295,8 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     def onTestButton(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-        self.logic.spectrumComparisonUV(self.outputArraySelector.currentNode())
+        #self.logic.spectrumComparisonUV(self.outputArraySelector.currentNode())
+        self.logic.automatedEdgeTracing(self.outputArraySelector.currentNode())
 
         # May not need these
     def onFindConvexHull(self):
@@ -306,6 +312,11 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
         self.logic.getSpectralData(self.outputArraySelector.currentNode())
+
+    def onWhereToNext(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+        self.logic.checkQuadrantValues(self.outputArraySelector.currentNode())
 
 
 
@@ -333,6 +344,14 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     _yHullArray = []
     _xHullArray = []
 
+    # arrays for edge tracing
+    _saveycoordinate = []
+    _savexcoordinate = []
+
+    # arrays for quadrant checker
+    _tumorCheck = []
+
+
     def __init__(self):
         # some of these need to go
         self.baud_rate = 115200
@@ -347,6 +366,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.spectraCollectedflag = 0
         self.maxXforY = 0
         self.fiducialCount = 0
+        self.foundTumor = 0
         # Polydata attributes
         # self.dataCollection = vtk.vtkPolyData()
         self.dataPoints = vtk.vtkPoints()
@@ -354,12 +374,27 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.spectra = vtk.vtkPoints()
         self.pointsForHull = vtk.vtkPoints()
 
+        self.timerValue = 0
+
+        # coordinate class declaration
+        self.xcoordinate = 0
+        self.ycoordinate = 0
+        self.zcoordinate = 0
+
         self.pointsForEdgeTracing = vtk.vtkPoints()
         self.timeVariable = 2000
 
         self.currentSpectrum = vtk.vtkPoints()
+        self.stopVal = 10000
 
         self.averageDifferences = 0
+
+
+        self.saveIterationValue = 0
+
+        self.checkingQuadrants = 0
+
+
 
         # instantiate coordinate values
         self.getCoordinateCmd = slicer.vtkSlicerOpenIGTLinkCommand()
@@ -520,6 +555,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         if abs(self.averageDifferences) <7 : # < 7 for white and black
             print " tumor"
+            self.get_coordinates()
             return False
         else:
             print "healthy"
@@ -576,27 +612,129 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         # Parse string for x coordinate value
         xvalues = mylist[0].split(":")
-        xcoordinate = float(xvalues[1])
+        self.xcoordinate = float(xvalues[1])
 
         # Parse string for y coordinate value
         yvalues = mylist[1].split(":")
-        ycoordinate = float(yvalues[1])
+        self.ycoordinate = float(yvalues[1])
 
         # Parse string for z coordinate value
         zvalues = mylist[2].split(":")
-        zcoordinate = float(zvalues[1])
+        self.zcoordinate = float(zvalues[1])
 
-        self.dataCollection = self.createPolyDataPoint(xcoordinate, ycoordinate, zcoordinate)
+        self._savexcoordinate.append(self.xcoordinate)
+        self._saveycoordinate.append(self.ycoordinate)
+
+
+        self.dataCollection = self.createPolyDataPoint(self.xcoordinate, self.ycoordinate, self.zcoordinate)
         if self.fiducialCount < 1:
 
-            self.fiducialMarker(xcoordinate, ycoordinate, zcoordinate)
+            self.fiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
             self.fiducialCount = self.fiducialCount + 1
         else:
-            self.addToCurrentNode(xcoordinate, ycoordinate, zcoordinate)
-        distance = self.calculateDistance(xcoordinate, ycoordinate)
-        self._distanceArray.append(distance)
-        self._yHeightArray.append(ycoordinate)
+            self.addToCurrentNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
+
+
+         # random issues with this distance array
+
+        #distance = self.calculateDistance(xcoordinate, ycoordinate)
+        #self._distanceArray.append(distance)
+        #self._yHeightArray.append(ycoordinate)
         #print(self._distanceArray)
+
+
+                                             # automated edge tracing
+
+    def automatedEdgeTracing(self, outputArrayNode):
+        self.cutInTimer = qt.QTimer()
+        self.edgeTraceTimer = qt.QTimer()
+
+        # move forward until reference spectra is observed then return to that spot
+
+        for y in xrange(0,62,2):
+            delayMs = ((y/2)*500) + 500
+            self.callMovement(delayMs,y,y)
+
+        for x in xrange(0,15500, 500):
+            self.readCoordinatesAtTimeInterval(x, outputArrayNode)
+
+
+        self.moveBackToOriginalEdgePoint()
+
+        # move forward 5, backwards 5, right 5 and left 5
+        # if you detect healthy n
+
+    def checkQuadrantValues(self, outputArrayNode):
+
+        self.printTimer = qt.QTimer()
+
+        self.callMovement(1000, (self._savexcoordinate[0] + 10), (self._saveycoordinate[0])) # right 10
+        self.readCoordinatesAtTimeInterval2(1000,outputArrayNode)
+
+        self.callMovement(2000, (self._savexcoordinate[0]), (self._saveycoordinate[0] - 10)) # back 10
+        self.readCoordinatesAtTimeInterval2(2000, outputArrayNode)
+
+        self.callMovement(3000, (self._savexcoordinate[0] - 10), (self._saveycoordinate[0])) # left 10
+        self.readCoordinatesAtTimeInterval2(3000, outputArrayNode)
+
+        self.callMovement(4000, (self._savexcoordinate[0]), (self._saveycoordinate[0] + 10)) # forward 10
+        self.readCoordinatesAtTimeInterval2(4000, outputArrayNode)
+
+        self.callMovement(5000, (self._savexcoordinate[0]), (self._saveycoordinate[0])) # back to center
+        self.readCoordinatesAtTimeInterval2(5000, outputArrayNode)
+
+        self.callPrintFunc(6000)
+
+    def printFunc(self):
+        print(self._tumorCheck)
+
+    def callPrintFunc(self,delay):
+        self.edgeTraceTimer.singleShot(delay, lambda: self.printFunc())
+
+    def callMovement(self,delay,xcoordinate,ycoordinate):
+        self.cutInTimer.singleShot(delay, lambda: self.controlledXYMovement(xcoordinate, ycoordinate))
+
+
+    def readCoordinatesAtTimeInterval(self, delay, outputArrayNode):
+        self.edgeTraceTimer.singleShot(delay, lambda: self.spectrumComparison(outputArrayNode))
+
+    def readCoordinatesAtTimeInterval2(self, delay, outputArrayNode):
+        self.edgeTraceTimer.singleShot(delay, lambda: self.spectrumComparison2(outputArrayNode))
+
+    def moveBackToOriginalEdgePoint(self):
+        self.edgeTraceTimer.singleShot(15500, lambda: self.controlledXYMovement(self._savexcoordinate[0], self._saveycoordinate[0]))
+
+    def spectrumComparison2(self, outputArrayNode):
+
+        if self.spectraCollectedflag == 0:
+            print " Error: reference spectrum not collected."
+            return
+
+        self.currentOutputArrayNode = outputArrayNode
+        currentPointsArray = self.currentOutputArrayNode.GetArray()
+
+        self.currentSpectrum.SetNumberOfPoints(100)
+        for i in xrange(0, 101, 1):
+            self.currentSpectrum.SetPoint(i, currentPointsArray.GetTuple(i))
+
+        self.averageDifferences = 0
+
+        for j in xrange(0, 101, 1):
+            x = self.currentSpectrum.GetPoint(j)
+            y = self.spectra.GetPoint(j)
+            self.averageDifferences = self.averageDifferences + (y[1] - x[1])
+
+        print(self.averageDifferences)
+
+        if abs(self.averageDifferences) < 7:  # < 7 for white and black
+            print " tumor"
+            self._tumorCheck.append(1)
+            return False
+        else:
+            print "healthy"
+            self._tumorCheck.append(0)
+            return True
+
 
     def fiducialMarker(self, xcoordinate, ycoordinate, zcoordinate):
         self.fiducialNode = slicer.vtkMRMLMarkupsFiducialNode()
@@ -734,8 +872,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         # Corresponds to a timer called in printer interactor widget
         self.scanTimer = qt.QTimer()
         for xValue in xrange(120, 0, -xResolution):
-            delayMs = abs(xValue - 120) * (timeValue / xResolution) + (
-                    120 / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
+            delayMs = abs(xValue - 120) * (timeValue / xResolution) + (120 / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
             self.XMovement(delayMs, xValue)
 
     # Movement Controls (single shot, lambda timers for simple G Code message sending)
