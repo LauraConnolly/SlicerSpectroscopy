@@ -190,29 +190,29 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.stopButton.setStyleSheet("background-color: red; font: bold")
 
         # Testing button
-        self.testButton = qt.QPushButton("test")
+        self.testButton = qt.QPushButton("Find Edge")
         self.testButton.toolTip = "Requires restart."
         self.testButton.enabled = True
         connect_to_printerFormLayout.addRow(self.testButton)
         self.testButton.connect('clicked(bool)', self.onTestButton)
 
-        self.wheretoButton = qt.QPushButton("where to next?")
+        self.wheretoButton = qt.QPushButton("Trace Contour")
         self.wheretoButton.toolTip = "Requires restart."
         self.wheretoButton.enabled = True
         connect_to_printerFormLayout.addRow(self.wheretoButton)
         self.wheretoButton.connect('clicked(bool)', self.onWhereToNext)
 
-        self.findTrajectoryButton = qt.QPushButton("Find Trajectory")
-        self.findTrajectoryButton.toolTip = "Requires restart."
-        self.findTrajectoryButton.enabled = True
-        connect_to_printerFormLayout.addRow(self.findTrajectoryButton)
-        self.findTrajectoryButton.connect('clicked(bool)', self.go)
+        #self.findTrajectoryButton = qt.QPushButton("Find Trajectory")
+        #self.findTrajectoryButton.toolTip = "Requires restart."
+        #self.findTrajectoryButton.enabled = True
+        #connect_to_printerFormLayout.addRow(self.findTrajectoryButton)
+        #self.findTrajectoryButton.connect('clicked(bool)', self.go)
 
-        self.singleShotButton = qt.QPushButton("test 2")
-        self.singleShotButton.toolTip = "Requires restart."
-        self.singleShotButton.enabled = True
-        connect_to_printerFormLayout.addRow(self.singleShotButton)
-        self.singleShotButton.connect('clicked(bool)', self.restart)
+        #self.singleShotButton = qt.QPushButton("test 2")
+        #self.singleShotButton.toolTip = "Requires restart."
+        #self.singleShotButton.enabled = True
+        #connect_to_printerFormLayout.addRow(self.singleShotButton)
+        #self.singleShotButton.connect('clicked(bool)', self.restart)
 
                                                 # geometric analysis buttons
         #
@@ -436,6 +436,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.addedEdge = 0
 
         self.goBack = 0
+        self.offWhite = 0
 
 
         # instantiate coordinate values
@@ -598,12 +599,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
 
 
-        if abs(self.averageDifferences) <7 : # < 7 for white and black
+        if abs(self.averageDifferences) <9 : # < 7 for white and black
             print " tumor"
             self.get_coordinates() # THIS LINE WILL BREAK ORIGINAL CODE
             return False
         else:
             print "healthy"
+            self.offWhite = 1 # added this COULD MESS STUFF UP
             return True
 
 
@@ -691,35 +693,44 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         #self._distanceArray.append(distance)
         #self._yHeightArray.append(ycoordinate)
         #print(self._distanceArray)
+        self._returnxVal.append(self.xcoordinate)
+        self._returnyVal.append(self.ycoordinate)
 
 
                                              # automated edge tracing
     def edgeTrace(self, outputArrayNode):
-        self.callQuadrantCheck(0, outputArrayNode)
-        self.callGetCoordinates(11000)
-        # TODO: fix so that the movement in back onto white actually works
-        #self.callMovement(12000, self.xcoordinate + 5, self.ycoordinate) # this line does not work!!!!
-        self.callNewOrigin(12000)
-        self.callQuadrantCheck(13000, outputArrayNode)
-        #self.callMovement(24000, self.xcoordinate + 5, self.ycoordinate)
-        #self.callNewOrigin(24000)
-        #self.callQuadrantCheck(25000, outputArrayNode)
-        #self.callMovement(33000, self.xcoordinate + 5, self.ycoordinate)
 
-        #self.callNewOrigin(33000)
-        #self.callQuadrantCheck(12000, outputArrayNode)
-        #self.startTrajectorySearch(9000,outputArrayNode)
-        #self.newOrigin()
-
-        #self.checkQuadrantValues(outputArrayNode)
-        #self.moveback()
-        #self.newOrigin()
-
-        #self.checkQuadrantValues(outputArrayNode)
-        #self.moveback()
-        #self.newOrigin()
+        for i in xrange(0,400000,9000):
+            self.callQuadrantCheck(i, outputArrayNode)
+            self.callGetCoordinates(i+5500)
+            self.callNewOrigin(i+ 7000)
+        # check if off of white
+        #self.readCoordinatesAtTimeInterval(9000, outputArrayNode)
+        #self.callIndexRead(10000)
 
 
+
+
+
+
+    def callIndexRead(self, delay):
+        indexTimer = qt.QTimer()
+        indexTimer.singleShot(delay, lambda: self.IndexRead())
+
+    def IndexRead(self):
+        index = len(self._returnxVal)
+        self.x = self._returnxVal[index]
+        self.y = self._returnyVal[index]
+    def callCorrectItself(self,delay,  xcoordinate, ycoordinate):
+        correctTimer = qt.QTimer()
+        correctTimer.singleShot(delay, lambda: self.correctItself(delay, xcoordinate, ycoordinate))
+
+    def correctItself(self, delay, xcoordinate, ycoordinate):
+        if self.offWhite != 0:
+            self.callMovement(delay, xcoordinate, ycoordinate)
+            print "off white"
+        else:
+            print "still good"
     def callmoveback(self, delay):
         moveTimer = qt.QTimer()
         moveTimer.singleShot(delay, lambda: self.moveback())
@@ -757,19 +768,19 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         print(self._savexcoordinate)
         print(index)
         self.callMovement(1000, (self._savexcoordinate[index] + 10), (self._saveycoordinate[index])) # right 10
-        self.readCoordinatesAtTimeInterval2(self.timerTracker + 2000,outputArrayNode)
+        self.readCoordinatesAtTimeInterval2(2000,outputArrayNode)
 
         self.callMovement(2000, (self._savexcoordinate[index]), (self._saveycoordinate[index] - 10)) # back 10
-        self.readCoordinatesAtTimeInterval2(self.timerTracker + 3000, outputArrayNode)
+        self.readCoordinatesAtTimeInterval2(3000, outputArrayNode)
 
         self.callMovement(3000, (self._savexcoordinate[index] - 10), (self._saveycoordinate[index])) # left 10
-        self.readCoordinatesAtTimeInterval2(self.timerTracker + 4000, outputArrayNode)
+        self.readCoordinatesAtTimeInterval2(4000, outputArrayNode)
 
         self.callMovement(4000, (self._savexcoordinate[index]), (self._saveycoordinate[index] + 10)) # forward 10
-        self.readCoordinatesAtTimeInterval2(self.timerTracker + 5000, outputArrayNode)
+        self.readCoordinatesAtTimeInterval2(5000, outputArrayNode)
 
         self.callMovement(5000, (self._savexcoordinate[index]), (self._saveycoordinate[index])) # back to center
-        self.readCoordinatesAtTimeInterval2(self.timerTracker + 6000, outputArrayNode)
+        #self.readCoordinatesAtTimeInterval2(self.timerTracker + 6000, outputArrayNode)
 
         self.callPrintFunc(7000)
         #self.timerTracker = self.timerTracker + 6000
@@ -790,7 +801,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def callGetCoordinates(self,delay):
         coordTimer = qt.QTimer()
         coordTimer.singleShot(delay, lambda: self.get_coordinates())
-        self.callMovement(delay + 1000, self.xcoordinate + 5, self.ycoordinate)
+        #self.callMovement(delay + 1000, self.xcoordinate + 5, self.ycoordinate)
 
 
     def readCoordinatesAtTimeInterval(self, delay, outputArrayNode):
@@ -875,57 +886,57 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         index = len(self._tumorCheck)
         y = len(self._savexcoordinate) - 1
 
-        if self._tumorCheck[index - 4] ==1 and self._tumorCheck[index -3 ] == 0 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index -1 ] ==1:
+        if (self._tumorCheck[index - 4] ==1 and self._tumorCheck[index -3 ] == 0 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index -1 ] ==1) or ((self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index - 1] == 1)):
             print "Quadrant 2"
             #for x in xrange(0, 2500, 500):
                 #self.readCoordinatesAtTimeInterval3(x, outputArrayNode)
 
-            self.callMovement(0,self._savexcoordinate[y] -5, self._saveycoordinate[y] + 5)
+            self.callMovement(0,self._savexcoordinate[y] -4, self._saveycoordinate[y] + 6)
             #self.readCoordinatesAtTimeInterval3(0, outputArrayNode)
 
-            self.checkArray(outputArrayNode, -7, 1000) #1000
+            #self.checkArray(outputArrayNode, -7, 1000) #1000
 
-            self.checkArray(outputArrayNode, -9,  2000)
-            self.checkArray(outputArrayNode, -11,  3000)
-            self.checkArray(outputArrayNode, -13, 4000)
+            #self.checkArray(outputArrayNode, -9,  2000)
+            #self.checkArray(outputArrayNode, -11,  3000)
+            #self.checkArray(outputArrayNode, -13, 4000)
 
 
 
-        if self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index - 1] == 0:
+        if (self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index - 1] == 0) or (self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index - 1] == 0) or ((self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 0))  or ((self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
             print "Quadrant 1"
             # for x in xrange(0, 2500, 500):
             # self.readCoordinatesAtTimeInterval(x, outputArrayNode)
 
-            self.callMovement(0, self._savexcoordinate[y] + 5, self._saveycoordinate[y] + 5)
+            self.callMovement(0, self._savexcoordinate[y] + 4, self._saveycoordinate[y] + 6)
             # self.readCoordinatesAtTimeInterval3(0, outputArrayNode)
 
-            self.checkArray(outputArrayNode, 10, 1000)
-            self.checkArray(outputArrayNode, 15, 2000)
-            self.checkArray(outputArrayNode, 20, 3000)
+            #self.checkArray(outputArrayNode, 10, 1000)
+            #self.checkArray(outputArrayNode, 15, 2000)
+            #self.checkArray(outputArrayNode, 20, 3000)
 
-        if self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 0:
+        if (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 1) or (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 0) or ((self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 1)) or ((self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
             print "Quadrant 3"
             # for x in xrange(0, 2500, 500):
             # self.readCoordinatesAtTimeInterval(x, outputArrayNode)
 
-            self.callMovement(0, self._savexcoordinate[y] + 5, self._saveycoordinate[y] + 5)
+            self.callMovement(0, self._savexcoordinate[y] - 4, self._saveycoordinate[y] - 6)
             # self.readCoordinatesAtTimeInterval3(0, outputArrayNode)
 
-            self.checkArray(outputArrayNode, 10, 1000)
-            self.checkArray(outputArrayNode, 15, 2000)
-            self.checkArray(outputArrayNode, 20, 3000)
+            #self.checkArray(outputArrayNode, 10, 1000)
+            #self.checkArray(outputArrayNode, 15, 2000)
+            #self.checkArray(outputArrayNode, 20, 3000)
 
-        if self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 0:
+        if (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 0) or (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index - 1] == 0)or ((self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
             print "Quadrant 4"
             # for x in xrange(0, 2500, 500):
             # self.readCoordinatesAtTimeInterval(x, outputArrayNode)
 
-            self.callMovement(0, self._savexcoordinate[y] - 5, self._saveycoordinate[y] + 5)
+            self.callMovement(0, self._savexcoordinate[y] + 4, self._saveycoordinate[y] - 6)
             # self.readCoordinatesAtTimeInterval3(0, outputArrayNode)
 
-            self.checkArray(outputArrayNode, -10, 1000)
-            self.checkArray(outputArrayNode, -15, 2000)
-            self.checkArray(outputArrayNode, -20, 3000)
+            #self.checkArray(outputArrayNode, -10, 1000)
+            #self.checkArray(outputArrayNode, -15, 2000)
+            #self.checkArray(outputArrayNode, -20, 3000)
 
         self.addedEdge = 0
         self.call_getCoordinates(self.timerTracker + 1000)
@@ -969,8 +980,11 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def newOrigin(self):
         self.addedEdge =0
         self.get_coordinates()
-        print(self._savexcoordinate)
-        print(self._saveycoordinate)
+        if self.fiducialCount < 1:
+            self.fiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
+            self.fiducialCount = self.fiducialCount + 1
+        else:
+             self.addToCurrentNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
 
 
 
