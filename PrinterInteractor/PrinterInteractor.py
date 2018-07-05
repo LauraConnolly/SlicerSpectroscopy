@@ -53,19 +53,27 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #
         # Parameters Area
         #
-        connect_to_printerCollapsibleButton = ctk.ctkCollapsibleButton()
-        connect_to_printerCollapsibleButton.text = "Connect to Printer"
-        self.layout.addWidget(connect_to_printerCollapsibleButton)
+        SystematicScanningControlCollapsibleButton = ctk.ctkCollapsibleButton()
+        SystematicScanningControlCollapsibleButton.text = "Systematic Scanning Control"
+        self.layout.addWidget(SystematicScanningControlCollapsibleButton)
 
-        #geometricAnalysisCollapsibleButton = ctk.ctkCollapsibleButton()
-        #geometricAnalysisCollapsibleButton.text = "Geometric Analysis"
-        #self.layout.addWidget(geometricAnalysisCollapsibleButton)
+        IndependentContourTraceCollapsibleButton = ctk.ctkCollapsibleButton()
+        IndependentContourTraceCollapsibleButton.text = "Independent Scanning Control "
+        self.layout.addWidget(IndependentContourTraceCollapsibleButton)
 
-        # Layout within the connect to printer collapsible button
-        connect_to_printerFormLayout = qt.QFormLayout(connect_to_printerCollapsibleButton)
+        PrinterMovementCollapsibleButton= ctk.ctkCollapsibleButton()
+        PrinterMovementCollapsibleButton.text = "Finite Movement Control "
+        self.layout.addWidget(PrinterMovementCollapsibleButton)
 
-        # Layout within the geometric analysis collapsible button
-        #geometricAnalysisCollapsibleButtonFormLayout = qt.QFormLayout(geometricAnalysisCollapsibleButton)
+        # Layout within the Systematic Scanning Control collapsible button
+        SystematicScanningControlFormLayout = qt.QFormLayout(SystematicScanningControlCollapsibleButton)
+
+        # Layout within the Independent Scanning Control collapsible button
+        IndependentContourTraceCollapsibleButtonFormLayout = qt.QFormLayout(IndependentContourTraceCollapsibleButton)
+
+        # Layout within the Finite Movement Control Collapsible button
+        PrinterMovementCollapsibleButtonFormLayout  = qt.QFormLayout(PrinterMovementCollapsibleButton)
+
 
                                                     # Connect to printer buttons
 
@@ -75,7 +83,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.homeButton = qt.QPushButton("Home")
         self.homeButton.toolTip = "Return to reference axis"
         self.homeButton.enabled = True
-        connect_to_printerFormLayout.addRow(self.homeButton)
+        SystematicScanningControlFormLayout.addRow(self.homeButton)
         self.homeButton.connect('clicked(bool)', self.onHomeButton)
         #
         #Center button
@@ -83,7 +91,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.moveMiddleButton = qt.QPushButton("Center")
         self.moveMiddleButton.toolTip = "Move to the middle of the stage, helpful for acquiring reference spectrum ."
         self.moveMiddleButton.enabled = True
-        connect_to_printerFormLayout.addRow(self.moveMiddleButton)
+        SystematicScanningControlFormLayout.addRow(self.moveMiddleButton)
         self.moveMiddleButton.connect('clicked(bool)', self.onTestingButton)
         #
         # IGT Link Connector
@@ -98,7 +106,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.inputSelector.showChildNodeTypes = False
         self.inputSelector.setMRMLScene(slicer.mrmlScene)
         self.inputSelector.setToolTip("Pick the input to the algorithm.")
-        connect_to_printerFormLayout.addRow("Connect to: ", self.inputSelector)
+        SystematicScanningControlFormLayout.addRow("Connect to: ", self.inputSelector)
         #
         # Port Selector
         #
@@ -107,14 +115,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #self.portSelector.insertItem(2, "PORT 2")
         #self.portSelector.insertItem(3, "PORT 3")
         #self.portSelector.insertItem(4, "PORT 4")
-        #connect_to_printerFormLayout.addRow("Port :", self.portSelector)
+        #SystematicScanningControlFormLayout.addRow("Port :", self.portSelector)
         #
         # Wavelength Selector
         #
         self.laserSelector = qt.QComboBox()
         self.laserSelector.insertItem(1, "UV: 395 nm ")
         self.laserSelector.insertItem(2, "RED: 660 nm")
-        connect_to_printerFormLayout.addRow("Laser Wavelength :", self.laserSelector)
+        SystematicScanningControlFormLayout.addRow("Laser Wavelength :", self.laserSelector)
         #
         # Output array selector
         #
@@ -127,7 +135,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.outputArraySelector.showChildNodeTypes = False
         self.outputArraySelector.setMRMLScene(slicer.mrmlScene)
         self.outputArraySelector.setToolTip("Pick the output to the algorithm.")
-        connect_to_printerFormLayout.addRow("Output spectrum array: ", self.outputArraySelector)
+        SystematicScanningControlFormLayout.addRow("Output spectrum array: ", self.outputArraySelector)
         #
         # X Resolution
         #
@@ -135,7 +143,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.xResolution_spinbox.setMinimum(0)
         self.xResolution_spinbox.setMaximum(120)
         self.xResolution_spinbox.setValue(0)
-        connect_to_printerFormLayout.addRow("X resolution (mm / step) :", self.xResolution_spinbox)
+        SystematicScanningControlFormLayout.addRow("X resolution (mm / step) :", self.xResolution_spinbox)
         #
         # Y Resolution
         #
@@ -143,7 +151,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.yResolution_spinbox.setMinimum(0)
         self.yResolution_spinbox.setMaximum(120)
         self.yResolution_spinbox.setValue(0)
-        connect_to_printerFormLayout.addRow("Y resolution (mm/ step):", self.yResolution_spinbox)
+        SystematicScanningControlFormLayout.addRow("Y resolution (mm/ step):", self.yResolution_spinbox)
         #
         # Time per reading
         #
@@ -152,14 +160,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.timeDelay_spinbox.setMaximum(5000)
         self.timeDelay_spinbox.setValue(1000)
         # self.timeDelay_spinbox.setSingleStep(1000)
-        connect_to_printerFormLayout.addRow("Time for data delay (ms) :", self.timeDelay_spinbox)
+        SystematicScanningControlFormLayout.addRow("Time for data delay (ms) :", self.timeDelay_spinbox)
         #
         #edge tracing button
         #
-        self.createModelButton = qt.QPushButton("Trace Edges")
+        self.createModelButton = qt.QPushButton("Outline Convex Hull")
         self.createModelButton.toolTip = "B"
         self.createModelButton.enabled = True
-        connect_to_printerFormLayout.addRow(self.createModelButton)
+        SystematicScanningControlFormLayout.addRow(self.createModelButton)
         self.createModelButton.connect('clicked(bool)', self.onFindConvexHull)
 
         # learn spectra button
@@ -167,7 +175,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.learnSpectraButton = qt.QPushButton("Learn Spectra (necessary for 660 nm wavelength)")
         self.learnSpectraButton.toolTip = "Begin systematic surface scan"
         self.learnSpectraButton.enabled = True
-        connect_to_printerFormLayout.addRow(self.learnSpectraButton)
+        SystematicScanningControlFormLayout.addRow(self.learnSpectraButton)
         self.learnSpectraButton.connect('clicked(bool)', self.onLearnSpectraButton)
         #
         # Surface scan button
@@ -175,7 +183,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.scanButton = qt.QPushButton("GO")
         self.scanButton.toolTip = "Begin systematic surface scan"
         self.scanButton.enabled = True
-        connect_to_printerFormLayout.addRow(self.scanButton)
+        SystematicScanningControlFormLayout.addRow(self.scanButton)
         self.scanButton.connect('clicked(bool)', self.onScanButton)
         self.scanButton.setStyleSheet("background-color: green; font: bold")
 
@@ -185,54 +193,44 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.stopButton = qt.QPushButton("STOP")
         self.stopButton.toolTip = "Requires restart."
         self.stopButton.enabled = True
-        connect_to_printerFormLayout.addRow(self.stopButton)
+        SystematicScanningControlFormLayout.addRow(self.stopButton)
         self.stopButton.connect('clicked(bool)', self.onStopButton)
         self.stopButton.setStyleSheet("background-color: red; font: bold")
+
+                                            # independent contour trace buttons
 
         # Testing button
         self.testButton = qt.QPushButton("Find Edge")
         self.testButton.toolTip = "Requires restart."
         self.testButton.enabled = True
-        connect_to_printerFormLayout.addRow(self.testButton)
+        IndependentContourTraceCollapsibleButtonFormLayout.addRow(self.testButton)
         self.testButton.connect('clicked(bool)', self.onTestButton)
 
         self.wheretoButton = qt.QPushButton("Trace Contour")
         self.wheretoButton.toolTip = "Requires restart."
         self.wheretoButton.enabled = True
-        connect_to_printerFormLayout.addRow(self.wheretoButton)
-        self.wheretoButton.connect('clicked(bool)', self.onWhereToNext)
-
-        #self.findTrajectoryButton = qt.QPushButton("Find Trajectory")
-        #self.findTrajectoryButton.toolTip = "Requires restart."
-        #self.findTrajectoryButton.enabled = True
-        #connect_to_printerFormLayout.addRow(self.findTrajectoryButton)
-        #self.findTrajectoryButton.connect('clicked(bool)', self.go)
-
-        #self.singleShotButton = qt.QPushButton("test 2")
-        #self.singleShotButton.toolTip = "Requires restart."
-        #self.singleShotButton.enabled = True
-        #connect_to_printerFormLayout.addRow(self.singleShotButton)
-        #self.singleShotButton.connect('clicked(bool)', self.restart)
-
-                                                # geometric analysis buttons
-        #
-        # Shape Selector
-        #
-        #self.shapeSelector = qt.QSpinBox()
-        #self.shapeSelector.setMinimum(0)
-        #self.shapeSelector.setMaximum(6)
-        #self.shapeSelector.setValue(0)
-        #geometricAnalysisCollapsibleButtonFormLayout.addRow("Number of vertices:", self.shapeSelector)
-        #
-        # geometric analysis button
-        #
-        #self.geometricAnalysisButton = qt.QPushButton("Geometric Analysis")
-        #self.geometricAnalysisButton.toolTip = "Requires restart."
-        #self.geometricAnalysisButton.enabled = True
-        #geometricAnalysisCollapsibleButtonFormLayout.addRow(self.geometricAnalysisButton)
-        #self.geometricAnalysisButton.connect('clicked(bool)', self.onGeometricAnalysis)
+        IndependentContourTraceCollapsibleButtonFormLayout.addRow(self.wheretoButton)
+        self.wheretoButton.connect('clicked(bool)', self.onIndependentContourTrace)
 
 
+                                            # finite printer movement control buttons
+        self.x5Button = qt.QPushButton("x + 5")
+        self.x5Button.toolTip = " move 5 mm in the positive x direction"
+        self.x5Button.enabled = True
+        PrinterMovementCollapsibleButtonFormLayout.addRow(self.x5Button)
+        self.x5Button.connect('clicked(bool)', self.onx5Button)
+
+        self.x10Button = qt.QPushButton("x + 10")
+        self.x10Button.toolTip = " move 10 mm in the  positive x direction"
+        self.x10Button.enabled = True
+        PrinterMovementCollapsibleButtonFormLayout.addRow(self.x10Button)
+        self.x10Button.connect('clicked(bool)', self.onx10Button)
+
+        self.xneg5Button = qt.QPushButton("x - 5")
+        self.xneg5Button.toolTip = " move 5 mm in the positive x direction"
+        self.xneg5Button.enabled = True
+        PrinterMovementCollapsibleButtonFormLayout.addRow(self.xneg5Button)
+        self.xneg5Button.connect('clicked(bool)', self.onxneg5Button)
 
 
         self.layout.addStretch(1)
@@ -317,39 +315,39 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
          self.logic.convexHull()
 
 
-    #def onSetTumorBoundaries(self):
-     #   self.ondoubleArrayNodeChanged()
-      #  self.onSerialIGLTSelectorChanged()
-       # self.logic.setTumorBoundaries()
-
     def onLearnSpectraButton(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
         self.logic.getSpectralData(self.outputArraySelector.currentNode())
 
-    def onWhereToNext(self):
+    def onIndependentContourTrace(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
 
         self.logic.edgeTrace(self.outputArraySelector.currentNode())
 
-        #self.logic.checkQuadrantValues(self.outputArraySelector.currentNode())
 
-    def go(self):
+    # Finite movement controls
+    def onx5Button(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-        self.logic.newOrigin()
-        #self.logic.findTrajectory(self.outputArraySelector.currentNode())
-
-    def checkTimer(self):
+        self.logic.movePos5mmPastCurrentCoordinate()
+    def onxneg5Button(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-        self.logic.keepGoing(self.outputArraySelector.currentNode())
+        self.logic.moveNeg5mmPastCurrentCoordinate()
 
-    def restart(self):
+    def onx10Button(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-        self.logic.moveback()
+        self.logic.movePos10mmPastCurrentCoordinate()
+
+
+
+
+
+
+
 
 # in order to access and read specific data points use this function
 # def onTestingButton(self):
@@ -411,7 +409,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.spectra = vtk.vtkPoints()
         self.pointsForHull = vtk.vtkPoints()
 
-        self.timerValue = 0
 
         # coordinate class declaration
         self.xcoordinate = 0
@@ -422,16 +419,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.timeVariable = 2000
 
         self.currentSpectrum = vtk.vtkPoints()
-        self.stopVal = 10000
 
         self.averageDifferences = 0
 
 
-        self.saveIterationValue = 0
 
-        self.checkingQuadrants = 0
 
-        self.tumorFlag = 0
+
 
         self.addedEdge = 0
 
@@ -446,6 +440,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.getCoordinateCmd.SetCommandTimeoutSec(1.0)
         self.getCoordinateCmd.SetCommandAttribute('Text', 'M114')
         self.getCoordinateCmd.AddObserver(self.getCoordinateCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
+        #second one for edge without systematic
+        self.getCoordinateCmd2 = slicer.vtkSlicerOpenIGTLinkCommand()
+        self.getCoordinateCmd2.SetCommandName('SendText')
+        self.getCoordinateCmd2.SetCommandAttribute('DeviceId', "SerialDevice")
+        self.getCoordinateCmd2.SetCommandTimeoutSec(1.0)
+        self.getCoordinateCmd2.SetCommandAttribute('Text', 'M114')
+        self.getCoordinateCmd2.AddObserver(self.getCoordinateCmd2.CommandCompletedEvent, self.onPrinterCommandCompleted2)
         # instantiate home command
         self.homeCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.homeCmd.SetCommandName('SendText')
@@ -601,11 +602,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         if abs(self.averageDifferences) <9 : # < 7 for white and black
             print " tumor"
-            self.get_coordinates() # THIS LINE WILL BREAK ORIGINAL CODE
+           # THIS LINE WILL BREAK ORIGINAL CODE
             return False
         else:
-            print "healthy"
-            self.offWhite = 1 # added this COULD MESS STUFF UP
+            print "healthy" # added this COULD MESS STUFF UP
             return True
 
 
@@ -676,6 +676,54 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             self._saveycoordinate.append(self.ycoordinate)
             self.addedEdge = 1
 
+        self.dataCollection = self.createPolyDataPoint(self.xcoordinate, self.ycoordinate, self.zcoordinate)
+        #  DON'T DELETE HOW WE ADD FIDUCIALS
+        if self.fiducialCount < 1:
+
+            self.fiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
+            self.fiducialCount = self.fiducialCount + 1
+        else:
+            self.addToCurrentNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
+
+        # random issues with this distance array
+
+        # distance = self.calculateDistance(xcoordinate, ycoordinate)
+        # self._distanceArray.append(distance)
+        # self._yHeightArray.append(ycoordinate)
+        # print(self._distanceArray)
+        #self._returnxVal.append(self.xcoordinate)
+        #self._returnyVal.append(self.ycoordinate)
+
+    def get_coordinates2(self):
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.getCoordinateCmd2, self.serialIGTLNode.GetID())
+
+    def onPrinterCommandCompleted2(self, observer, eventid):
+        coordinateValues = self.getCoordinateCmd2.GetResponseMessage()
+        print("Command completed with status: " + self.getCoordinateCmd2.StatusToString(
+            self.getCoordinateCmd.GetStatus()))
+        print("Response message: " + coordinateValues)
+        print("Full response: " + self.getCoordinateCmd2.GetResponseText())
+        # parsing the string for specific coordinate values
+        mylist = coordinateValues.split(" ")
+
+        # Parse string for x coordinate value
+        xvalues = mylist[0].split(":")
+        self.xcoordinate = float(xvalues[1])
+
+        # Parse string for y coordinate value
+        yvalues = mylist[1].split(":")
+        self.ycoordinate = float(yvalues[1])
+
+        # Parse string for z coordinate value
+        zvalues = mylist[2].split(":")
+        self.zcoordinate = float(zvalues[1])
+
+        # added for automated edge tracing
+        if self.addedEdge == 0:
+            self._savexcoordinate.append(self.xcoordinate)
+            self._saveycoordinate.append(self.ycoordinate)
+            self.addedEdge = 1
+
 
         self.dataCollection = self.createPolyDataPoint(self.xcoordinate, self.ycoordinate, self.zcoordinate)
                 #  DON'T DELETE HOW WE ADD FIDUCIALS
@@ -695,6 +743,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         #print(self._distanceArray)
         self._returnxVal.append(self.xcoordinate)
         self._returnyVal.append(self.ycoordinate)
+        return self.xcoordinate
 
 
                                              # automated edge tracing
@@ -713,27 +762,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
 
 
-    def callIndexRead(self, delay):
-        indexTimer = qt.QTimer()
-        indexTimer.singleShot(delay, lambda: self.IndexRead())
 
-    def IndexRead(self):
-        index = len(self._returnxVal)
-        self.x = self._returnxVal[index]
-        self.y = self._returnyVal[index]
-    def callCorrectItself(self,delay,  xcoordinate, ycoordinate):
-        correctTimer = qt.QTimer()
-        correctTimer.singleShot(delay, lambda: self.correctItself(delay, xcoordinate, ycoordinate))
-
-    def correctItself(self, delay, xcoordinate, ycoordinate):
-        if self.offWhite != 0:
-            self.callMovement(delay, xcoordinate, ycoordinate)
-            print "off white"
-        else:
-            print "still good"
-    def callmoveback(self, delay):
-        moveTimer = qt.QTimer()
-        moveTimer.singleShot(delay, lambda: self.moveback())
 
     def callNewOrigin(self, delay):
         originTimer = qt.QTimer()
@@ -760,6 +789,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def callQuadrantCheck(self, delay, outputArrayNode):
         quadTimer = qt.QTimer()
         quadTimer.singleShot(delay, lambda: self.checkQuadrantValues(outputArrayNode))
+
     def checkQuadrantValues(self, outputArrayNode):
                                         # go right, back, left, forward until you determine which quadrant to continue in
         self.printTimer = qt.QTimer()
@@ -800,12 +830,12 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def callGetCoordinates(self,delay):
         coordTimer = qt.QTimer()
-        coordTimer.singleShot(delay, lambda: self.get_coordinates())
+        coordTimer.singleShot(delay, lambda: self.get_coordinates2())
         #self.callMovement(delay + 1000, self.xcoordinate + 5, self.ycoordinate)
 
 
     def readCoordinatesAtTimeInterval(self, delay, outputArrayNode):
-        self.edgeTraceTimer.singleShot(delay, lambda: self.spectrumComparison(outputArrayNode))
+        self.edgeTraceTimer.singleShot(delay, lambda: self.spectrumComparison1(outputArrayNode))
 
     def readCoordinatesAtTimeInterval2(self, delay, outputArrayNode):
         self.edgeTraceTimer.singleShot(delay, lambda: self.spectrumComparison2(outputArrayNode))
@@ -816,6 +846,37 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def moveBackToOriginalEdgePoint(self):
         x = len(self._savexcoordinate) - 1
         self.edgeTraceTimer.singleShot(16500, lambda: self.controlledXYMovement(self._savexcoordinate[x], self._saveycoordinate[x]))
+
+    def spectrumComparison1(self, outputArrayNode):
+
+        if self.spectraCollectedflag == 0:
+            print " Error: reference spectrum not collected."
+            return
+
+        self.currentOutputArrayNode = outputArrayNode
+        currentPointsArray = self.currentOutputArrayNode.GetArray()
+
+        self.currentSpectrum.SetNumberOfPoints(100)
+        for i in xrange(0, 101, 1):
+            self.currentSpectrum.SetPoint(i, currentPointsArray.GetTuple(i))
+
+        self.averageDifferences = 0
+
+        for j in xrange(0, 101, 1):
+            x = self.currentSpectrum.GetPoint(j)
+            y = self.spectra.GetPoint(j)
+            self.averageDifferences = self.averageDifferences + (y[1] - x[1])
+
+        print(self.averageDifferences)
+
+        if abs(self.averageDifferences) < 9:  # < 7 for white and black
+            print " tumor"
+            self.get_coordinates()  # THIS LINE WILL BREAK ORIGINAL CODE
+            return False
+        else:
+            print "healthy"
+            self.offWhite = 1  # added this COULD MESS STUFF UP
+            return True
 
     def spectrumComparison2(self, outputArrayNode):
 
@@ -888,94 +949,32 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         if (self._tumorCheck[index - 4] ==1 and self._tumorCheck[index -3 ] == 0 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index -1 ] ==1) or ((self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index - 1] == 1)):
             print "Quadrant 2"
-            #for x in xrange(0, 2500, 500):
-                #self.readCoordinatesAtTimeInterval3(x, outputArrayNode)
-
             self.callMovement(0,self._savexcoordinate[y] -4, self._saveycoordinate[y] + 6)
-            #self.readCoordinatesAtTimeInterval3(0, outputArrayNode)
-
-            #self.checkArray(outputArrayNode, -7, 1000) #1000
-
-            #self.checkArray(outputArrayNode, -9,  2000)
-            #self.checkArray(outputArrayNode, -11,  3000)
-            #self.checkArray(outputArrayNode, -13, 4000)
-
-
 
         if (self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index - 1] == 0) or (self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index - 1] == 0) or ((self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 0))  or ((self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
             print "Quadrant 1"
-            # for x in xrange(0, 2500, 500):
-            # self.readCoordinatesAtTimeInterval(x, outputArrayNode)
-
             self.callMovement(0, self._savexcoordinate[y] + 4, self._saveycoordinate[y] + 6)
-            # self.readCoordinatesAtTimeInterval3(0, outputArrayNode)
 
-            #self.checkArray(outputArrayNode, 10, 1000)
-            #self.checkArray(outputArrayNode, 15, 2000)
-            #self.checkArray(outputArrayNode, 20, 3000)
 
         if (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 1) or (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 0) or ((self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 1)) or ((self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
             print "Quadrant 3"
-            # for x in xrange(0, 2500, 500):
-            # self.readCoordinatesAtTimeInterval(x, outputArrayNode)
-
             self.callMovement(0, self._savexcoordinate[y] - 4, self._saveycoordinate[y] - 6)
-            # self.readCoordinatesAtTimeInterval3(0, outputArrayNode)
 
-            #self.checkArray(outputArrayNode, 10, 1000)
-            #self.checkArray(outputArrayNode, 15, 2000)
-            #self.checkArray(outputArrayNode, 20, 3000)
 
         if (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 0) or (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index - 1] == 0)or ((self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
             print "Quadrant 4"
-            # for x in xrange(0, 2500, 500):
-            # self.readCoordinatesAtTimeInterval(x, outputArrayNode)
-
             self.callMovement(0, self._savexcoordinate[y] + 4, self._saveycoordinate[y] - 6)
-            # self.readCoordinatesAtTimeInterval3(0, outputArrayNode)
 
-            #self.checkArray(outputArrayNode, -10, 1000)
-            #self.checkArray(outputArrayNode, -15, 2000)
-            #self.checkArray(outputArrayNode, -20, 3000)
 
         self.addedEdge = 0
         self.call_getCoordinates(self.timerTracker + 1000)
-        #print(self._savexcoordinate)
 
 
-    def restart(self):
 
-        #print(self.timerTracker)
-        #self.call_getCoordinates(self.timerTracker + 1000)
-        self.get_coordinates()
-        self.callMovement(1000, self.xcoordinate + 5,0 )
 
     def call_getCoordinates(self, delay):
         self.edgeTraceTimer.singleShot(delay, lambda: self.get_coordinates())
 
-    def if1(self, outputArrayNode, stepVal, delay):
-        index = len(self._savexcoordinate) - 1
-        print len(self._returnValue)
-        if len(self._returnValue) > 0:
-            self.readCoordinatesAtTimeInterval3(delay,outputArrayNode)
-            print "entered if 1"
-            return
-        else:
-            self.callMovement(delay, self._savexcoordinate[index] + stepVal, self._saveycoordinate[index] + abs(stepVal))
-            self.readCoordinatesAtTimeInterval3(delay, outputArrayNode)
-            self.timerTracker = self.timerTracker + 1000
-            print(self.timerTracker)
-            print "entered if 2"
-
-            return
-
-
-    def moveback(self):
-        #cutInTimer = qt.QTimer()
-        #self.get_coordinates()
-        self.callMovement(1000, self.xcoordinate + 5, self.ycoordinate)
-        #self.addedEdge = 0
-        #self.call_getCoordinates(self.timerTracker + 3000)
 
     def newOrigin(self):
         self.addedEdge =0
@@ -989,52 +988,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
 
 
-
-
-
-
-
-    def checkArray(self, outputArrayNode, stepVal, delay):
-        checkingTimer = qt.QTimer()
-        checkingTimer.singleShot(delay, lambda: self.if1(outputArrayNode, stepVal, delay))
-
-
-
     def startTrajectorySearch(self,outputArrayNode):
         trajTimer = qt.QTimer()
         trajTimer.singleShot(self.startNext,lambda: self.findTrajectory(outputArrayNode)) # was self.startNext
 
-    #def checkForVal(self):
-     #   self.x = len(self._returnValue)
-
-
-            #print(len(self._returnValue))
-
-            #self.trajectoryTimer.connect(self.controlledXYMovement(self._savexcoordinate[0] - 20, self._saveycoordinate[0] + 20))
-            #if self.tumorFlag == 1:
-                #self.trajectoryTimer.stop()
-                #print " off path"
-
-
-        # testing single shot timer stop
-
-    def singleShotTimer(self):
-        testingTimer = qt.QTimer()
-        testingTimer.setInterval(10000)
-        testingTimer.setSingleShot(True)
-        testingTimer.connect(self.printer)
-        testingTimer.start()
-
-
-
-
-
-
-
-
-
-    def printer(self):
-        print " tick"
 
 
 
@@ -1120,6 +1077,19 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         intensityValue = pointsArray.GetComponent(62, 1)
         print(intensityValue)
         print(wavelengthValue)
+
+    def movePos5mmPastCurrentCoordinate(self):
+        self.callGetCoordinates(1000)
+        self.XMovement(2000, self.xcoordinate + 5)
+
+    def moveNeg5mmPastCurrentCoordinate(self):
+        self.callGetCoordinates(1000)
+        if self.xcoordinate > 5:
+            self.XMovement(2000, self.xcoordinate - 5)
+
+    def movePos10mmPastCurrentCoordinate(self):
+        self.callGetCoordinates(1000)
+        self.XMovement(2000, self.xcoordinate + 10)
 
     def home(self):
 
