@@ -206,12 +206,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.testButton.enabled = True
         IndependentContourTraceCollapsibleButtonFormLayout.addRow(self.testButton)
         self.testButton.connect('clicked(bool)', self.onTestButton)
+        self.testButton.setStyleSheet("background-color: grey")
 
         self.wheretoButton = qt.QPushButton("Trace Contour")
         self.wheretoButton.toolTip = "Requires restart."
         self.wheretoButton.enabled = True
         IndependentContourTraceCollapsibleButtonFormLayout.addRow(self.wheretoButton)
         self.wheretoButton.connect('clicked(bool)', self.onIndependentContourTrace)
+        self.wheretoButton.setStyleSheet("background-color: grey")
 
 
                                             # finite printer movement control buttons
@@ -222,12 +224,42 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.x10Button.enabled = True
         PrinterMovementCollapsibleButtonFormLayout.addRow(self.x10Button)
         self.x10Button.connect('clicked(bool)', self.followFiducials)
+        self.x10Button.setStyleSheet("background-color: grey")
 
         self.COMButton = qt.QPushButton("Go to center of Mass")
         self.COMButton.toolTip = " move 10 mm in the  positive x direction"
         self.COMButton.enabled = True
         PrinterMovementCollapsibleButtonFormLayout.addRow(self.COMButton)
         self.COMButton.connect('clicked(bool)', self.goToCenterOfMass)
+        self.COMButton.setStyleSheet("background-color: grey")
+
+        self.ROIsearchButton = qt.QPushButton("ROI Systematic Search")
+        self.ROIsearchButton.toolTip = " move 10 mm in the  positive x direction"
+        self.ROIsearchButton.enabled = True
+        PrinterMovementCollapsibleButtonFormLayout.addRow(self.ROIsearchButton)
+        self.ROIsearchButton.connect('clicked(bool)', self.ROIsearch)
+        self.ROIsearchButton.setStyleSheet("background-color: grey")
+
+        self.xResolution_spinbox = qt.QSpinBox()
+        self.xResolution_spinbox.setMinimum(0)
+        self.xResolution_spinbox.setMaximum(120)
+        self.xResolution_spinbox.setValue(0)
+        PrinterMovementCollapsibleButtonFormLayout.addRow("X resolution (mm / step) :", self.xResolution_spinbox)
+
+        self.yResolution_spinbox = qt.QSpinBox()
+        self.yResolution_spinbox.setMinimum(0)
+        self.yResolution_spinbox.setMaximum(120)
+        self.yResolution_spinbox.setValue(0)
+        PrinterMovementCollapsibleButtonFormLayout.addRow("Y resolution (mm/ step):", self.yResolution_spinbox)
+        #
+        # Time per reading
+        #
+        self.timeDelay_spinbox = qt.QSpinBox()
+        self.timeDelay_spinbox.setMinimum(0)
+        self.timeDelay_spinbox.setMaximum(5000)
+        self.timeDelay_spinbox.setValue(1000)
+        # self.timeDelay_spinbox.setSingleStep(1000)
+        PrinterMovementCollapsibleButtonFormLayout.addRow("Time for data delay (ms) :", self.timeDelay_spinbox)
 
 
         self.layout.addStretch(1)
@@ -325,6 +357,8 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
 
 
+
+
     # Finite movement controls
 
 
@@ -340,6 +374,18 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.onSerialIGLTSelectorChanged()
 
         self.logic.findCenterOfMass()
+
+    def ROIsearch(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+        self.timeValue = self.timeDelay_spinbox.value
+        xResolution = self.xResolution_spinbox.value
+        yResolution = self.yResolution_spinbox.value
+        xMin, xMax, yMin, yMax = self.logic.ROIsystematicSearch()
+
+        self.logic.xLoop2(self.timeValue, xResolution,yResolution, xMin, xMax)  # calls a loop to toggle printer back and forth in the x direction
+        #self.logic.yLoop2(self.timeValue, yResolution, xResolution, yMin, yMax)  # calls a loop to increment the printer back in the y direction
+
 
 
 
@@ -381,6 +427,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     _tumorCheck2 = []
 
     _returnValue = []
+    _ROIxbounds = []
+    _ROIybounds = []
 
 
     def __init__(self):
@@ -1084,17 +1132,19 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def getFiducialCoordinates(self):
         fidList = slicer.util.getNode('F')
         numFids = fidList.GetNumberOfFiducials()
-        print(numFids)
+
         for i in xrange(numFids):
             ras = [0,0,0]
             pos = fidList.GetNthFiducialPosition(i, ras)
             world = [0,0,0,0]
             fidList.GetNthFiducialWorldCoordinates(0,world)
             self.delay = self.delay + 1000
-            xcoord = ras[0]
-            ycoord = ras[1]
-            self.xyMovement(xcoord, ycoord,self.delay)
+            xcoord = abs(int(ras[0]))
+            ycoord = abs(int(ras[1]))
+            if xcoord < 120 and ycoord < 120: # maintains that the coordinates stay within the test bed limitations
+                self.xyMovement(xcoord, ycoord,self.delay)
             # ras is the coordinate of the fiducial
+
     # find center of mass
 
     def findCenterOfMass(self):
@@ -1113,6 +1163,29 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         ycoord = centerOfMass[1]
         self.controlledXYMovement(xcoord,ycoord)
 
+    def ROIsystematicSearch(self):
+        fidList = slicer.util.getNode('F')
+        numFids = fidList.GetNumberOfFiducials()
+
+        for i in xrange(numFids):
+            ras = [0, 0, 0]
+            pos = fidList.GetNthFiducialPosition(i, ras)
+            world = [0, 0, 0, 0]
+            fidList.GetNthFiducialWorldCoordinates(0, world)
+            xcoord = int(ras[0])
+            ycoord = int(ras[1])
+            self._ROIxbounds.append(xcoord)
+            self._ROIybounds.append(ycoord)
+        print(self._ROIxbounds)
+        print(self._ROIybounds)
+        xMin = min(self._ROIxbounds)
+        xMax = max(self._ROIxbounds)
+        yMin = min(self._ROIybounds)
+        yMax = max(self._ROIybounds)
+        return xMin, xMax, yMin, yMax
+
+
+
 
 
     def home(self):
@@ -1124,6 +1197,51 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         # Requires reboot
         slicer.modules.openigtlinkremote.logic().SendCommand(self.emergStopCmd, self.serialIGTLNode.GetID())
         self.emergStopCmd.AddObserver(self.emergStopCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
+
+        # For ROI searching
+    def xLoop2(self, timeValue, xResolution, yResolution, xMin, xMax):
+            # necessary for looping the x commands on static intervals
+        oscillatingTime = ((xMax- xMin) / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
+        lengthOfOneWidth = (((xMax-xMin) / xResolution) * 2) * timeValue
+        # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
+        for xCoordinateValue in xrange(0, (oscillatingTime * lengthOfOneWidth) + lengthOfOneWidth,lengthOfOneWidth):  # calls forwards and backwards as necessary
+            self.xWidthForward2(xCoordinateValue, timeValue, xResolution, xMin, xMax)
+            self.xWidthBackwards2(xCoordinateValue, timeValue, xResolution, xMin, xMax)
+
+    def xWidthForward2(self, xCoordinate, timeValue, xResolution, xMin, xMax):  # used to be passed xCoordinate
+        # Move the width of the bed forward in the positive x direction
+        # Corresponds to a timer called in printer interactor widget
+        self.scanTimer = qt.QTimer()
+        for xValue in xrange(xMin, xMax, xResolution):  # increment by 10 until 120
+             delayMs = xCoordinate + xValue * (timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
+             self.XMovement(delayMs, xValue)
+
+    def xWidthBackwards2(self, xCoordinate, timeValue, xResolution, xMin, xMax):
+        # Move the width of the bed backwards in the negative x direction
+        # Corresponds to a timer called in printer interactor widget
+        self.scanTimer = qt.QTimer()
+        for xValue in xrange(xMax, xMin, -xResolution):
+            delayMs = abs(xValue - (xMax-xMin)) * (timeValue / xResolution) + ((xMax-xMin) / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
+            self.XMovement(delayMs, xValue)
+
+    def yLoop2(self, timeValue, yResolution, xResolution, yMin, yMax):
+        # specific intervals correspond to timeValues divisible by 1000
+        # The variances in intervals were timed specifically to account for mechanical delays with the printer
+        firstDistance = ((yMax-yMin) / xResolution)
+        secondDistance = 2 * ((yMax-yMin) / xResolution)
+        self.yMovement((firstDistance + 2) * timeValue, yResolution)
+        self.yMovement((secondDistance + 1) * timeValue, yResolution * 2)
+        self.i = 0
+        self.j = 0
+        for yValue in xrange(yResolution * 3, yMax + yResolution, yResolution * 2):
+            delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
+            self.yMovement(delayMs, yValue)
+            self.i = self.i + 1
+        for yValue in xrange(yResolution * 4, yMax + yResolution, yResolution * 2):
+            delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
+            self.yMovement(delayMs, yValue)
+            self.j = self.j + 1
+
 
     def yLoop(self, timeValue, yResolution, xResolution):
         # specific intervals correspond to timeValues divisible by 1000
@@ -1145,16 +1263,17 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
 
 
+
     def xLoop(self, timeValue, xResolution, yResolution):
         # necessary for looping the x commands on static intervals
-        oscillatingTime = (
-                                  120 / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
+        oscillatingTime = (120 / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
         lengthOfOneWidth = ((120 / xResolution) * 2) * timeValue
         # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
-        for xCoordinateValue in xrange(0, (oscillatingTime * lengthOfOneWidth) + lengthOfOneWidth,
-                                       lengthOfOneWidth):  # calls forwards and backwards as necessary
+        for xCoordinateValue in xrange(0, (oscillatingTime * lengthOfOneWidth) + lengthOfOneWidth, lengthOfOneWidth):  # calls forwards and backwards as necessary
             self.xWidthForward(xCoordinateValue, timeValue, xResolution)
             self.xWidthBackwards(xCoordinateValue, timeValue, xResolution)
+
+
 
     def xWidthForward(self, xCoordinate, timeValue, xResolution):  # used to be passed xCoordinate
         # Move the width of the bed forward in the positive x direction
