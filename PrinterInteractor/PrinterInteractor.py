@@ -7,6 +7,7 @@ import time
 import functools
 import argparse
 import math
+import numpy as np
 
 
 #
@@ -214,23 +215,19 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
 
                                             # finite printer movement control buttons
-        self.x5Button = qt.QPushButton("x + 5")
-        self.x5Button.toolTip = " move 5 mm in the positive x direction"
-        self.x5Button.enabled = True
-        PrinterMovementCollapsibleButtonFormLayout.addRow(self.x5Button)
-        self.x5Button.connect('clicked(bool)', self.onx5Button)
 
-        self.x10Button = qt.QPushButton("x + 10")
+
+        self.x10Button = qt.QPushButton("Follow Fiducials")
         self.x10Button.toolTip = " move 10 mm in the  positive x direction"
         self.x10Button.enabled = True
         PrinterMovementCollapsibleButtonFormLayout.addRow(self.x10Button)
-        self.x10Button.connect('clicked(bool)', self.onx10Button)
+        self.x10Button.connect('clicked(bool)', self.followFiducials)
 
-        self.xneg5Button = qt.QPushButton("x - 5")
-        self.xneg5Button.toolTip = " move 5 mm in the positive x direction"
-        self.xneg5Button.enabled = True
-        PrinterMovementCollapsibleButtonFormLayout.addRow(self.xneg5Button)
-        self.xneg5Button.connect('clicked(bool)', self.onxneg5Button)
+        self.COMButton = qt.QPushButton("Go to center of Mass")
+        self.COMButton.toolTip = " move 10 mm in the  positive x direction"
+        self.COMButton.enabled = True
+        PrinterMovementCollapsibleButtonFormLayout.addRow(self.COMButton)
+        self.COMButton.connect('clicked(bool)', self.goToCenterOfMass)
 
 
         self.layout.addStretch(1)
@@ -327,23 +324,22 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.logic.edgeTrace(self.outputArraySelector.currentNode())
 
 
+
     # Finite movement controls
-    def onx5Button(self):
+
+
+    def followFiducials(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-        self.logic.movePos5mmPastCurrentCoordinate()
-    def onxneg5Button(self):
+
+
+        self.logic.callFollowFiducials()
+
+    def goToCenterOfMass(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-        self.logic.moveNeg5mmPastCurrentCoordinate()
 
-    def onx10Button(self):
-        self.ondoubleArrayNodeChanged()
-        self.onSerialIGLTSelectorChanged()
-        self.logic.movePos10mmPastCurrentCoordinate()
-
-
-
+        self.logic.findCenterOfMass()
 
 
 
@@ -422,8 +418,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         self.averageDifferences = 0
 
-
-
+        self.delay = 0
 
 
 
@@ -1078,18 +1073,47 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         print(intensityValue)
         print(wavelengthValue)
 
-    def movePos5mmPastCurrentCoordinate(self):
-        self.callGetCoordinates(1000)
-        self.XMovement(2000, self.xcoordinate + 5)
+    def callFollowFiducials(self):
+        fiducialTimer = qt.QTimer()
+        for delay in xrange(0,10000,1000):
+            fiducialTimer.singleShot(delay, lambda: self.getFiducialCoordinates())
 
-    def moveNeg5mmPastCurrentCoordinate(self):
-        self.callGetCoordinates(1000)
-        if self.xcoordinate > 5:
-            self.XMovement(2000, self.xcoordinate - 5)
 
-    def movePos10mmPastCurrentCoordinate(self):
-        self.callGetCoordinates(1000)
-        self.XMovement(2000, self.xcoordinate + 10)
+    # rotate through fiducials
+
+    def getFiducialCoordinates(self):
+        fidList = slicer.util.getNode('F')
+        numFids = fidList.GetNumberOfFiducials()
+        print(numFids)
+        for i in xrange(numFids):
+            ras = [0,0,0]
+            pos = fidList.GetNthFiducialPosition(i, ras)
+            world = [0,0,0,0]
+            fidList.GetNthFiducialWorldCoordinates(0,world)
+            self.delay = self.delay + 1000
+            xcoord = ras[0]
+            ycoord = ras[1]
+            self.xyMovement(xcoord, ycoord,self.delay)
+            # ras is the coordinate of the fiducial
+    # find center of mass
+
+    def findCenterOfMass(self):
+        fidList = slicer.util.getNode('F')
+        numFids = fidList.GetNumberOfFiducials()
+        centerOfMass = [0,0,0]
+        sumPos = np.zeros(3)
+        for i in xrange(numFids):
+            pos = np.zeros(3)
+            fidList.GetNthFiducialPosition(i,pos)
+            sumPos += pos
+
+        centerOfMass = sumPos / numFids
+
+        xcoord = centerOfMass[0]
+        ycoord = centerOfMass[1]
+        self.controlledXYMovement(xcoord,ycoord)
+
+
 
     def home(self):
 
@@ -1162,6 +1186,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def slowEdgeTracing(self, xcoordinate, ycoordinate, timevar):
         self.edgetimer = qt.QTimer()
         self.edgetimer.singleShot(timevar, lambda: self.controlledXYMovement(xcoordinate, ycoordinate))
+
+    def xyMovement(self,xcoordinate, ycoordinate, timevar):
+        self.randomScanTimer = qt.QTimer()
+        self.randomScanTimer.singleShot(timevar, lambda: self.controlledXYMovement(xcoordinate,ycoordinate))
 
     def ZMovement(self, timeValue, zcoordinate):
         self.randomScanTimer = qt.QTimer()
