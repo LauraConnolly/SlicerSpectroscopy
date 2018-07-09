@@ -1041,7 +1041,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             xcoord = abs(int(ras[0]))
             ycoord = abs(int(ras[1]))
             if xcoord < 120 and ycoord < 120: # maintains that the coordinates stay within the test bed limitations
-                self.xyMovement(xcoord, ycoord,self.delay)
+                self.xyMovement(xcoord, ycoord,self.fiducialMovementDelay)
             # ras is the coordinate of the fiducial
 
     # find center of mass
