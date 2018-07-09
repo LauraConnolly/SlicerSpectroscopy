@@ -57,46 +57,29 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #
         # Parameters Area
         #
-        SystematicScanningControlCollapsibleButton = ctk.ctkCollapsibleButton()
-        SystematicScanningControlCollapsibleButton.text = "Systematic Scanning Control"
-        self.layout.addWidget(SystematicScanningControlCollapsibleButton)
 
-        IndependentContourTraceCollapsibleButton = ctk.ctkCollapsibleButton()
-        IndependentContourTraceCollapsibleButton.text = "Independent Scanning Control "
-        self.layout.addWidget(IndependentContourTraceCollapsibleButton)
-
-        PrinterMovementCollapsibleButton= ctk.ctkCollapsibleButton()
-        PrinterMovementCollapsibleButton.text = "Finite Movement Control "
-        self.layout.addWidget(PrinterMovementCollapsibleButton)
+        PrinterControlCollapsibleButton= ctk.ctkCollapsibleButton()
+        PrinterControlCollapsibleButton.text = "Printer Control "
+        self.layout.addWidget(PrinterControlCollapsibleButton)
 
         # Layout within the Systematic Scanning Control collapsible button
-        SystematicScanningControlFormLayout = qt.QFormLayout(SystematicScanningControlCollapsibleButton)
-
-        # Layout within the Independent Scanning Control collapsible button
-        IndependentContourTraceCollapsibleButtonFormLayout = qt.QFormLayout(IndependentContourTraceCollapsibleButton)
-
-        # Layout within the Finite Movement Control Collapsible button
-        PrinterMovementCollapsibleButtonFormLayout  = qt.QFormLayout(PrinterMovementCollapsibleButton)
-
-
-                                                    # Connect to printer buttons
-
+        PrinterControlFormLayout = qt.QFormLayout(PrinterControlCollapsibleButton)
         #
         # Home Button
         #
         self.homeButton = qt.QPushButton("Home")
         self.homeButton.toolTip = "Return to reference axis"
         self.homeButton.enabled = True
-        SystematicScanningControlFormLayout.addRow(self.homeButton)
+        PrinterControlFormLayout.addRow(self.homeButton)
         self.homeButton.connect('clicked(bool)', self.onHomeButton)
         #
-        #Center button
+        # Keyboard ShortCut Button
         #
-        self.moveMiddleButton = qt.QPushButton("Center")
-        self.moveMiddleButton.toolTip = "Move to the middle of the stage, helpful for acquiring reference spectrum ."
-        self.moveMiddleButton.enabled = True
-        SystematicScanningControlFormLayout.addRow(self.moveMiddleButton)
-        self.moveMiddleButton.connect('clicked(bool)', self.onTestingButton)
+        self.shortcutButton = qt.QPushButton("Activate keyboard shortcuts")
+        self.shortcutButton.toolTip = "Activate arrow key movement shortcuts."
+        self.shortcutButton.enabled = True
+        PrinterControlFormLayout.addRow(self.shortcutButton)
+        self.shortcutButton.connect('clicked(bool)', self.onActivateKeyboardShortcuts)
         #
         # IGT Link Connector
         #
@@ -109,24 +92,15 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.inputSelector.showHidden = False
         self.inputSelector.showChildNodeTypes = False
         self.inputSelector.setMRMLScene(slicer.mrmlScene)
-        self.inputSelector.setToolTip("Pick the input to the algorithm.")
-        SystematicScanningControlFormLayout.addRow("Connect to: ", self.inputSelector)
-        #
-        # Port Selector
-        #
-        #self.portSelector = qt.QComboBox()
-        #self.portSelector.insertItem(1, "PORT 1")
-        #self.portSelector.insertItem(2, "PORT 2")
-        #self.portSelector.insertItem(3, "PORT 3")
-        #self.portSelector.insertItem(4, "PORT 4")
-        #SystematicScanningControlFormLayout.addRow("Port :", self.portSelector)
+        self.inputSelector.setToolTip("Connect to OpenIGTLink to control printer from module.")
+        PrinterControlFormLayout.addRow("Connect to: ", self.inputSelector)
         #
         # Wavelength Selector
         #
         self.laserSelector = qt.QComboBox()
         self.laserSelector.insertItem(1, "UV: 395 nm ")
         self.laserSelector.insertItem(2, "RED: 660 nm")
-        SystematicScanningControlFormLayout.addRow("Laser Wavelength :", self.laserSelector)
+        PrinterControlFormLayout.addRow("Laser Wavelength :", self.laserSelector)
         #
         # Output array selector
         #
@@ -138,8 +112,9 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.outputArraySelector.showHidden = False
         self.outputArraySelector.showChildNodeTypes = False
         self.outputArraySelector.setMRMLScene(slicer.mrmlScene)
-        self.outputArraySelector.setToolTip("Pick the output to the algorithm.")
-        SystematicScanningControlFormLayout.addRow("Output spectrum array: ", self.outputArraySelector)
+        self.outputArraySelector.setToolTip("Pick the output array for spectrum analysis.")
+        PrinterControlFormLayout.addRow("Output spectrum array: ", self.outputArraySelector)
+
         #
         # X Resolution
         #
@@ -147,7 +122,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.xResolution_spinbox.setMinimum(0)
         self.xResolution_spinbox.setMaximum(120)
         self.xResolution_spinbox.setValue(0)
-        SystematicScanningControlFormLayout.addRow("X resolution (mm / step) :", self.xResolution_spinbox)
+        PrinterControlFormLayout.addRow("X resolution (mm / step) :", self.xResolution_spinbox)
         #
         # Y Resolution
         #
@@ -155,7 +130,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.yResolution_spinbox.setMinimum(0)
         self.yResolution_spinbox.setMaximum(120)
         self.yResolution_spinbox.setValue(0)
-        SystematicScanningControlFormLayout.addRow("Y resolution (mm/ step):", self.yResolution_spinbox)
+        PrinterControlFormLayout.addRow("Y resolution (mm/ step):", self.yResolution_spinbox)
         #
         # Time per reading
         #
@@ -164,22 +139,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.timeDelay_spinbox.setMaximum(5000)
         self.timeDelay_spinbox.setValue(1000)
         # self.timeDelay_spinbox.setSingleStep(1000)
-        SystematicScanningControlFormLayout.addRow("Time for data delay (ms) :", self.timeDelay_spinbox)
+        PrinterControlFormLayout.addRow("Time for data delay (ms) :", self.timeDelay_spinbox)
         #
-        #edge tracing button
-        #
-        self.createModelButton = qt.QPushButton("Outline Convex Hull")
-        self.createModelButton.toolTip = "B"
-        self.createModelButton.enabled = True
-        SystematicScanningControlFormLayout.addRow(self.createModelButton)
-        self.createModelButton.connect('clicked(bool)', self.onFindConvexHull)
-
         # learn spectra button
-
+        #
         self.learnSpectraButton = qt.QPushButton("Learn Spectra (necessary for 660 nm wavelength)")
-        self.learnSpectraButton.toolTip = "Begin systematic surface scan"
+        self.learnSpectraButton.toolTip = "Move over spectra of interest to collect reference."
         self.learnSpectraButton.enabled = True
-        SystematicScanningControlFormLayout.addRow(self.learnSpectraButton)
+        PrinterControlFormLayout.addRow(self.learnSpectraButton)
         self.learnSpectraButton.connect('clicked(bool)', self.onLearnSpectraButton)
         #
         # Surface scan button
@@ -187,7 +154,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.scanButton = qt.QPushButton("GO")
         self.scanButton.toolTip = "Begin systematic surface scan"
         self.scanButton.enabled = True
-        SystematicScanningControlFormLayout.addRow(self.scanButton)
+        PrinterControlFormLayout.addRow(self.scanButton)
         self.scanButton.connect('clicked(bool)', self.onScanButton)
         self.scanButton.setStyleSheet("background-color: green; font: bold")
 
@@ -195,95 +162,79 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         # Stop button
         #
         self.stopButton = qt.QPushButton("STOP")
-        self.stopButton.toolTip = "Requires restart."
+        self.stopButton.toolTip = "Requires restart (slicer and printer)."
         self.stopButton.enabled = True
-        SystematicScanningControlFormLayout.addRow(self.stopButton)
+        PrinterControlFormLayout.addRow(self.stopButton)
         self.stopButton.connect('clicked(bool)', self.onStopButton)
         self.stopButton.setStyleSheet("background-color: red; font: bold")
+        #
+        #edge tracing button
+        #
+        self.createModelButton = qt.QPushButton("Outline Convex Hull")
+        self.createModelButton.toolTip = "Outline the image."
+        self.createModelButton.enabled = True
+        PrinterControlFormLayout.addRow(self.createModelButton)
+        self.createModelButton.connect('clicked(bool)', self.onFindConvexHull)
 
 
-        self.Button = qt.QPushButton("Declare shortcut")
-        self.Button.toolTip = "Requires restart."
-        self.Button.enabled = True
-        SystematicScanningControlFormLayout.addRow(self.Button)
-        self.Button.connect('clicked(bool)', self.onInitButton)
-
-
-
-
-
-        # independent contour trace buttons
-
+        #
         # Testing button
+        #
         self.testButton = qt.QPushButton("Find Edge")
-        self.testButton.toolTip = "Requires restart."
+        self.testButton.toolTip = "Move to the edge of the area of interest."
         self.testButton.enabled = True
-        IndependentContourTraceCollapsibleButtonFormLayout.addRow(self.testButton)
-        self.testButton.connect('clicked(bool)', self.onTestButton)
+        PrinterControlFormLayout.addRow(self.testButton)
+        self.testButton.connect('clicked(bool)', self.onFindEdge)
         self.testButton.setStyleSheet("background-color: grey")
-
-        self.wheretoButton = qt.QPushButton("Trace Contour")
-        self.wheretoButton.toolTip = "Requires restart."
-        self.wheretoButton.enabled = True
-        IndependentContourTraceCollapsibleButtonFormLayout.addRow(self.wheretoButton)
-        self.wheretoButton.connect('clicked(bool)', self.onIndependentContourTrace)
-        self.wheretoButton.setStyleSheet("background-color: grey")
-
-
-                                            # finite printer movement control buttons
-
-
-        self.x10Button = qt.QPushButton("Follow Fiducials")
-        self.x10Button.toolTip = " move 10 mm in the  positive x direction"
-        self.x10Button.enabled = True
-        PrinterMovementCollapsibleButtonFormLayout.addRow(self.x10Button)
-        self.x10Button.connect('clicked(bool)', self.followFiducials)
-        self.x10Button.setStyleSheet("background-color: grey")
-
+        #
+        # Independent contour trace button
+        #
+        self.independentEdgeTraceButton = qt.QPushButton("Trace Contour")
+        self.independentEdgeTraceButton.toolTip = "Independent contour tracing using a root finding algorithm."
+        self.independentEdgeTraceButton.enabled = True
+        PrinterControlFormLayout.addRow(self.independentEdgeTraceButton)
+        self.independentEdgeTraceButton.connect('clicked(bool)', self.onIndependentContourTrace)
+        self.independentEdgeTraceButton.setStyleSheet("background-color: grey")
+        #
+        #Follow fiducials button
+        #
+        self.followFiducialButton = qt.QPushButton("Follow Fiducials")
+        self.followFiducialButton.toolTip = " Oscillate about selected fiducials for 10 rotations."
+        self.followFiducialButton.enabled = True
+        PrinterControlFormLayout.addRow(self.followFiducialButton)
+        self.followFiducialButton.connect('clicked(bool)', self.followFiducials)
+        self.followFiducialButton.setStyleSheet("background-color: grey")
+        #
+        # Center of Mass Button
+        #
         self.COMButton = qt.QPushButton("Go to center of Mass")
-        self.COMButton.toolTip = " move 10 mm in the  positive x direction"
+        self.COMButton.toolTip = " Calculate and move to the center of mass of a ROI indicated by fiducials"
         self.COMButton.enabled = True
-        PrinterMovementCollapsibleButtonFormLayout.addRow(self.COMButton)
+        PrinterControlFormLayout.addRow(self.COMButton)
         self.COMButton.connect('clicked(bool)', self.goToCenterOfMass)
         self.COMButton.setStyleSheet("background-color: grey")
 
-        self.ROIsearchButton = qt.QPushButton("ROI Systematic Search")
-        self.ROIsearchButton.toolTip = " move 10 mm in the  positive x direction"
-        self.ROIsearchButton.enabled = True
-        PrinterMovementCollapsibleButtonFormLayout.addRow(self.ROIsearchButton)
-        self.ROIsearchButton.connect('clicked(bool)', self.ROIsearch)
-        self.ROIsearchButton.setStyleSheet("background-color: grey")
-
-        self.xResolution_spinbox = qt.QSpinBox()
-        self.xResolution_spinbox.setMinimum(0)
-        self.xResolution_spinbox.setMaximum(120)
-        self.xResolution_spinbox.setValue(0)
-        PrinterMovementCollapsibleButtonFormLayout.addRow("X resolution (mm / step) :", self.xResolution_spinbox)
-
-        self.yResolution_spinbox = qt.QSpinBox()
-        self.yResolution_spinbox.setMinimum(0)
-        self.yResolution_spinbox.setMaximum(120)
-        self.yResolution_spinbox.setValue(0)
-        PrinterMovementCollapsibleButtonFormLayout.addRow("Y resolution (mm/ step):", self.yResolution_spinbox)
-        #
-        # Time per reading
-        #
-        self.timeDelay_spinbox = qt.QSpinBox()
-        self.timeDelay_spinbox.setMinimum(0)
-        self.timeDelay_spinbox.setMaximum(5000)
-        self.timeDelay_spinbox.setValue(1000)
-        # self.timeDelay_spinbox.setSingleStep(1000)
-        PrinterMovementCollapsibleButtonFormLayout.addRow("Time for data delay (ms) :", self.timeDelay_spinbox)
-
+        #self.ROIsearchButton = qt.QPushButton("ROI Systematic Search")
+        #self.ROIsearchButton.toolTip = " "
+        #self.ROIsearchButton.enabled = True
+        #PrinterControlFormLayout.addRow(self.ROIsearchButton)
+        #self.ROIsearchButton.connect('clicked(bool)', self.ROIsearch)
+        #self.ROIsearchButton.setStyleSheet("background-color: grey")
 
         self.layout.addStretch(1)
-
-    def onStopMotorButton(self):
-        self.scanTimer.stop()
 
     def cleanup(self):
         pass
 
+    def onHomeButton(self, SerialIGTLNode):
+        self.onSerialIGLTSelectorChanged()
+        self.logic.home()
+
+    def onActivateKeyboardShortcuts(self):
+        self.logic.declareShortcut(serialIGTLNode=self.inputSelector.currentNode())
+        print "shortcut declared"
+
+    # update SerialIGTL Node and double array Node to accomodate changes in the printer and spectra
     def onSerialIGLTSelectorChanged(self):
         self.logic.setSerialIGTLNode(serialIGTLNode=self.inputSelector.currentNode())
         pass  # call self.logic.setSerial...(new value of selector)
@@ -292,22 +243,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.logic.setdoubleArrayNode(doubleArrayNode=self.inputSelector.currentNode())
         pass
 
-
-    def onHomeButton(self, SerialIGTLNode):
-        self.onSerialIGLTSelectorChanged()
-        self.logic.home()
-
-        # TODO: change name, this is the function that moves middle
-    def onTestingButton(self):
+    def onLearnSpectraButton(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-        self.logic.middleMovement()
+        self.logic.getSpectralData(self.outputArraySelector.currentNode())
 
     def onScanButton(self):
         self.onSerialIGLTSelectorChanged()
-
-        # Controlled printer movement
-        # resolution can be changed as necessary
+        # systematic movement
         self.timeValue = self.timeDelay_spinbox.value
         xResolution = self.xResolution_spinbox.value
         yResolution = self.yResolution_spinbox.value
@@ -319,23 +262,15 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.iterationTimingValue = 0
         stopsToVisitX = 120 / xResolution
         stopsToVisitY = 120 / yResolution
-        for self.iterationTimingValue in range(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + 10*self.timeValue, self.timeValue):  # 300 can be changed to x resolution by y resolution
+        for self.iterationTimingValue in range(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + 10*self.timeValue, self.timeValue):
             self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
-            self.iterationTimingValue = self.iterationTimingValue + self.timeValue  # COMMENT OUT MAYBE!
+            self.iterationTimingValue = self.iterationTimingValue + self.timeValue
 
-    def onTumorButton(self):
-        self.onSerialIGLTSelectorChanged()
-        self.logic.spectrumComparisonUV(self.outputArraySelector.currentNode())
-
-    def onStopButton(self):
-        self.onSerialIGLTSelectorChanged()
-        self.logic.emergencyStop()
-
-        #changed to spectrum comparison UV
     def tissueDecision(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-
+        # places a fiducial in the correct coordinate if tissue decision returns the same spectra as the reference spectra
+        # Note: for UV the spectrum comparison does not compare the average differences, instead the intensity at a particular wavelength
         if (self.laserSelector.currentIndex) == 0 :
          if self.logic.spectrumComparisonUV(self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
             self.logic.get_coordinates()
@@ -345,106 +280,46 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         else:
             return
 
-    def onTestButton(self):
-        self.ondoubleArrayNodeChanged()
+    def onStopButton(self):
         self.onSerialIGLTSelectorChanged()
-        #self.logic.spectrumComparisonUV(self.outputArraySelector.currentNode())
-
-
-        self.logic.automatedEdgeTracing(self.outputArraySelector.currentNode())
-
-        # May not need these
+        self.logic.emergencyStop()
+        # Note: the stop command uses G-code command M112 which requires slicer reboot and printer reboot after each usage.
+    # Outline area of interest following systematic scan
     def onFindConvexHull(self):
          self.logic.convexHull()
-
-
-    def onLearnSpectraButton(self):
+    # Use to find the edge of the area of interest before independent edge tracing
+    def onFindEdge(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-        self.logic.getSpectralData(self.outputArraySelector.currentNode())
+        self.logic.automatedEdgeTracing(self.outputArraySelector.currentNode())
 
     def onIndependentContourTrace(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-
         self.logic.edgeTrace(self.outputArraySelector.currentNode())
-
-
-
-
-
-    # Finite movement controls
-
-
+    # oscillate between fiducials, updated with fiducial movement or addition
     def followFiducials(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-
-
         self.logic.callFollowFiducials()
-
+    # find the center of mass of a group of fiducials and move to it
     def goToCenterOfMass(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-
         self.logic.findCenterOfMass()
 
-    def ROIsearch(self):
-        self.ondoubleArrayNodeChanged()
-        self.onSerialIGLTSelectorChanged()
-        self.timeValue = self.timeDelay_spinbox.value
-        xResolution = self.xResolution_spinbox.value
-        yResolution = self.yResolution_spinbox.value
-        xMin, xMax, yMin, yMax = self.logic.ROIsystematicSearch()
 
-        self.logic.xLoop2(self.timeValue, xResolution,yResolution, xMin, xMax)  # calls a loop to toggle printer back and forth in the x direction
+    # TODO: finish ROI systamtic search
+   # def ROIsearch(self):
+    #    self.ondoubleArrayNodeChanged()
+     #   self.onSerialIGLTSelectorChanged()
+      #  self.timeValue = self.timeDelay_spinbox.value
+       # xResolution = self.xResolution_spinbox.value
+       # yResolution = self.yResolution_spinbox.value
+       # xMin, xMax, yMin, yMax = self.logic.ROIsystematicSearch()
+
+        #self.logic.xLoop2(self.timeValue, xResolution,yResolution, xMin, xMax)  # calls a loop to toggle printer back and forth in the x direction
         #self.logic.yLoop2(self.timeValue, yResolution, xResolution, yMin, yMax)  # calls a loop to increment the printer back in the y direction
-
-
-    def installShortcutKeys(self):
-        """Turn on editor-wide shortcuts.  These are active independent
-        of the currently selected effect."""
-
-
-
-        Key_Space = 0x20  # not in PythonQt
-        self.shortcuts = []
-
-        serialIGTLNode=self.inputSelector.currentNode()
-        xvar = self.currentXcoordinate + 10
-        keysAndCallbacks = (Key_Space, self.logic.controlledXMovement(xvar, serialIGTLNode))
-        shortcut = qt.QShortcut(slicer.util.mainWindow())
-        shortcut.setKey(qt.QKeySequence(keysAndCallbacks[0]))
-        shortcut.connect('activated()', keysAndCallbacks[1])
-        self.shortcuts.append(shortcut)
-
-
-
-    def onGetCoordinate(self):
-        self.ondoubleArrayNodeChanged()
-        self.onSerialIGLTSelectorChanged()
-
-        self.logic.get_coordinates2()
-
-    def onInitButton(self):
-        self.logic.declareShortcut(serialIGTLNode= self.inputSelector.currentNode() )
-        print "shortcut declared"
-
-
-
-
-
-
-
-
-
-
-# in order to access and read specific data points use this function
-# def onTestingButton(self):
-
-# self.logic.testFunc(self.outputArraySelector.currentNode())
-
-
 #
 # PrinterInteractorLogic
 #
@@ -458,8 +333,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
   Uses ScriptedLoadableModuleLogic base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
-    _distanceArray = []
-    _yHeightArray = []
     _yHullArray = []
     _xHullArray = []
 
@@ -604,7 +477,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
           # not in PythonQt
         self.shortcuts = []
-        keysAndCallbacks = ('Right', lambda: self.controlledXMovement(self.currentXcoordinate, serialIGTLNode))
+        keysAndCallbacks = ('Right', lambda: self.controlledXMovement1(self.currentXcoordinate, serialIGTLNode))
 
         #keysAndCallbacks = (Key_Space, lambda: self.controlledXMovement(20, serialIGTLNode))
 
@@ -637,7 +510,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
       # not in PythonQt
         self.shortcuts = []
 
-        keysAndCallbacks = ('Up', lambda: self.controlledYMovement(self.currentYcoordinate, serialIGTLNode))
+        keysAndCallbacks = ('Up', lambda: self.controlledYMovement1(self.currentYcoordinate, serialIGTLNode))
         # keysAndCallbacks = (Key_Space, lambda: self.controlledXMovement(20, serialIGTLNode))
 
         shortcut = qt.QShortcut(slicer.util.mainWindow())
@@ -1446,7 +1319,17 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.xyControlCmd, self.serialIGTLNode.GetID())
 
 
-    def controlledXMovement(self, xCoordinate, serialIGTLNode):  # x movement
+    def controlledXMovement(self, xCoordinate):  # x movement
+
+        self.xControlCmd.SetCommandAttribute('Text', 'G1 X%d' % (xCoordinate))
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.xControlCmd, self.serialIGTLNode.GetID())
+
+    def controlledYMovement(self, yCoordinate):  # y movement
+
+        self.yControlCmd.SetCommandAttribute('Text', 'G1 Y%d' % (yCoordinate))
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, self.serialIGTLNode.GetID())
+
+    def controlledXMovement1(self, xCoordinate, serialIGTLNode):  # x movement
         # idk if i need this
         print(self.currentXcoordinate)
         if self.currentXcoordinate < 120:
@@ -1478,7 +1361,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.xControlCmd, serialIGTLNode.GetID())
         print "in"
 
-    def controlledYMovement(self, yCoordinate, serialIGTLNode):  # y movement
+    def controlledYMovement1(self, yCoordinate, serialIGTLNode):  # y movement
         if self.currentYcoordinate < 120:
             self.currentYcoordinate = self.currentYcoordinate + 10
         else:
@@ -1495,6 +1378,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             self.currentYcoordinate = self.currentYcoordinate - 10
         else:
             self.currentYcoordinate = 0
+
         self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.yControlCmd.SetCommandName('SendText')
         self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
