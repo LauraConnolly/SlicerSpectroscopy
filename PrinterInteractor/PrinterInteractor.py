@@ -196,9 +196,17 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.independentEdgeTraceButton.connect('clicked(bool)', self.onIndependentContourTrace)
         self.independentEdgeTraceButton.setStyleSheet("background-color: grey")
         #
+        # Place Fiducials
+        #
+        self.placeFiducialsButton = qt.QPushButton("Place Fiducial")
+        self.placeFiducialsButton.toolTip = "Place fiducials around ROI"
+        self.placeFiducialsButton.enabled = True
+        PrinterControlFormLayout.addRow(self.placeFiducialsButton)
+        self.placeFiducialsButton.connect('clicked(bool)', self.onPlaceFiducials)
+        #
         #Follow fiducials button
         #
-        self.followFiducialButton = qt.QPushButton("Follow Fiducials")
+        self.followFiducialButton = qt.QPushButton("Follow Fiducial")
         self.followFiducialButton.toolTip = " Oscillate about selected fiducials for 10 rotations."
         self.followFiducialButton.enabled = True
         PrinterControlFormLayout.addRow(self.followFiducialButton)
@@ -298,6 +306,11 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.onSerialIGLTSelectorChanged()
         self.logic.edgeTrace(self.outputArraySelector.currentNode())
     # oscillate between fiducials, updated with fiducial movement or addition
+    def onPlaceFiducials(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+        self.logic.get_coordinates()
+
     def followFiducials(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
@@ -333,73 +346,53 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
   Uses ScriptedLoadableModuleLogic base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
+    # arrays for convex Hull
     _yHullArray = []
     _xHullArray = []
-
-    _returnxVal = []
-    _returnyVal = []
-
     # arrays for edge tracing
     _saveycoordinate = []
     _savexcoordinate = []
-
-    # arrays for quadrant checker
+    # arrays for quadrant check (independent edge tracing)
     _tumorCheck = []
-    _tumorCheck2 = []
-
-    _returnValue = []
+    # ROI boundary arrays
     _ROIxbounds = []
     _ROIybounds = []
 
-
     def __init__(self):
-        # some of these need to go
-        self.baud_rate = 115200
         self.serialIGTLNode = None
         self.doubleArrayNode = None
         self.spectrumImageNode = None
         self.observerTags = []
         self.outputArrayNode = None
         self.numberOfDataPoints = 100
-        self.pointGenerated = 0
-        self.pointNumber = 1
+        self.firstDataPointGenerated = 0
+        self.polyDataPointIndex = 1
         self.spectraCollectedflag = 0
-        self.maxXforY = 0
-        self.fiducialCount = 0
-        self.foundTumor = 0
-        # Polydata attributes
-        # self.dataCollection = vtk.vtkPolyData()
-        self.dataPoints = vtk.vtkPoints()
-        self.referenceSpectra = vtk.vtkPolyData()
+        self.fiducialIndex = 0
+        self.dataPoints = vtk.vtkPoints() # dont know if necessary
+        self.referenceSpectra = vtk.vtkPolyData() 
         self.spectra = vtk.vtkPoints()
         self.pointsForHull = vtk.vtkPoints()
-
-
         # coordinate class declaration
         self.xcoordinate = 0
         self.ycoordinate = 0
         self.zcoordinate = 0
-
+        
         self.pointsForEdgeTracing = vtk.vtkPoints()
-        self.timeVariable = 2000
+        self.edgeTracingTimerStart = 2000
 
         self.currentSpectrum = vtk.vtkPoints()
 
-        self.averageDifferences = 0
+        self.averageSpectrumDifferences = 0
 
-        self.delay = 0
-
+        self.fiducialMovementDelay= 0
 
         self.currentXcoordinate = 10
         self.currentYcoordinate = 10
 
         self.addedEdge = 0
 
-        self.goBack = 0
-        self.offWhite = 0
-
-
-        # instantiate coordinate values
+       # instantiate coordinate values
         self.getCoordinateCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.getCoordinateCmd.SetCommandName('SendText')
         self.getCoordinateCmd.SetCommandAttribute('DeviceId', "SerialDevice")
@@ -430,46 +423,33 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.xControlCmd.SetCommandName('SendText')
         self.xControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
         self.xControlCmd.SetCommandTimeoutSec(1.0)
-
         # instantiate y command
         self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.yControlCmd.SetCommandName('SendText')
         self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
         self.yControlCmd.SetCommandTimeoutSec(1.0)
-
         # instantiate move middle command
         self.printerControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.printerControlCmd.SetCommandName('SendText')
         self.printerControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
         self.printerControlCmd.SetCommandTimeoutSec(1.0)
-
         # instantiate move X and Y command
         self.xyControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.xyControlCmd.SetCommandName('SendText')
         self.xyControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
         self.xyControlCmd.SetCommandTimeoutSec(1.0)
-
         # instantiate move Z command
         self.zControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.zControlCmd.SetCommandName('SendText')
         self.zControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
         self.zControlCmd.SetCommandTimeoutSec(1.0)
 
-        #
-        self.timePerXWidth = 26.5
         self.startNext = 6000
-        self.x = 0
-        self.delayMs = 1000
         self.timerTracker = 0
-        # Timer stuff
 
-
+     # necessary to have this in a function activated by Active keyboard short cut function so that the movements can be instantiated after IGTL has already been instantiated.
     def declareShortcut(self, serialIGTLNode):
         self.installShortcutKeys(serialIGTLNode)
-        self.installShortcutKeys2(serialIGTLNode)
-        self.installShortcutKeys3(serialIGTLNode)
-        self.installShortcutKeys4(serialIGTLNode)
-
 
     def installShortcutKeys(self, serialIGTLNode):
         """Turn on editor-wide shortcuts.  These are active independent
@@ -477,68 +457,19 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
           # not in PythonQt
         self.shortcuts = []
-        keysAndCallbacks = ('Right', lambda: self.controlledXMovement1(self.currentXcoordinate, serialIGTLNode))
+        keysAndCallbacks = (
+            ('Right', lambda: self.controlledXMovement1(self.currentXcoordinate, serialIGTLNode)),
+             ('Left', lambda: self.controlledXMovement2(self.currentXcoordinate, serialIGTLNode)),
+              ('Up', lambda: self.controlledYMovement1(self.currentYcoordinate, serialIGTLNode)),
+              ('Down', lambda: self.controlledYMovement2(self.currentYcoordinate, serialIGTLNode)),
+              )
 
-        #keysAndCallbacks = (Key_Space, lambda: self.controlledXMovement(20, serialIGTLNode))
+        for key, callback in keysAndCallbacks:
+            shortcut = qt.QShortcut(slicer.util.mainWindow())
+            shortcut.setKey(qt.QKeySequence(key))
+            shortcut.connect('activated()', callback)
+            self.shortcuts.append(shortcut)
 
-        shortcut = qt.QShortcut(slicer.util.mainWindow())
-        shortcut.setKey(qt.QKeySequence(keysAndCallbacks[0]))
-        shortcut.connect('activated()', keysAndCallbacks[1])
-        self.shortcuts.append(shortcut)
-
-
-    def installShortcutKeys2(self, serialIGTLNode):
-        """Turn on editor-wide shortcuts.  These are active independent
-        of the currently selected effect."""
-
-      # not in PythonQt
-        self.shortcuts = []
-
-        keysAndCallbacks = ('Left', lambda: self.controlledXMovement2(self.currentXcoordinate, serialIGTLNode))
-        # keysAndCallbacks = (Key_Space, lambda: self.controlledXMovement(20, serialIGTLNode))
-
-        shortcut = qt.QShortcut(slicer.util.mainWindow())
-        shortcut.setKey(qt.QKeySequence(keysAndCallbacks[0]))
-        shortcut.connect('activated()', keysAndCallbacks[1])
-        self.shortcuts.append(shortcut)
-
-
-    def installShortcutKeys3(self, serialIGTLNode):
-        """Turn on editor-wide shortcuts.  These are active independent
-        of the currently selected effect."""
-
-      # not in PythonQt
-        self.shortcuts = []
-
-        keysAndCallbacks = ('Up', lambda: self.controlledYMovement1(self.currentYcoordinate, serialIGTLNode))
-        # keysAndCallbacks = (Key_Space, lambda: self.controlledXMovement(20, serialIGTLNode))
-
-        shortcut = qt.QShortcut(slicer.util.mainWindow())
-        shortcut.setKey(qt.QKeySequence(keysAndCallbacks[0]))
-        shortcut.connect('activated()', keysAndCallbacks[1])
-        self.shortcuts.append(shortcut)
-
-    def installShortcutKeys4(self, serialIGTLNode):
-        """Turn on editor-wide shortcuts.  These are active independent
-        of the currently selected effect."""
-
-      # not in PythonQt
-        self.shortcuts = []
-
-        keysAndCallbacks = ('Down', lambda: self.controlledYMovement2(self.currentYcoordinate, serialIGTLNode))
-        # keysAndCallbacks = (Key_Space, lambda: self.controlledXMovement(20, serialIGTLNode))
-
-        shortcut = qt.QShortcut(slicer.util.mainWindow())
-        shortcut.setKey(qt.QKeySequence(keysAndCallbacks[0]))
-        shortcut.connect('activated()', keysAndCallbacks[1])
-        self.shortcuts.append(shortcut)
-
-
-
-
-
-    def printGoodMorning(self):
-        print "Good Morning!"
 
     def setSerialIGTLNode(self, serialIGTLNode):
         self.serialIGTLNode = serialIGTLNode
@@ -632,18 +563,18 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         for i in xrange(0, 101, 1):
             self.currentSpectrum.SetPoint(i, currentPointsArray.GetTuple(i))
 
-        self.averageDifferences = 0
+        self.averageSpectrumDifferences = 0
 
         for j in xrange(0, 101, 1):
             x = self.currentSpectrum.GetPoint(j)
             y = self.spectra.GetPoint(j)
-            self.averageDifferences = self.averageDifferences + (y[1] - x[1])
+            self.averageSpectrumDifferences = self.averageSpectrumDifferences + (y[1] - x[1])
 
-        print(self.averageDifferences)
+        print(self.averageSpectrumDifferences)
 
 
 
-        if abs(self.averageDifferences) <9 : # < 7 for white and black
+        if abs(self.averageSpectrumDifferences) <9 : # < 7 for white and black
             print " tumor"
            # THIS LINE WILL BREAK ORIGINAL CODE
             return False
@@ -721,10 +652,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         self.dataCollection = self.createPolyDataPoint(self.xcoordinate, self.ycoordinate, self.zcoordinate)
         #  DON'T DELETE HOW WE ADD FIDUCIALS
-        if self.fiducialCount < 1:
+        if self.fiducialIndex < 1:
 
             self.fiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
-            self.fiducialCount = self.fiducialCount + 1
+            self.fiducialIndex = self.fiducialIndex + 1
         else:
             self.addToCurrentNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
 
@@ -769,23 +700,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
 
         self.dataCollection = self.createPolyDataPoint(self.xcoordinate, self.ycoordinate, self.zcoordinate)
-                #  DON'T DELETE HOW WE ADD FIDUCIALS
-       # if self.fiducialCount < 1:
 
-            #self.fiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
-            #self.fiducialCount = self.fiducialCount + 1
-        #else:
-          #  self.addToCurrentNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
-
-
-         # random issues with this distance array
-
-        #distance = self.calculateDistance(xcoordinate, ycoordinate)
-        #self._distanceArray.append(distance)
-        #self._yHeightArray.append(ycoordinate)
-        #print(self._distanceArray)
-        self._returnxVal.append(self.xcoordinate)
-        self._returnyVal.append(self.ycoordinate)
         return self.xcoordinate
 
 
@@ -903,22 +818,21 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         for i in xrange(0, 101, 1):
             self.currentSpectrum.SetPoint(i, currentPointsArray.GetTuple(i))
 
-        self.averageDifferences = 0
+        self.averageSpectrumDifferences = 0
 
         for j in xrange(0, 101, 1):
             x = self.currentSpectrum.GetPoint(j)
             y = self.spectra.GetPoint(j)
-            self.averageDifferences = self.averageDifferences + (y[1] - x[1])
+            self.averageSpectrumDifferences = self.averageSpectrumDifferences + (y[1] - x[1])
 
-        print(self.averageDifferences)
+        print(self.averageSpectrumDifferences)
 
-        if abs(self.averageDifferences) < 9:  # < 7 for white and black
+        if abs(self.averageSpectrumDifferences) < 9:  # < 7 for white and black
             print " tumor"
             self.get_coordinates()  # THIS LINE WILL BREAK ORIGINAL CODE
             return False
         else:
             print "healthy"
-            self.offWhite = 1  # added this COULD MESS STUFF UP
             return True
 
     def spectrumComparison2(self, outputArrayNode):
@@ -934,16 +848,16 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         for i in xrange(0, 101, 1):
             self.currentSpectrum.SetPoint(i, currentPointsArray.GetTuple(i))
 
-        self.averageDifferences = 0
+        self.averageSpectrumDifferences = 0
 
         for j in xrange(0, 101, 1):
             x = self.currentSpectrum.GetPoint(j)
             y = self.spectra.GetPoint(j)
-            self.averageDifferences = self.averageDifferences + (y[1] - x[1])
+            self.averageSpectrumDifferences = self.averageSpectrumDifferences + (y[1] - x[1])
 
-        print(self.averageDifferences)
+        print(self.averageSpectrumDifferences)
 
-        if abs(self.averageDifferences) < 7:  # < 7 for white and black
+        if abs(self.averageSpectrumDifferences) < 7:  # < 7 for white and black
             print " tumor"
             self._tumorCheck.append(1)
             return False
@@ -965,23 +879,21 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         for i in xrange(0, 101, 1):
             self.currentSpectrum.SetPoint(i, currentPointsArray.GetTuple(i))
 
-        self.averageDifferences = 0
+        self.averageSpectrumDifferences = 0
 
         for j in xrange(0, 101, 1):
             x = self.currentSpectrum.GetPoint(j)
             y = self.spectra.GetPoint(j)
-            self.averageDifferences = self.averageDifferences + (y[1] - x[1])
+            self.averageSpectrumDifferences = self.averageSpectrumDifferences + (y[1] - x[1])
 
-        print(self.averageDifferences)
+        print(self.averageSpectrumDifferences)
 
-        if abs(self.averageDifferences) < 7:  # < 7 for white and black
+        if abs(self.averageSpectrumDifferences) < 7:  # < 7 for white and black
             print " tumor"
             #self._tumorCheck.append(1)
             return False
         else:
             print "healthy"
-            #self._tumorCheck.append(0)
-            self._returnValue.append(1)
             return True
 
     def findTrajectory(self, outputArrayNode):
@@ -1022,9 +934,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def newOrigin(self):
         self.addedEdge =0
         self.get_coordinates()
-        if self.fiducialCount < 1:
+        if self.fiducialIndex < 1:
             self.fiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
-            self.fiducialCount = self.fiducialCount + 1
+            self.fiducialIndex = self.fiducialIndex + 1
         else:
              self.addToCurrentNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
 
@@ -1046,19 +958,19 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def addToCurrentNode(self, xcoordinate, ycoordinate, zcoordinate):
         self.fiducialNode.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
-        self.fiducialCount = self.fiducialCount + 1
-        print(self.fiducialCount)
+        self.fiducialIndex = self.fiducialIndex + 1
+        print(self.fiducialIndex)
 
     def createPolyDataPoint(self, xcoordinate, ycoordinate, zcoordinate):
-        if self.pointGenerated < 1:
+        if self.firstDataPointGenerated < 1:
             self.dataPoints.SetNumberOfPoints(700)  # allocate space for up to 100 data points
-            self.pointGenerated = self.pointGenerated + 1
+            self.firstDataPointGenerated = self.firstDataPointGenerated + 1
             self.pointsForHull.InsertNextPoint(xcoordinate, ycoordinate, zcoordinate)
             self.dataPoints.SetPoint(0, xcoordinate, ycoordinate, zcoordinate)
         else:
-            self.dataPoints.SetPoint(self.pointNumber, xcoordinate, ycoordinate, zcoordinate)  # 10 specifies coordinates to be float values
+            self.dataPoints.SetPoint(self.polyDataPointIndex, xcoordinate, ycoordinate, zcoordinate)  # 10 specifies coordinates to be float values
             self.pointsForHull.InsertNextPoint(xcoordinate, ycoordinate, zcoordinate)
-            self.pointNumber = self.pointNumber + 1
+            self.polyDataPointIndex = self.polyDataPointIndex + 1
 
     def convexHull(self):
 
@@ -1089,9 +1001,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             ycoordinate = pointVal[1]
             self._xHullArray.append(xcoordinate)
             self._yHullArray.append(ycoordinate)
-            self.slowEdgeTracing(xcoordinate, ycoordinate, self.timeVariable)
+            self.slowEdgeTracing(xcoordinate, ycoordinate, self.edgeTracingTimerStart)
 
-            self.timeVariable = self.timeVariable + 2000
+            self.edgeTracingTimerStart = self.edgeTracingTimerStart + 2000
         self.slowEdgeTracing(self._xHullArray[0], self._yHullArray[0], (2000*pointLimit + 2000))
         self.ZMovement(2000, -5) # could be 35 or -5 depending on the last state
         self.ZMovement(2000*pointLimit + 4000, 0) #back to 40
@@ -1123,14 +1035,14 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def callFollowFiducials(self):
         fiducialTimer = qt.QTimer()
-        for delay in xrange(0,10000,1000):
+        for delay in xrange(0,3000,1000):
             fiducialTimer.singleShot(delay, lambda: self.getFiducialCoordinates())
 
 
     # rotate through fiducials
 
     def getFiducialCoordinates(self):
-        fidList = slicer.util.getNode('F')
+        fidList = slicer.util.getNode('MarkupsFiducial') # was F
         numFids = fidList.GetNumberOfFiducials()
 
         for i in xrange(numFids):
@@ -1138,7 +1050,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             pos = fidList.GetNthFiducialPosition(i, ras)
             world = [0,0,0,0]
             fidList.GetNthFiducialWorldCoordinates(0,world)
-            self.delay = self.delay + 1000
+            self.fiducialMovementDelay= self.fiducialMovementDelay+ 1000
             xcoord = abs(int(ras[0]))
             ycoord = abs(int(ras[1]))
             if xcoord < 120 and ycoord < 120: # maintains that the coordinates stay within the test bed limitations
@@ -1148,7 +1060,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     # find center of mass
 
     def findCenterOfMass(self):
-        fidList = slicer.util.getNode('F')
+        fidList = slicer.util.getNode('MarkupsFiducial')
         numFids = fidList.GetNumberOfFiducials()
         centerOfMass = [0,0,0]
         sumPos = np.zeros(3)
