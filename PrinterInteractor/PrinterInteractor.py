@@ -531,6 +531,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         probedPoints.GetPointData().GetScalars().Modified()
 
+    # collect spectra for reference and comparison
     def getSpectralData(self, outputArrayNode):
         self.referenceOutputArrayNode = outputArrayNode
         referencePointsArray = self.referenceOutputArrayNode.GetArray()
@@ -576,10 +577,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         if abs(self.averageSpectrumDifferences) <9 : # < 7 for white and black
             print " tumor"
-           # THIS LINE WILL BREAK ORIGINAL CODE
             return False
         else:
-            print "healthy" # added this COULD MESS STUFF UP
+            print "healthy"
             return True
 
 
@@ -607,10 +607,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         #wavelengthCheck = pointsArray.GetComponent(26,0) # use to varify which wavelength the tumor Check intensity corresponds to
         tumorCheck = pointsArray.GetComponent(26,1)# check the 395th wavelength to determine if it sees the invisible ink or not
-
-
-
-
 
         if tumorCheck < 0.5: #0.85- 0.9 on white paper
             print "tumor"
@@ -658,15 +654,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             self.fiducialIndex = self.fiducialIndex + 1
         else:
             self.addToCurrentNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
-
-        # random issues with this distance array
-
-        # distance = self.calculateDistance(xcoordinate, ycoordinate)
-        # self._distanceArray.append(distance)
-        # self._yHeightArray.append(ycoordinate)
-        # print(self._distanceArray)
-        #self._returnxVal.append(self.xcoordinate)
-        #self._returnyVal.append(self.ycoordinate)
 
     def get_coordinates2(self):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.getCoordinateCmd2, self.serialIGTLNode.GetID())
