@@ -45,7 +45,10 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
+
     def setup(self):
+
+        #self.installShortcutKeys()
 
         ScriptedLoadableModuleWidget.setup(self)
 
@@ -198,7 +201,16 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.stopButton.connect('clicked(bool)', self.onStopButton)
         self.stopButton.setStyleSheet("background-color: red; font: bold")
 
-                                            # independent contour trace buttons
+        self.Button = qt.QPushButton("STOP")
+        self.Button.toolTip = "Requires restart."
+        self.Button.enabled = True
+        SystematicScanningControlFormLayout.addRow(self.Button)
+        self.Button.connect('clicked(bool)', self.onInitButton)
+
+
+
+
+        # independent contour trace buttons
 
         # Testing button
         self.testButton = qt.QPushButton("Find Edge")
@@ -387,6 +399,32 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #self.logic.yLoop2(self.timeValue, yResolution, xResolution, yMin, yMax)  # calls a loop to increment the printer back in the y direction
 
 
+    def installShortcutKeys(self):
+        """Turn on editor-wide shortcuts.  These are active independent
+        of the currently selected effect."""
+
+
+
+        Key_Space = 0x20  # not in PythonQt
+        self.shortcuts = []
+
+        serialIGTLNode=self.inputSelector.currentNode()
+
+        keysAndCallbacks = (Key_Space, self.logic.controlledXMovement(10, serialIGTLNode))
+        shortcut = qt.QShortcut(slicer.util.mainWindow())
+        shortcut.setKey(qt.QKeySequence(keysAndCallbacks[0]))
+        shortcut.connect('activated()', keysAndCallbacks[1])
+        self.shortcuts.append(shortcut)
+
+    def onInitButton(self):
+        self.logic.declareShortcut(serialIGTLNode= self.inputSelector.currentNode() )
+        print "shortcut declared"
+
+
+
+
+
+
 
 
 
@@ -470,6 +508,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
 
 
+
         self.addedEdge = 0
 
         self.goBack = 0
@@ -539,6 +578,45 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.delayMs = 1000
         self.timerTracker = 0
         # Timer stuff
+
+
+    def declareShortcut(self, serialIGTLNode):
+        self.installShortcutKeys(serialIGTLNode)
+        self.installShortcutKeys2(serialIGTLNode)
+
+
+    def installShortcutKeys(self, serialIGTLNode):
+        """Turn on editor-wide shortcuts.  These are active independent
+        of the currently selected effect."""
+
+        Key_Space = 0x20  # not in PythonQt
+        self.shortcuts = []
+        keysAndCallbacks = (Key_Space, lambda: self.controlledXMovement(10, serialIGTLNode))
+        #keysAndCallbacks = (Key_Space, lambda: self.controlledXMovement(20, serialIGTLNode))
+
+        shortcut = qt.QShortcut(slicer.util.mainWindow())
+        shortcut.setKey(qt.QKeySequence(keysAndCallbacks[0]))
+        shortcut.connect('activated()', keysAndCallbacks[1])
+        self.shortcuts.append(shortcut)
+
+    def installShortcutKeys2(self, serialIGTLNode):
+        """Turn on editor-wide shortcuts.  These are active independent
+        of the currently selected effect."""
+
+        Key_Escape = 0x01000000 # not in PythonQt
+        self.shortcuts = []
+        keysAndCallbacks = (Key_Escape, lambda: self.controlledXMovement(20, serialIGTLNode))
+        # keysAndCallbacks = (Key_Space, lambda: self.controlledXMovement(20, serialIGTLNode))
+
+        shortcut = qt.QShortcut(slicer.util.mainWindow())
+        shortcut.setKey(qt.QKeySequence(keysAndCallbacks[0]))
+        shortcut.connect('activated()', keysAndCallbacks[1])
+        self.shortcuts.append(shortcut)
+
+
+
+    def printGoodMorning(self):
+        print "Good Morning!"
 
     def setSerialIGTLNode(self, serialIGTLNode):
         self.serialIGTLNode = serialIGTLNode
@@ -1319,9 +1397,17 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.xyControlCmd, self.serialIGTLNode.GetID())
 
 
-    def controlledXMovement(self, xCoordinate):  # x movement
+    def controlledXMovement(self, xCoordinate, serialIGTLNode):  # x movement
+        # idk if i need this
+
+        self.xControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+        self.xControlCmd.SetCommandName('SendText')
+        self.xControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+        self.xControlCmd.SetCommandTimeoutSec(1.0)
+        # to here
         self.xControlCmd.SetCommandAttribute('Text', 'G1 X%d' % (xCoordinate))
-        slicer.modules.openigtlinkremote.logic().SendCommand(self.xControlCmd, self.serialIGTLNode.GetID())
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.xControlCmd, serialIGTLNode.GetID())
+        print "in"
 
     def controlledYMovement(self, yCoordinate):  # y movement
         self.yControlCmd.SetCommandAttribute('Text', 'G1 Y%d' % (yCoordinate))
