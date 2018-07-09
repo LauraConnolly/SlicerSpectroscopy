@@ -201,11 +201,13 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.stopButton.connect('clicked(bool)', self.onStopButton)
         self.stopButton.setStyleSheet("background-color: red; font: bold")
 
-        self.Button = qt.QPushButton("STOP")
+
+        self.Button = qt.QPushButton("Declare shortcut")
         self.Button.toolTip = "Requires restart."
         self.Button.enabled = True
         SystematicScanningControlFormLayout.addRow(self.Button)
         self.Button.connect('clicked(bool)', self.onInitButton)
+
 
 
 
@@ -409,12 +411,20 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.shortcuts = []
 
         serialIGTLNode=self.inputSelector.currentNode()
-
-        keysAndCallbacks = (Key_Space, self.logic.controlledXMovement(10, serialIGTLNode))
+        xvar = self.currentXcoordinate + 10
+        keysAndCallbacks = (Key_Space, self.logic.controlledXMovement(xvar, serialIGTLNode))
         shortcut = qt.QShortcut(slicer.util.mainWindow())
         shortcut.setKey(qt.QKeySequence(keysAndCallbacks[0]))
         shortcut.connect('activated()', keysAndCallbacks[1])
         self.shortcuts.append(shortcut)
+
+
+
+    def onGetCoordinate(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+
+        self.logic.get_coordinates2()
 
     def onInitButton(self):
         self.logic.declareShortcut(serialIGTLNode= self.inputSelector.currentNode() )
@@ -507,7 +517,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.delay = 0
 
 
-
+        self.currentXcoordinate = 10
+        self.currentYcoordinate = 10
 
         self.addedEdge = 0
 
@@ -583,15 +594,18 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def declareShortcut(self, serialIGTLNode):
         self.installShortcutKeys(serialIGTLNode)
         self.installShortcutKeys2(serialIGTLNode)
+        self.installShortcutKeys3(serialIGTLNode)
+        self.installShortcutKeys4(serialIGTLNode)
 
 
     def installShortcutKeys(self, serialIGTLNode):
         """Turn on editor-wide shortcuts.  These are active independent
         of the currently selected effect."""
 
-        Key_Space = 0x20  # not in PythonQt
+          # not in PythonQt
         self.shortcuts = []
-        keysAndCallbacks = (Key_Space, lambda: self.controlledXMovement(10, serialIGTLNode))
+        keysAndCallbacks = ('Right', lambda: self.controlledXMovement(self.currentXcoordinate, serialIGTLNode))
+
         #keysAndCallbacks = (Key_Space, lambda: self.controlledXMovement(20, serialIGTLNode))
 
         shortcut = qt.QShortcut(slicer.util.mainWindow())
@@ -599,19 +613,54 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         shortcut.connect('activated()', keysAndCallbacks[1])
         self.shortcuts.append(shortcut)
 
+
     def installShortcutKeys2(self, serialIGTLNode):
         """Turn on editor-wide shortcuts.  These are active independent
         of the currently selected effect."""
 
-        Key_Escape = 0x01000000 # not in PythonQt
+      # not in PythonQt
         self.shortcuts = []
-        keysAndCallbacks = (Key_Escape, lambda: self.controlledXMovement(20, serialIGTLNode))
+
+        keysAndCallbacks = ('Left', lambda: self.controlledXMovement2(self.currentXcoordinate, serialIGTLNode))
         # keysAndCallbacks = (Key_Space, lambda: self.controlledXMovement(20, serialIGTLNode))
 
         shortcut = qt.QShortcut(slicer.util.mainWindow())
         shortcut.setKey(qt.QKeySequence(keysAndCallbacks[0]))
         shortcut.connect('activated()', keysAndCallbacks[1])
         self.shortcuts.append(shortcut)
+
+
+    def installShortcutKeys3(self, serialIGTLNode):
+        """Turn on editor-wide shortcuts.  These are active independent
+        of the currently selected effect."""
+
+      # not in PythonQt
+        self.shortcuts = []
+
+        keysAndCallbacks = ('Up', lambda: self.controlledYMovement(self.currentYcoordinate, serialIGTLNode))
+        # keysAndCallbacks = (Key_Space, lambda: self.controlledXMovement(20, serialIGTLNode))
+
+        shortcut = qt.QShortcut(slicer.util.mainWindow())
+        shortcut.setKey(qt.QKeySequence(keysAndCallbacks[0]))
+        shortcut.connect('activated()', keysAndCallbacks[1])
+        self.shortcuts.append(shortcut)
+
+    def installShortcutKeys4(self, serialIGTLNode):
+        """Turn on editor-wide shortcuts.  These are active independent
+        of the currently selected effect."""
+
+      # not in PythonQt
+        self.shortcuts = []
+
+        keysAndCallbacks = ('Down', lambda: self.controlledYMovement2(self.currentYcoordinate, serialIGTLNode))
+        # keysAndCallbacks = (Key_Space, lambda: self.controlledXMovement(20, serialIGTLNode))
+
+        shortcut = qt.QShortcut(slicer.util.mainWindow())
+        shortcut.setKey(qt.QKeySequence(keysAndCallbacks[0]))
+        shortcut.connect('activated()', keysAndCallbacks[1])
+        self.shortcuts.append(shortcut)
+
+
 
 
 
@@ -1399,7 +1448,11 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def controlledXMovement(self, xCoordinate, serialIGTLNode):  # x movement
         # idk if i need this
-
+        print(self.currentXcoordinate)
+        if self.currentXcoordinate < 120:
+            self.currentXcoordinate = self.currentXcoordinate + 10
+        else:
+            self.currentXcoordinate = 0
         self.xControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.xControlCmd.SetCommandName('SendText')
         self.xControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
@@ -1409,9 +1462,45 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.xControlCmd, serialIGTLNode.GetID())
         print "in"
 
-    def controlledYMovement(self, yCoordinate):  # y movement
+    def controlledXMovement2(self, xCoordinate, serialIGTLNode):  # x movement
+        # idk if i need this
+        print (self.currentXcoordinate)
+        if self.currentXcoordinate > 10:
+            self.currentXcoordinate = self.currentXcoordinate - 10
+        else:
+            self.currentXcoordinate = 0
+        self.xControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+        self.xControlCmd.SetCommandName('SendText')
+        self.xControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+        self.xControlCmd.SetCommandTimeoutSec(1.0)
+        # to here
+        self.xControlCmd.SetCommandAttribute('Text', 'G1 X%d' % (self.currentXcoordinate))
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.xControlCmd, serialIGTLNode.GetID())
+        print "in"
+
+    def controlledYMovement(self, yCoordinate, serialIGTLNode):  # y movement
+        if self.currentYcoordinate < 120:
+            self.currentYcoordinate = self.currentYcoordinate + 10
+        else:
+            self.currentYcoordinate = 0
+        self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+        self.yControlCmd.SetCommandName('SendText')
+        self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+        self.yControlCmd.SetCommandTimeoutSec(1.0)
         self.yControlCmd.SetCommandAttribute('Text', 'G1 Y%d' % (yCoordinate))
-        slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, self.serialIGTLNode.GetID())
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, serialIGTLNode.GetID())
+
+    def controlledYMovement2(self, yCoordinate, serialIGTLNode):  # y movement
+        if self.currentYcoordinate > 10:
+            self.currentYcoordinate = self.currentYcoordinate - 10
+        else:
+            self.currentYcoordinate = 0
+        self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+        self.yControlCmd.SetCommandName('SendText')
+        self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+        self.yControlCmd.SetCommandTimeoutSec(1.0)
+        self.yControlCmd.SetCommandAttribute('Text', 'G1 Y%d' % (yCoordinate))
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, serialIGTLNode.GetID())
 
     def controlledZMovement(self, zcoordinate):  # y movement
         self.zControlCmd.SetCommandAttribute('Text', 'G1 Z%d' % (zcoordinate))
