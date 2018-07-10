@@ -141,6 +141,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         # self.timeDelay_spinbox.setSingleStep(1000)
         PrinterControlFormLayout.addRow("Time for data delay (ms) :", self.timeDelay_spinbox)
         #
+        # Fiducial placement on/ off
+        #
+        self.fiducialMarkerCheckBox = qt.QCheckBox( "Fiducial marking:")
+        self.fiducialMarkerCheckBox.setCheckState(True)
+        self.fiducialMarkerCheckBox.enabled = True
+        PrinterControlFormLayout.addRow(self.fiducialMarkerCheckBox)
+        self.fiducialMarkerCheckBox.connect('checked(bool)', self.onFiducialMarkerChecked)
+        #
         # learn spectra button
         #
         self.learnSpectraButton = qt.QPushButton("Learn Spectra (necessary for 660 nm wavelength)")
@@ -157,7 +165,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         PrinterControlFormLayout.addRow(self.scanButton)
         self.scanButton.connect('clicked(bool)', self.onScanButton)
         self.scanButton.setStyleSheet("background-color: green; font: bold")
-
         #
         # Stop button
         #
@@ -175,8 +182,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.createModelButton.enabled = True
         PrinterControlFormLayout.addRow(self.createModelButton)
         self.createModelButton.connect('clicked(bool)', self.onFindConvexHull)
-
-
         #
         # Testing button
         #
@@ -255,6 +260,9 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
         self.logic.getSpectralData(self.outputArraySelector.currentNode())
+
+    def onFiducialMarkerChecked(self):
+        self.logic.fiducialMarkerChecked()
 
     def onScanButton(self):
         self.onSerialIGLTSelectorChanged()
@@ -366,10 +374,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.outputArrayNode = None
         self.numberOfDataPoints = 100
         self.firstDataPointGenerated = 0
-        self.polyDataPointIndex = 1
         self.spectraCollectedflag = 0
         self.fiducialIndex = 0
-        self.dataPoints = vtk.vtkPoints() # dont know if necessary
         self.referenceSpectra = vtk.vtkPolyData() 
         self.spectra = vtk.vtkPoints()
         self.pointsForHull = vtk.vtkPoints()
@@ -399,13 +405,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.getCoordinateCmd.SetCommandTimeoutSec(1.0)
         self.getCoordinateCmd.SetCommandAttribute('Text', 'M114')
         self.getCoordinateCmd.AddObserver(self.getCoordinateCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
-        #second one for edge without systematic
-        self.getCoordinateCmd2 = slicer.vtkSlicerOpenIGTLinkCommand()
-        self.getCoordinateCmd2.SetCommandName('SendText')
-        self.getCoordinateCmd2.SetCommandAttribute('DeviceId', "SerialDevice")
-        self.getCoordinateCmd2.SetCommandTimeoutSec(1.0)
-        self.getCoordinateCmd2.SetCommandAttribute('Text', 'M114')
-        self.getCoordinateCmd2.AddObserver(self.getCoordinateCmd2.CommandCompletedEvent, self.onPrinterCommandCompleted2)
         # instantiate home command
         self.homeCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.homeCmd.SetCommandName('SendText')
@@ -446,6 +445,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         self.startNext = 6000
         self.timerTracker = 0
+
+    def onFiducialMarkerChecked(self):
+        self.fiducialIndex = 10
 
      # necessary to have this in a function activated by Active keyboard short cut function so that the movements can be instantiated after IGTL has already been instantiated.
     def declareShortcut(self, serialIGTLNode):
@@ -571,9 +573,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             y = self.spectra.GetPoint(j)
             self.averageSpectrumDifferences = self.averageSpectrumDifferences + (y[1] - x[1])
 
-        print(self.averageSpectrumDifferences)
-
-
+        #useful for debugging purposed
+        #print self.averageSpectrumDifferences
 
         if abs(self.averageSpectrumDifferences) <9 : # < 7 for white and black
             print " tumor"
@@ -582,9 +583,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             print "healthy"
             return True
 
-
-        # used with UV laser to distinguish between spectrums that vary by an insignificant amount at a specific wavelength / data point
-
+        # used with UV laser to distinguish between spectrums that vary in intensity by a small amount at a specific wavelength / data point
     def spectrumComparisonUV(self, outputArrayNode):
 
         self.outputArrayNode = outputArrayNode
@@ -608,10 +607,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         #wavelengthCheck = pointsArray.GetComponent(26,0) # use to varify which wavelength the tumor Check intensity corresponds to
         tumorCheck = pointsArray.GetComponent(26,1)# check the 395th wavelength to determine if it sees the invisible ink or not
 
-        if tumorCheck < 0.5: #0.85- 0.9 on white paper
+        if tumorCheck < 0.5: #0.85- 0.9 on white paper - changes depending on probe and spectra of interest
             print "tumor"
             return False
-
         else:
             print "healthy"
             return True
@@ -621,8 +619,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def onPrinterCommandCompleted(self, observer, eventid):
         coordinateValues = self.getCoordinateCmd.GetResponseMessage()
-        print("Command completed with status: " + self.getCoordinateCmd.StatusToString(
-            self.getCoordinateCmd.GetStatus()))
+        print("Command completed with status: " + self.getCoordinateCmd.StatusToString(self.getCoordinateCmd.GetStatus()))
         print("Response message: " + coordinateValues)
         print("Full response: " + self.getCoordinateCmd.GetResponseText())
         # parsing the string for specific coordinate values
@@ -647,67 +644,21 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             self.addedEdge = 1
 
         self.dataCollection = self.createPolyDataPoint(self.xcoordinate, self.ycoordinate, self.zcoordinate)
-        #  DON'T DELETE HOW WE ADD FIDUCIALS
-        if self.fiducialIndex < 1:
 
+        if self.fiducialIndex < 1:
             self.fiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
             self.fiducialIndex = self.fiducialIndex + 1
         else:
             self.addToCurrentNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
 
-    def get_coordinates2(self):
-        slicer.modules.openigtlinkremote.logic().SendCommand(self.getCoordinateCmd2, self.serialIGTLNode.GetID())
-
-    def onPrinterCommandCompleted2(self, observer, eventid):
-        coordinateValues = self.getCoordinateCmd2.GetResponseMessage()
-        print("Command completed with status: " + self.getCoordinateCmd2.StatusToString(
-            self.getCoordinateCmd.GetStatus()))
-        print("Response message: " + coordinateValues)
-        print("Full response: " + self.getCoordinateCmd2.GetResponseText())
-        # parsing the string for specific coordinate values
-        mylist = coordinateValues.split(" ")
-
-        # Parse string for x coordinate value
-        xvalues = mylist[0].split(":")
-        self.xcoordinate = float(xvalues[1])
-
-        # Parse string for y coordinate value
-        yvalues = mylist[1].split(":")
-        self.ycoordinate = float(yvalues[1])
-
-        # Parse string for z coordinate value
-        zvalues = mylist[2].split(":")
-        self.zcoordinate = float(zvalues[1])
-
-        # added for automated edge tracing
-        if self.addedEdge == 0:
-            self._savexcoordinate.append(self.xcoordinate)
-            self._saveycoordinate.append(self.ycoordinate)
-            self.addedEdge = 1
-
-
-        self.dataCollection = self.createPolyDataPoint(self.xcoordinate, self.ycoordinate, self.zcoordinate)
-
         return self.xcoordinate
-
-
                                              # automated edge tracing
     def edgeTrace(self, outputArrayNode):
 
         for i in xrange(0,400000,9000):
-            self.callQuadrantCheck(i, outputArrayNode)
-            self.callGetCoordinates(i+5500)
-            self.callNewOrigin(i+ 7000)
-        # check if off of white
-        #self.readCoordinatesAtTimeInterval(9000, outputArrayNode)
-        #self.callIndexRead(10000)
-
-
-
-
-
-
-
+            self.callQuadrantCheck(i, outputArrayNode) # checks which region to continue in
+            self.callGetCoordinates(i+5500) #determines the coordinates of the edge point, places a fiducial there
+            self.callNewOrigin(i+7000)
 
     def callNewOrigin(self, delay):
         originTimer = qt.QTimer()
@@ -775,7 +726,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def callGetCoordinates(self,delay):
         coordTimer = qt.QTimer()
-        coordTimer.singleShot(delay, lambda: self.get_coordinates2())
+        coordTimer.singleShot(delay, lambda: self.get_coordinates())
         #self.callMovement(delay + 1000, self.xcoordinate + 5, self.ycoordinate)
 
 
@@ -950,17 +901,12 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def createPolyDataPoint(self, xcoordinate, ycoordinate, zcoordinate):
         if self.firstDataPointGenerated < 1:
-            self.dataPoints.SetNumberOfPoints(700)  # allocate space for up to 100 data points
             self.firstDataPointGenerated = self.firstDataPointGenerated + 1
             self.pointsForHull.InsertNextPoint(xcoordinate, ycoordinate, zcoordinate)
-            self.dataPoints.SetPoint(0, xcoordinate, ycoordinate, zcoordinate)
         else:
-            self.dataPoints.SetPoint(self.polyDataPointIndex, xcoordinate, ycoordinate, zcoordinate)  # 10 specifies coordinates to be float values
             self.pointsForHull.InsertNextPoint(xcoordinate, ycoordinate, zcoordinate)
-            self.polyDataPointIndex = self.polyDataPointIndex + 1
 
     def convexHull(self):
-
 
         self.hullPolydata = vtk.vtkPolyData()
         self.hullPolydata.SetPoints(self.pointsForHull)
@@ -969,13 +915,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         hull.SetInputData(self.hullPolydata)
         hull.Update()
 
-        #print(hull.GetOutput())
-
         pointLimit = hull.GetOutput().GetNumberOfPoints()
-
         for i in xrange(0, pointLimit):
             self.pointsForEdgeTracing.InsertNextPoint(hull.GetOutput().GetPoint(i))
-
         self.getCoordinatesForEdgeTracing(self.pointsForEdgeTracing, pointLimit)
 
 
@@ -995,11 +937,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.ZMovement(2000, -5) # could be 35 or -5 depending on the last state
         self.ZMovement(2000*pointLimit + 4000, 0) #back to 40
 
-    def createModel(self):
-        # not necessary
-        self.dataCollection = vtk.vtkPolyData()
-        self.dataCollection.SetPoints(self.dataPoints)
-        slicer.modules.models.logic().AddModel(self.dataCollection)
 
     #
     # function written for testing and understanding spectral data acquisition
