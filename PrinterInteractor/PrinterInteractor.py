@@ -958,14 +958,25 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.yMovement((secondDistance + 1) * timeValue, yResolution * 2)
         self.i = 0
         self.j = 0
-        for yValue in xrange(yResolution * 3, 120 + yResolution, yResolution * 2):
-            delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
-            self.yMovement(delayMs, yValue)
-            self.i = self.i + 1
-        for yValue in xrange(yResolution * 4, 120 + yResolution, yResolution * 2):
-            delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
-            self.yMovement(delayMs, yValue)
-            self.j = self.j + 1
+        if yResolution < 16:
+            for yValue in xrange(yResolution * 3, 120 + yResolution, yResolution * 2):
+                delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
+                self.yMovement(delayMs, yValue)
+                self.i = self.i + 1
+            for yValue in xrange(yResolution * 4, 120 + yResolution, yResolution * 2): # got ride of + yResolution in max
+                delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
+                self.yMovement(delayMs, yValue)
+                self.j = self.j + 1
+        else:
+            for yValue in xrange(yResolution * 3, 120, yResolution * 2):
+                delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + (
+                            (secondDistance * timeValue) * (self.i))
+                self.yMovement(delayMs, yValue)
+                self.i = self.i + 1
+            for yValue in xrange(yResolution * 4, 120, yResolution * 2):  # got ride of + yResolution in max
+                delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
+                self.yMovement(delayMs, yValue)
+                self.j = self.j + 1
 
     def xLoop(self, timeValue, xResolution, yResolution):
         # necessary for looping the x commands on static intervals
