@@ -121,7 +121,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.xResolution_spinbox = qt.QSpinBox()
         self.xResolution_spinbox.setMinimum(0)
         self.xResolution_spinbox.setMaximum(120)
-        self.xResolution_spinbox.setValue(0)
+        self.xResolution_spinbox.setValue(10)
         PrinterControlFormLayout.addRow("X resolution (mm / step) :", self.xResolution_spinbox)
         #
         # Y Resolution
@@ -129,7 +129,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.yResolution_spinbox = qt.QSpinBox()
         self.yResolution_spinbox.setMinimum(0)
         self.yResolution_spinbox.setMaximum(120)
-        self.yResolution_spinbox.setValue(0)
+        self.yResolution_spinbox.setValue(10)
         PrinterControlFormLayout.addRow("Y resolution (mm/ step):", self.yResolution_spinbox)
         #
         # Time per reading
@@ -143,11 +143,21 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #
         # Fiducial placement on/ off
         #
-        self.fiducialMarkerCheckBox = qt.QCheckBox( "Fiducial marking:")
+        self.fiducialMarkerCheckBox = qt.QCheckBox( "Fiducial Marking")
         self.fiducialMarkerCheckBox.setCheckState(True)
         self.fiducialMarkerCheckBox.enabled = True
         PrinterControlFormLayout.addRow(self.fiducialMarkerCheckBox)
         self.fiducialMarkerCheckBox.connect('checked(bool)', self.onFiducialMarkerChecked)
+        #
+        # UV threshold bar
+        #
+        self.UVthresholdBar = ctk.ctkSliderWidget()
+        self.UVthresholdBar.singleStep = 0.1
+        self.UVthresholdBar.minimum = 0
+        self.UVthresholdBar.maximum = 1
+        self.UVthresholdBar.value = 0.5
+        PrinterControlFormLayout.addRow(" UV Intensity at 530 nm wavelength: ", self.UVthresholdBar)
+
         #
         # learn spectra button
         #
@@ -229,12 +239,12 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.COMButton.connect('clicked(bool)', self.goToCenterOfMass)
         self.COMButton.setStyleSheet("background-color: grey")
 
-        #self.ROIsearchButton = qt.QPushButton("ROI Systematic Search")
-        #self.ROIsearchButton.toolTip = " "
-        #self.ROIsearchButton.enabled = True
-        #PrinterControlFormLayout.addRow(self.ROIsearchButton)
-        #self.ROIsearchButton.connect('clicked(bool)', self.ROIsearch)
-        #self.ROIsearchButton.setStyleSheet("background-color: grey")
+        self.ROIsearchButton = qt.QPushButton("ROI Systematic Search")
+        self.ROIsearchButton.toolTip = " "
+        self.ROIsearchButton.enabled = True
+        PrinterControlFormLayout.addRow(self.ROIsearchButton)
+        self.ROIsearchButton.connect('clicked(bool)', self.ROIsearch)
+        self.ROIsearchButton.setStyleSheet("background-color: grey")
 
         self.layout.addStretch(1)
 
@@ -288,10 +298,12 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     def tissueDecision(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
+        UVthreshold = self.UVthresholdBar.value
+        print UVthreshold
         # places a fiducial in the correct coordinate if tissue decision returns the same spectra as the reference spectra
         # Note: for UV the spectrum comparison does not compare the average differences, instead the intensity at a particular wavelength
         if (self.laserSelector.currentIndex) == 0 :
-         if self.logic.spectrumComparisonUV(self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
+         if self.logic.spectrumComparisonUV(self.outputArraySelector.currentNode(), UVthreshold ) == False:  # add a fiducial if the the tumor detecting function returns false
             self.logic.get_coordinates()
         elif (self.laserSelector.currentIndex) == 1:
           if self.logic.spectrumComparison(self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
@@ -334,16 +346,25 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
 
     # TODO: finish ROI systamtic search
-   # def ROIsearch(self):
-    #    self.ondoubleArrayNodeChanged()
-     #   self.onSerialIGLTSelectorChanged()
-      #  self.timeValue = self.timeDelay_spinbox.value
-       # xResolution = self.xResolution_spinbox.value
-       # yResolution = self.yResolution_spinbox.value
-       # xMin, xMax, yMin, yMax = self.logic.ROIsystematicSearch()
+    def ROIsearch(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+        self.timeValue = self.timeDelay_spinbox.value
+        xResolution = self.xResolution_spinbox.value
+        yResolution = self.yResolution_spinbox.value
+        xMin, xMax, yMin, yMax = self.logic.ROIsystematicSearch()
+        self.logic.yMovement(0, yMin)
+        self.logic.XMovement(0, xMin)
+        self.logic.xLoop2(self.timeValue, xResolution,yResolution, xMin, xMax)  # calls a loop to toggle printer back and forth in the x direction
+        self.logic.yLoop2(self.timeValue, yResolution, xResolution, yMin, yMax, xMin, xMax)  # calls a loop to increment the printer back in the y direction
 
-        #self.logic.xLoop2(self.timeValue, xResolution,yResolution, xMin, xMax)  # calls a loop to toggle printer back and forth in the x direction
-        #self.logic.yLoop2(self.timeValue, yResolution, xResolution, yMin, yMax)  # calls a loop to increment the printer back in the y direction
+        self.tumorTimer = qt.QTimer()
+        self.iterationTimingValue = 0
+        stopsToVisitX = (xMax - xMin) / xResolution
+        stopsToVisitY = (yMax - yMin) / yResolution
+        for self.iterationTimingValue in range(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + 10 * self.timeValue,self.timeValue):
+            self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
+            self.iterationTimingValue = self.iterationTimingValue + self.timeValue
 #
 # PrinterInteractorLogic
 #
@@ -596,7 +617,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             return True
 
         # used with UV laser to distinguish between spectrums that vary in intensity by a small amount at a specific wavelength / data point
-    def spectrumComparisonUV(self, outputArrayNode):
+    def spectrumComparisonUV(self, outputArrayNode, UVthreshold):
 
         self.outputArrayNode = outputArrayNode
         pointsArray = self.outputArrayNode.GetArray()
@@ -617,7 +638,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         #wavelengthCheck = pointsArray.GetComponent(26,0) # use to varify which wavelength the tumor Check intensity corresponds to
         tumorCheck = pointsArray.GetComponent(26,1)# check the 395th wavelength to determine if it sees the invisible ink or not
 
-        if tumorCheck < 0.5: #0.85- 0.9 on white paper - changes depending on probe and spectra of interest
+        if tumorCheck < UVthreshold: #0.85- 0.9 on white paper - changes depending on probe and spectra of interest
             print "tumor"
             return False
         else:
@@ -876,7 +897,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.controlledXYMovement(xcoord,ycoord)
 
     def ROIsystematicSearch(self):
-        fidList = slicer.util.getNode('F')
+        fidList = slicer.util.getNode('MarkupsFiducial')
         numFids = fidList.GetNumberOfFiducials()
 
         for i in xrange(numFids):
@@ -899,9 +920,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def xLoop2(self, timeValue, xResolution, yResolution, xMin, xMax):
             # necessary for looping the x commands on static intervals
         oscillatingTime = ((xMax- xMin) / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
-        lengthOfOneWidth = (((xMax-xMin) / xResolution) * 2) * timeValue
-        # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
-        for xCoordinateValue in xrange(0, (oscillatingTime * lengthOfOneWidth) + lengthOfOneWidth,lengthOfOneWidth):  # calls forwards and backwards as necessary
+        lengthOfOneWidth = (((xMax-xMin) / xResolution) * 2) * timeValue # the amount of movements per oscillation back and forth
+        for xCoordinateValue in xrange(xMin, (oscillatingTime * lengthOfOneWidth) + lengthOfOneWidth,lengthOfOneWidth):  # calls forwards and backwards as necessary
             self.xWidthForward2(xCoordinateValue, timeValue, xResolution, xMin, xMax)
             self.xWidthBackwards2(xCoordinateValue, timeValue, xResolution, xMin, xMax)
 
@@ -909,34 +929,38 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         # Move the width of the bed forward in the positive x direction
         # Corresponds to a timer called in printer interactor widget
         self.scanTimer = qt.QTimer()
-        for xValue in xrange(xMin, xMax, xResolution):  # increment by 10 until 120
-             delayMs = xCoordinate + xValue * (timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
-             self.XMovement(delayMs, xValue)
+        for xValue in xrange(xMin, xMax, xResolution):
+            for xValue in xrange(xMin, xMax, xResolution):  # increment by 10 until 120
+                delayMs = xCoordinate + xValue * (timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
+                self.XMovement(delayMs, xValue)
 
     def xWidthBackwards2(self, xCoordinate, timeValue, xResolution, xMin, xMax):
         # Move the width of the bed backwards in the negative x direction
         # Corresponds to a timer called in printer interactor widget
         self.scanTimer = qt.QTimer()
         for xValue in xrange(xMax, xMin, -xResolution):
-            delayMs = abs(xValue - (xMax-xMin)) * (timeValue / xResolution) + ((xMax-xMin) / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
+            delayMs = abs(xValue -(xMax)) * (timeValue / xResolution) + ((xMax - xMin) / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
             self.XMovement(delayMs, xValue)
 
-    def yLoop2(self, timeValue, yResolution, xResolution, yMin, yMax):
+    def yLoop2(self, timeValue, yResolution, xResolution, yMin, yMax, xMin, xMax):
         # specific intervals correspond to timeValues divisible by 1000
         # The variances in intervals were timed specifically to account for mechanical delays with the printer
-        firstDistance = ((yMax-yMin) / xResolution)
-        secondDistance = 2 * ((yMax-yMin) / xResolution)
-        self.yMovement((firstDistance + 2) * timeValue, yResolution)
-        self.yMovement((secondDistance + 1) * timeValue, yResolution * 2)
+
+        firstDistance = ((xMax-xMin) / xResolution)
+        secondDistance = 2 * ((xMax-xMin) / xResolution)
+        self.yMovement((firstDistance + 2) * timeValue, yResolution + yMin)
+        self.yMovement((secondDistance + 1) * timeValue, (yResolution * 2)+ yMin )
         self.i = 0
         self.j = 0
-        for yValue in xrange(yResolution * 3, yMax + yResolution, yResolution * 2):
-            delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
+        for yValue in xrange(yMin + (yResolution * 3), yMax + yResolution, yResolution * 2):
+            delayMs = (((secondDistance + firstDistance)+ 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
             self.yMovement(delayMs, yValue)
             self.i = self.i + 1
-        for yValue in xrange(yResolution * 4, yMax + yResolution, yResolution * 2):
-            delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
+            print yValue
+        for yValue in xrange(yMin + (yResolution * 4), yMax + yResolution, yResolution * 2):
+            delayMs = ((((2 * secondDistance)+ 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
             self.yMovement(delayMs, yValue)
+            print yValue
             self.j = self.j + 1
             
     # General Printer Movement Commands       
@@ -950,38 +974,28 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.emergStopCmd.AddObserver(self.emergStopCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
 
     def yLoop(self, timeValue, yResolution, xResolution):
-        # specific intervals correspond to timeValues divisible by 1000
-        # The variances in intervals were timed specifically to account for mechanical delays with the printer
-        firstDistance = (120 / xResolution)
-        secondDistance = 2 * (120 / xResolution)
-        self.yMovement((firstDistance + 2) * timeValue, yResolution)
-        self.yMovement((secondDistance + 1) * timeValue, yResolution * 2)
+       # the following code was developed to execute a y Movement at the beginning and end of successive x oscillations to ensure that the platform
+       # is systematically scanned along the y axis as well as the x
+
+        firstDistance = (120 / xResolution) # distance of one x oscillation
+        secondDistance = 2 * (120 / xResolution) # distance of two x oscillations
+        self.yMovement((firstDistance + 2) * timeValue, yResolution) # call yMovement once the first oscillation in the x direction is finished
+        self.yMovement((secondDistance + 1) * timeValue, yResolution * 2) # call yMovement again once the second oscillation in the x direction is finished
         self.i = 0
         self.j = 0
-        if yResolution < 16:
-            for yValue in xrange(yResolution * 3, 120 + yResolution, yResolution * 2):
-                delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
-                self.yMovement(delayMs, yValue)
-                self.i = self.i + 1
-            for yValue in xrange(yResolution * 4, 120 + yResolution, yResolution * 2): # got ride of + yResolution in max
-                delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
-                self.yMovement(delayMs, yValue)
-                self.j = self.j + 1
-        else:
-            for yValue in xrange(yResolution * 3, 120, yResolution * 2):
-                delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + (
-                            (secondDistance * timeValue) * (self.i))
-                self.yMovement(delayMs, yValue)
-                self.i = self.i + 1
-            for yValue in xrange(yResolution * 4, 120, yResolution * 2):  # got ride of + yResolution in max
-                delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
-                self.yMovement(delayMs, yValue)
-                self.j = self.j + 1
+        for yValue in xrange(yResolution * 3, 120 + yResolution, yResolution * 2): # third iteration of yMovement
+            delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
+            self.yMovement(delayMs, yValue)
+            self.i = self.i + 1
+        for yValue in xrange(yResolution * 4, 120 + yResolution, yResolution * 2): # got ride of + yResolution in max
+            delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
+            self.yMovement(delayMs, yValue)
+            self.j = self.j + 1
 
     def xLoop(self, timeValue, xResolution, yResolution):
         # necessary for looping the x commands on static intervals
         oscillatingTime = (120 / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
-        lengthOfOneWidth = ((120 / xResolution) * 2) * timeValue
+        lengthOfOneWidth = ((120 / xResolution) * 2) * timeValue # how long it takes to go back and forth once
         # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
         for xCoordinateValue in xrange(0, (oscillatingTime * lengthOfOneWidth) + lengthOfOneWidth, lengthOfOneWidth):  # calls forwards and backwards as necessary
             self.xWidthForward(xCoordinateValue, timeValue, xResolution)
