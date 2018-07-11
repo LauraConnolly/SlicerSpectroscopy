@@ -57,12 +57,10 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #
         # Parameters Area
         #
-
         PrinterControlCollapsibleButton= ctk.ctkCollapsibleButton()
         PrinterControlCollapsibleButton.text = "Printer Control "
         self.layout.addWidget(PrinterControlCollapsibleButton)
-
-        # Layout within the Systematic Scanning Control collapsible button
+        # Layout within the Printer Control collapsible button
         PrinterControlFormLayout = qt.QFormLayout(PrinterControlCollapsibleButton)
         #
         # Home Button
@@ -102,7 +100,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.laserSelector.insertItem(2, "RED: 660 nm")
         PrinterControlFormLayout.addRow("Laser Wavelength :", self.laserSelector)
         #
-        # Output array selector
+        # Output Array Selector
         #
         self.outputArraySelector = slicer.qMRMLNodeComboBox()
         self.outputArraySelector.nodeTypes = (("vtkMRMLDoubleArrayNode"), "")
@@ -114,7 +112,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.outputArraySelector.setMRMLScene(slicer.mrmlScene)
         self.outputArraySelector.setToolTip("Pick the output array for spectrum analysis.")
         PrinterControlFormLayout.addRow("Output spectrum array: ", self.outputArraySelector)
-
         #
         # X Resolution
         #
@@ -132,7 +129,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.yResolution_spinbox.setValue(10)
         PrinterControlFormLayout.addRow("Y resolution (mm/ step):", self.yResolution_spinbox)
         #
-        # Time per reading
+        # Time per Reading
         #
         self.timeDelay_spinbox = qt.QSpinBox()
         self.timeDelay_spinbox.setMinimum(0)
@@ -141,7 +138,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         # self.timeDelay_spinbox.setSingleStep(1000)
         PrinterControlFormLayout.addRow("Time for data delay (ms) :", self.timeDelay_spinbox)
         #
-        # Fiducial placement on/ off
+        # Fiducial Placement on/ off
         #
         self.fiducialMarkerCheckBox = qt.QCheckBox( "Fiducial Marking")
         self.fiducialMarkerCheckBox.setCheckState(True)
@@ -149,7 +146,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         PrinterControlFormLayout.addRow(self.fiducialMarkerCheckBox)
         self.fiducialMarkerCheckBox.connect('checked(bool)', self.onFiducialMarkerChecked)
         #
-        # UV threshold bar
+        # UV Threshold Bar
         #
         self.UVthresholdBar = ctk.ctkSliderWidget()
         self.UVthresholdBar.singleStep = 0.1
@@ -157,9 +154,8 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.UVthresholdBar.maximum = 1
         self.UVthresholdBar.value = 0.5
         PrinterControlFormLayout.addRow(" UV Intensity at 530 nm wavelength: ", self.UVthresholdBar)
-
         #
-        # learn spectra button
+        # Learn Spectra Button
         #
         self.learnSpectraButton = qt.QPushButton("Learn Spectra (necessary for 660 nm wavelength)")
         self.learnSpectraButton.toolTip = "Move over spectra of interest to collect reference."
@@ -167,7 +163,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         PrinterControlFormLayout.addRow(self.learnSpectraButton)
         self.learnSpectraButton.connect('clicked(bool)', self.onLearnSpectraButton)
         #
-        # Surface scan button
+        # Surface Scan Button
         #
         self.scanButton = qt.QPushButton("GO")
         self.scanButton.toolTip = "Begin systematic surface scan"
@@ -176,7 +172,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.scanButton.connect('clicked(bool)', self.onScanButton)
         self.scanButton.setStyleSheet("background-color: green; font: bold")
         #
-        # Stop button
+        # Stop Button
         #
         self.stopButton = qt.QPushButton("STOP")
         self.stopButton.toolTip = "Requires restart (slicer and printer)."
@@ -185,7 +181,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.stopButton.connect('clicked(bool)', self.onStopButton)
         self.stopButton.setStyleSheet("background-color: red; font: bold")
         #
-        #edge tracing button
+        # Edge Tracing Button
         #
         self.createModelButton = qt.QPushButton("Trace Contour (after systematic scan)")
         self.createModelButton.toolTip = "Outline the image."
@@ -194,7 +190,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.createModelButton.connect('clicked(bool)', self.onFindConvexHull)
         self.createModelButton.setStyleSheet("background-color: yellow")
         #
-        # Testing button
+        # Testing Button
         #
         self.testButton = qt.QPushButton("Find Edge")
         self.testButton.toolTip = "Move to the edge of the area of interest."
@@ -203,7 +199,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.testButton.connect('clicked(bool)', self.onFindEdge)
         self.testButton.setStyleSheet("background-color: pink")
         #
-        # Independent contour trace button
+        # Independent Contour Trace Button
         #
         self.independentEdgeTraceButton = qt.QPushButton("Trace Contour (after edge found, without systematic scan)")
         self.independentEdgeTraceButton.toolTip = "Independent contour tracing using a root finding algorithm."
@@ -221,7 +217,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.placeFiducialsButton.connect('clicked(bool)', self.onPlaceFiducials)
         self.placeFiducialsButton.setStyleSheet("background-color: grey")
         #
-        #Follow fiducials button
+        #Follow Fiducials Button
         #
         self.followFiducialButton = qt.QPushButton("Follow Fiducial")
         self.followFiducialButton.toolTip = " Oscillate about selected fiducials for 10 rotations."
@@ -238,7 +234,9 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         PrinterControlFormLayout.addRow(self.COMButton)
         self.COMButton.connect('clicked(bool)', self.goToCenterOfMass)
         self.COMButton.setStyleSheet("background-color: grey")
-
+        #
+        # ROI Systematic Search Button
+        #
         self.ROIsearchButton = qt.QPushButton("ROI Systematic Search")
         self.ROIsearchButton.toolTip = " "
         self.ROIsearchButton.enabled = True
@@ -277,7 +275,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.logic.fiducialMarkerChecked()
 
     def onScanButton(self):
-        # TODO: fix bugs at low resolution!!
+        # TODO: fix bugs at low / high resolution!!
         self.onSerialIGLTSelectorChanged()
         # systematic movement
         self.timeValue = self.timeDelay_spinbox.value
@@ -344,8 +342,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.onSerialIGLTSelectorChanged()
         self.logic.findCenterOfMassOfFiducials()
 
-
-    # TODO: finish ROI systamtic search
+    # TODO: fix delays
     def ROIsearch(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
@@ -355,8 +352,8 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         xMin, xMax, yMin, yMax = self.logic.ROIsystematicSearch()
         self.logic.yMovement(0, yMin)
         self.logic.XMovement(0, xMin)
-        self.logic.xLoop2(self.timeValue, xResolution,yResolution, xMin, xMax)  # calls a loop to toggle printer back and forth in the x direction
-        self.logic.yLoop2(self.timeValue, yResolution, xResolution, yMin, yMax, xMin, xMax)  # calls a loop to increment the printer back in the y direction
+        self.logic.ROIsearchXLoop(self.timeValue, xResolution,yResolution, xMin, xMax)  # calls a loop to toggle printer back and forth in the x direction
+        self.logic.ROIsearchYLoop(self.timeValue, yResolution, xResolution, yMin, yMax, xMin, xMax)  # calls a loop to increment the printer back in the y direction
 
         self.tumorTimer = qt.QTimer()
         self.iterationTimingValue = 0
@@ -472,10 +469,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.zControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
         self.zControlCmd.SetCommandTimeoutSec(1.0)
 
-
-
-
-
      # necessary to have this in a function activated by Active keyboard short cut function so that the movements can be instantiated after IGTL has already been instantiated.
     def declareShortcut(self, serialIGTLNode):
         self.installShortcutKeys(serialIGTLNode)
@@ -509,9 +502,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def addObservers(self):
         if self.spectrumImageNode:
             print "Add observer to {0}".format(self.spectrumImageNode.GetName())
-            self.observerTags.append(
-                [self.spectrumImageNode, self.spectrumImageNode.AddObserver(vtk.vtkCommand.ModifiedEvent,
-                                                                            self.onSpectrumImageNodeModified)])
+            self.observerTags.append([self.spectrumImageNode, self.spectrumImageNode.AddObserver(vtk.vtkCommand.ModifiedEvent,self.onSpectrumImageNodeModified)])
 
     def removeObservers(self):
         print "Remove observers"
@@ -638,7 +629,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         #wavelengthCheck = pointsArray.GetComponent(26,0) # use to varify which wavelength the tumor Check intensity corresponds to
         tumorCheck = pointsArray.GetComponent(26,1)# check the 395th wavelength to determine if it sees the invisible ink or not
 
-        if tumorCheck < UVthreshold: #0.85- 0.9 on white paper - changes depending on probe and spectra of interest
+        if tumorCheck < UVthreshold: #threshold is variable using the slider widget on the GUI, useful because intensity difference is inconsistent 
             print "tumor"
             return False
         else:
@@ -917,15 +908,15 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         yMax = max(self._ROIybounds)
         return xMin, xMax, yMin, yMax
         # For ROI searching
-    def xLoop2(self, timeValue, xResolution, yResolution, xMin, xMax):
+    def ROIsearchXLoop(self, timeValue, xResolution, yResolution, xMin, xMax):
             # necessary for looping the x commands on static intervals
         oscillatingTime = ((xMax- xMin) / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
         lengthOfOneWidth = (((xMax-xMin) / xResolution) * 2) * timeValue # the amount of movements per oscillation back and forth
         for xCoordinateValue in xrange(xMin, (oscillatingTime * lengthOfOneWidth) + lengthOfOneWidth,lengthOfOneWidth):  # calls forwards and backwards as necessary
-            self.xWidthForward2(xCoordinateValue, timeValue, xResolution, xMin, xMax)
-            self.xWidthBackwards2(xCoordinateValue, timeValue, xResolution, xMin, xMax)
+            self.ROIsearchXWidthForward(xCoordinateValue, timeValue, xResolution, xMin, xMax)
+            self.ROIsearchXWidthBackward(xCoordinateValue, timeValue, xResolution, xMin, xMax)
 
-    def xWidthForward2(self, xCoordinate, timeValue, xResolution, xMin, xMax):  # used to be passed xCoordinate
+    def ROIsearchXWidthForward(self, xCoordinate, timeValue, xResolution, xMin, xMax):  # used to be passed xCoordinate
         # Move the width of the bed forward in the positive x direction
         # Corresponds to a timer called in printer interactor widget
         self.scanTimer = qt.QTimer()
@@ -934,7 +925,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
                 delayMs = xCoordinate + xValue * (timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
                 self.XMovement(delayMs, xValue)
 
-    def xWidthBackwards2(self, xCoordinate, timeValue, xResolution, xMin, xMax):
+    def ROIsearchXWidthBackward(self, xCoordinate, timeValue, xResolution, xMin, xMax):
         # Move the width of the bed backwards in the negative x direction
         # Corresponds to a timer called in printer interactor widget
         self.scanTimer = qt.QTimer()
@@ -942,7 +933,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             delayMs = abs(xValue -(xMax)) * (timeValue / xResolution) + ((xMax - xMin) / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
             self.XMovement(delayMs, xValue)
 
-    def yLoop2(self, timeValue, yResolution, xResolution, yMin, yMax, xMin, xMax):
+    def ROIsearchYLoop(self, timeValue, yResolution, xResolution, yMin, yMax, xMin, xMax):
         # specific intervals correspond to timeValues divisible by 1000
         # The variances in intervals were timed specifically to account for mechanical delays with the printer
 
