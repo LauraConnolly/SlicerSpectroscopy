@@ -233,12 +233,18 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #
         #Follow Fiducials Button
         #
-        self.followFiducialButton = qt.QPushButton("Follow Fiducial")
-        self.followFiducialButton.toolTip = " Oscillate about selected fiducials for 10 rotations."
-        self.followFiducialButton.enabled = True
-        ImageRegistrationFormLayout.addRow(self.followFiducialButton)
-        self.followFiducialButton.connect('clicked(bool)', self.followFiducials)
+        #self.followFiducialButton = qt.QPushButton("Follow Fiducial")
+        #self.followFiducialButton.toolTip = " Oscillate about selected fiducials for 10 rotations."
+        #self.followFiducialButton.enabled = True
+        #ImageRegistrationFormLayout.addRow(self.followFiducialButton)
+        #self.followFiducialButton.connect('clicked(bool)', self.followFiducials)
         #
+        # ICP registration stuff
+        #
+        self.ICPregirstrationButton = qt.QPushButton("ICP Registration")
+        self.ICPregirstrationButton.enabled = True
+        ImageRegistrationFormLayout.addRow(self.ICPregirstrationButton)
+        self.ICPregirstrationButton.connect('clicked(bool)', self.onICPregistration)
         # Center of Mass Button
         #
         self.COMButton = qt.QPushButton("Center of Mass")
@@ -384,6 +390,9 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.onSerialIGLTSelectorChanged()
         xVal = self.xResolution_spinbox.value
         self.logic.controlledXMovement(xVal)
+
+    def onICPregistration(self):
+        self.logic.ICPRegistration()
 #
 # PrinterInteractorLogic
 #
@@ -498,6 +507,11 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.zControlCmd.SetCommandName('SendText')
         self.zControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
         self.zControlCmd.SetCommandTimeoutSec(1.0)
+
+    def ICPRegistration(self):
+        ICPregistration = vtk.vtkIterativeClosestPointTransform()
+        ICPregistration.SetMaximumNumberOfLandmarks(10)
+
 
      # necessary to have this in a function activated by Active keyboard short cut function so that the movements can be instantiated after IGTL has already been instantiated.
     def declareShortcut(self, serialIGTLNode):
