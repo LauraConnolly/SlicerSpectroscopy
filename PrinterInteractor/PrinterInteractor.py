@@ -62,6 +62,25 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.layout.addWidget(PrinterControlCollapsibleButton)
         # Layout within the Printer Control collapsible button
         PrinterControlFormLayout = qt.QFormLayout(PrinterControlCollapsibleButton)
+
+        # Contour Tracing tools
+
+        ContourTracingCollapsibleButton = ctk.ctkCollapsibleButton()
+        ContourTracingCollapsibleButton.text = " Contour Tracing Tools"
+        self.layout.addWidget(ContourTracingCollapsibleButton)
+        #
+        ContourTracingFormLayout = qt.QFormLayout(ContourTracingCollapsibleButton)
+
+        #
+        # Image Registration tools
+        #
+
+        ImageRegistrationCollapsibleButton = ctk.ctkCollapsibleButton()
+        ImageRegistrationCollapsibleButton.text = " Image Registration Tools"
+        self.layout.addWidget(ImageRegistrationCollapsibleButton)
+        #
+        ImageRegistrationFormLayout = qt.QFormLayout(ImageRegistrationCollapsibleButton)
+
         #
         # Home Button
         #
@@ -116,7 +135,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         # X Resolution
         #
         self.xResolution_spinbox = qt.QSpinBox()
-        self.xResolution_spinbox.setMinimum(0)
+        self.xResolution_spinbox.setMinimum(2)
         self.xResolution_spinbox.setMaximum(120)
         self.xResolution_spinbox.setValue(10)
         PrinterControlFormLayout.addRow("X resolution (mm / step) :", self.xResolution_spinbox)
@@ -124,7 +143,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         # Y Resolution
         #
         self.yResolution_spinbox = qt.QSpinBox()
-        self.yResolution_spinbox.setMinimum(0)
+        self.yResolution_spinbox.setMinimum(2)
         self.yResolution_spinbox.setMaximum(120)
         self.yResolution_spinbox.setValue(10)
         PrinterControlFormLayout.addRow("Y resolution (mm/ step):", self.yResolution_spinbox)
@@ -140,11 +159,10 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #
         # Fiducial Placement on/ off
         #
-        self.fiducialMarkerCheckBox = qt.QCheckBox( "Fiducial Marking")
-        self.fiducialMarkerCheckBox.setCheckState(True)
-        self.fiducialMarkerCheckBox.enabled = True
-        PrinterControlFormLayout.addRow(self.fiducialMarkerCheckBox)
-        self.fiducialMarkerCheckBox.connect('checked(bool)', self.onFiducialMarkerChecked)
+        self.fiducialMarkerCheckBox = qt.QCheckBox()
+        self.fiducialMarkerCheckBox.checked = 0
+        PrinterControlFormLayout.addRow("Fiducial Marking Off:" ,self.fiducialMarkerCheckBox)
+        self.fiducialMarkerCheckBox.connect('stateChanged(int)', self.onFiducialMarkerChecked)
         #
         # UV Threshold Bar
         #
@@ -186,63 +204,58 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.createModelButton = qt.QPushButton("Trace Contour (after systematic scan)")
         self.createModelButton.toolTip = "Outline the image."
         self.createModelButton.enabled = True
-        PrinterControlFormLayout.addRow(self.createModelButton)
+        ContourTracingFormLayout.addRow(self.createModelButton)
         self.createModelButton.connect('clicked(bool)', self.onFindConvexHull)
-        self.createModelButton.setStyleSheet("background-color: yellow")
         #
         # Testing Button
         #
         self.testButton = qt.QPushButton("Find Edge")
         self.testButton.toolTip = "Move to the edge of the area of interest."
         self.testButton.enabled = True
-        PrinterControlFormLayout.addRow(self.testButton)
+        ContourTracingFormLayout.addRow(self.testButton)
         self.testButton.connect('clicked(bool)', self.onFindEdge)
-        self.testButton.setStyleSheet("background-color: pink")
         #
         # Independent Contour Trace Button
         #
         self.independentEdgeTraceButton = qt.QPushButton("Trace Contour (after edge found, without systematic scan)")
         self.independentEdgeTraceButton.toolTip = "Independent contour tracing using a root finding algorithm."
         self.independentEdgeTraceButton.enabled = True
-        PrinterControlFormLayout.addRow(self.independentEdgeTraceButton)
+        ContourTracingFormLayout.addRow(self.independentEdgeTraceButton)
         self.independentEdgeTraceButton.connect('clicked(bool)', self.onIndependentContourTrace)
-        self.independentEdgeTraceButton.setStyleSheet("background-color: pink")
         #
         # Place Fiducials
         #
         self.placeFiducialsButton = qt.QPushButton("Place Fiducial")
         self.placeFiducialsButton.toolTip = "Place fiducials around ROI"
         self.placeFiducialsButton.enabled = True
-        PrinterControlFormLayout.addRow(self.placeFiducialsButton)
+        ImageRegistrationFormLayout.addRow(self.placeFiducialsButton)
         self.placeFiducialsButton.connect('clicked(bool)', self.onPlaceFiducials)
-        self.placeFiducialsButton.setStyleSheet("background-color: grey")
         #
         #Follow Fiducials Button
         #
         self.followFiducialButton = qt.QPushButton("Follow Fiducial")
         self.followFiducialButton.toolTip = " Oscillate about selected fiducials for 10 rotations."
         self.followFiducialButton.enabled = True
-        PrinterControlFormLayout.addRow(self.followFiducialButton)
+        ImageRegistrationFormLayout.addRow(self.followFiducialButton)
         self.followFiducialButton.connect('clicked(bool)', self.followFiducials)
-        self.followFiducialButton.setStyleSheet("background-color: grey")
         #
         # Center of Mass Button
         #
         self.COMButton = qt.QPushButton("Center of Mass")
         self.COMButton.toolTip = " Calculate and move to the center of mass of a ROI indicated by fiducials"
         self.COMButton.enabled = True
-        PrinterControlFormLayout.addRow(self.COMButton)
+        ImageRegistrationFormLayout.addRow(self.COMButton)
         self.COMButton.connect('clicked(bool)', self.goToCenterOfMass)
-        self.COMButton.setStyleSheet("background-color: grey")
         #
         # ROI Systematic Search Button
         #
         self.ROIsearchButton = qt.QPushButton("ROI Systematic Search")
         self.ROIsearchButton.toolTip = " "
         self.ROIsearchButton.enabled = True
-        PrinterControlFormLayout.addRow(self.ROIsearchButton)
+        ImageRegistrationFormLayout.addRow(self.ROIsearchButton)
         self.ROIsearchButton.connect('clicked(bool)', self.ROIsearch)
-        self.ROIsearchButton.setStyleSheet("background-color: grey")
+        self.ROIsearchButton.setStyleSheet("background-color: green")
+
 
         self.layout.addStretch(1)
 
@@ -276,6 +289,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
     def onScanButton(self):
         # TODO: fix bugs at low / high resolution!!
+        # 1 by 1 resolution breaks it for some reason
         self.onSerialIGLTSelectorChanged()
         # systematic movement
         self.timeValue = self.timeDelay_spinbox.value
@@ -287,9 +301,10 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         # tissue analysis
         self.tumorTimer = qt.QTimer()
         self.iterationTimingValue = 0
+
         stopsToVisitX = 120 / xResolution
         stopsToVisitY = 120 / yResolution
-        for self.iterationTimingValue in range(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + 10*self.timeValue, self.timeValue):
+        for self.iterationTimingValue in xrange(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + (10*self.timeValue), self.timeValue):
             self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
             self.iterationTimingValue = self.iterationTimingValue + self.timeValue
 
@@ -330,7 +345,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     def onPlaceFiducials(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-        self.logic.get_coordinates()
+        self.logic.getLandmarkFiducialsCoordinate()
 
     def followFiducials(self):
         self.ondoubleArrayNodeChanged()
@@ -362,6 +377,13 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         for self.iterationTimingValue in range(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + 10 * self.timeValue,self.timeValue):
             self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
             self.iterationTimingValue = self.iterationTimingValue + self.timeValue
+
+
+    def test(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+        xVal = self.xResolution_spinbox.value
+        self.logic.controlledXMovement(xVal)
 #
 # PrinterInteractorLogic
 #
@@ -399,6 +421,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.firstDataPointGenerated = 0
         self.spectraCollectedflag = 0
         self.fiducialIndex = 0
+        self.fiducialIndex2 = 0
         self.averageSpectrumDifferences = 0
         self.fiducialMovementDelay = 0
         self.currentXcoordinate = 0
@@ -431,6 +454,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.getCoordinateCmd.SetCommandTimeoutSec(1.0)
         self.getCoordinateCmd.SetCommandAttribute('Text', 'M114')
         self.getCoordinateCmd.AddObserver(self.getCoordinateCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
+        # instantiate landmark coordinate command
+        self.landmarkCoordinateCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+        self.landmarkCoordinateCmd.SetCommandName('SendText')
+        self.landmarkCoordinateCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+        self.landmarkCoordinateCmd.SetCommandTimeoutSec(1.0)
+        self.landmarkCoordinateCmd.SetCommandAttribute('Text', 'M114')
+        self.landmarkCoordinateCmd.AddObserver(self.getCoordinateCmd.CommandCompletedEvent, self.onLandmarkCoordinateCmd)
         # instantiate home command
         self.homeCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.homeCmd.SetCommandName('SendText')
@@ -481,9 +511,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.shortcuts = []
         keysAndCallbacks = (
             ('Right', lambda: self.keyboardControlledXMovementForward(serialIGTLNode)),
-             ('Left', lambda: self.keyboardControlledXMovementBackwards(serialIGTLNode)),
-              ('Up', lambda: self.keyboardControlledYMovementForward(serialIGTLNode)),
-              ('Down', lambda: self.keyboardControlledYMovementBackwards(serialIGTLNode)),
+            ('Left', lambda: self.keyboardControlledXMovementBackwards(serialIGTLNode)),
+            ('Up', lambda: self.keyboardControlledYMovementForward(serialIGTLNode)),
+            ('Down', lambda: self.keyboardControlledYMovementBackwards(serialIGTLNode)),
+            ( 'H', lambda: self.keyboardControlledHomeMovement(serialIGTLNode)),
               )
 
         for key, callback in keysAndCallbacks:
@@ -629,7 +660,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         #wavelengthCheck = pointsArray.GetComponent(26,0) # use to varify which wavelength the tumor Check intensity corresponds to
         tumorCheck = pointsArray.GetComponent(26,1)# check the 395th wavelength to determine if it sees the invisible ink or not
 
-        if tumorCheck < UVthreshold: #threshold is variable using the slider widget on the GUI, useful because intensity difference is inconsistent 
+        if tumorCheck < UVthreshold: #threshold is variable using the slider widget on the GUI, useful because intensity difference is inconsistent
             print "tumor"
             return False
         else:
@@ -677,7 +708,49 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         return self.xcoordinate
 
-    def onFiducialMarkerChecked(self):
+    def getLandmarkFiducialsCoordinate(self):
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.getCoordinateCmd, self.serialIGTLNode.GetID())
+
+    def onLandmarkCoordinateCmd(self, observer, eventid):
+        coordinateValues = self.getCoordinateCmd.GetResponseMessage()
+        print("Command completed with status: " + self.getCoordinateCmd.StatusToString(
+            self.getCoordinateCmd.GetStatus()))
+        print("Response message: " + coordinateValues)
+        print("Full response: " + self.getCoordinateCmd.GetResponseText())
+        # parsing the string for specific coordinate values
+        mylist = coordinateValues.split(" ")
+
+        # Parse string for x coordinate value
+        xvalues = mylist[0].split(":")
+        self.xcoordinate = float(xvalues[1])
+
+        # Parse string for y coordinate value
+        yvalues = mylist[1].split(":")
+        self.ycoordinate = float(yvalues[1])
+
+        # Parse string for z coordinate value
+        zvalues = mylist[2].split(":")
+        self.zcoordinate = float(zvalues[1])
+
+
+        if self.fiducialIndex2 < 1:
+            self.landmarkFiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
+            self.fiducialIndex2 = self.fiducialIndex2 + 1
+        elif self.fiducialIndex == 1234:
+            return self.xcoordinate
+        else:
+            self.addToLandmarkFiducialNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
+
+    def landmarkFiducialMarker(self, xcoordinate, ycoordinate, zcoordinate):
+        self.fiducialNode1 = slicer.vtkMRMLMarkupsFiducialNode()
+        slicer.mrmlScene.AddNode(self.fiducialNode1)
+        self.fiducialNode1.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
+
+    def addToLandmarkFiducialNode(self, xcoordinate, ycoordinate, zcoordinate):
+        self.fiducialNode1.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
+        self.fiducialIndex = self.fiducialIndex + 1
+
+    def fiducialMarkerChecked(self):
         self.fiducialIndex = 1234 # will break if 1234 fiducials is ever reached
 
     def fiducialMarker(self, xcoordinate, ycoordinate, zcoordinate):
@@ -967,21 +1040,31 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def yLoop(self, timeValue, yResolution, xResolution):
        # the following code was developed to execute a y Movement at the beginning and end of successive x oscillations to ensure that the platform
        # is systematically scanned along the y axis as well as the x
-
         firstDistance = (120 / xResolution) # distance of one x oscillation
         secondDistance = 2 * (120 / xResolution) # distance of two x oscillations
         self.yMovement((firstDistance + 2) * timeValue, yResolution) # call yMovement once the first oscillation in the x direction is finished
         self.yMovement((secondDistance + 1) * timeValue, yResolution * 2) # call yMovement again once the second oscillation in the x direction is finished
         self.i = 0
         self.j = 0
-        for yValue in xrange(yResolution * 3, 120 + yResolution, yResolution * 2): # third iteration of yMovement
-            delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
-            self.yMovement(delayMs, yValue)
-            self.i = self.i + 1
-        for yValue in xrange(yResolution * 4, 120 + yResolution, yResolution * 2): # got ride of + yResolution in max
-            delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
-            self.yMovement(delayMs, yValue)
-            self.j = self.j + 1
+        if yResolution < 38 or yResolution == 40: # resolutions less than 40 will go right to the end of the platform, anything above 40 will stop at a distance %(120/yResolution) away
+            for yValue in xrange(yResolution * 3, 120 + yResolution, yResolution * 2): # third iteration of yMovement
+                delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
+                self.yMovement(delayMs, yValue)
+                self.i = self.i + 1
+            for yValue in xrange(yResolution * 4, 120 + yResolution, yResolution * 2): # got ride of + yResolution in max
+                delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
+                self.yMovement(delayMs, yValue)
+                self.j = self.j + 1
+        else:
+           for yValue in xrange(yResolution * 3, 120, yResolution * 2):  # third iteration of yMovement
+               delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + (
+                           (secondDistance * timeValue) * (self.i))
+               self.yMovement(delayMs, yValue)
+               self.i = self.i + 1
+           for yValue in xrange(yResolution * 4, 120, yResolution * 2):  # got ride of + yResolution in max
+               delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
+               self.yMovement(delayMs, yValue)
+               self.j = self.j + 1
 
     def xLoop(self, timeValue, xResolution, yResolution):
         # necessary for looping the x commands on static intervals
@@ -992,21 +1075,32 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             self.xWidthForward(xCoordinateValue, timeValue, xResolution)
             self.xWidthBackwards(xCoordinateValue, timeValue, xResolution)
 
+
     def xWidthForward(self, xCoordinate, timeValue, xResolution):  # used to be passed xCoordinate
         # Move the width of the bed forward in the positive x direction
         # Corresponds to a timer called in printer interactor widget
         self.scanTimer = qt.QTimer()
-        for xValue in xrange(0, 120, xResolution):  # increment by 10 until 120
-            delayMs = xCoordinate + xValue * ( timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
-            self.XMovement(delayMs, xValue)
+        if xResolution < 38 or xResolution == 40:
+            for xValue in xrange(0, 120 + xResolution, xResolution):  # increment by 10 until 120
+                delayMs = xCoordinate + xValue * ( timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
+                self.XMovement(delayMs, xValue)
+        else:
+            for xValue in xrange(0, 120, xResolution):  # increment by 10 until 120
+                delayMs = xCoordinate + xValue * ( timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
+                self.XMovement(delayMs, xValue)
 
     def xWidthBackwards(self, xCoordinate, timeValue, xResolution):
         # Move the width of the bed backwards in the negative x direction
         # Corresponds to a timer called in printer interactor widget
         self.scanTimer = qt.QTimer()
-        for xValue in xrange(120, 0, -xResolution):
-            delayMs = abs(xValue - 120) * (timeValue / xResolution) + (120 / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
-            self.XMovement(delayMs, xValue)
+        if xResolution < 38 or xResolution == 40:
+            for xValue in xrange(120, -xResolution, -xResolution):
+                delayMs = abs(xValue - 120) * (timeValue / xResolution) + (120 / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
+                self.XMovement(delayMs, xValue)
+        else:
+            for xValue in xrange(120, 0, -xResolution):
+                delayMs = abs(xValue - 120) * (timeValue / xResolution) + (120 / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
+                self.XMovement(delayMs, xValue)
 
     def yMovement(self, timeValue, yResolution):
         self.randomScanTimer = qt.QTimer()
@@ -1092,6 +1186,15 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.yControlCmd.SetCommandTimeoutSec(1.0)
         self.yControlCmd.SetCommandAttribute('Text', 'G1 Y%d' % (self.currentYcoordinate))
         slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, serialIGTLNode.GetID())
+
+    def keyboardControlledHomeMovement(self,serialIGTLNode):
+        self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+        self.yControlCmd.SetCommandName('SendText')
+        self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+        self.yControlCmd.SetCommandTimeoutSec(1.0)
+        self.yControlCmd.SetCommandAttribute('Text', 'G28 X Y')
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, serialIGTLNode.GetID())
+
 
 
 
