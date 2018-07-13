@@ -417,6 +417,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     # ROI boundary arrays
     _ROIxbounds = []
     _ROIybounds = []
+    # transform arrays
+    _xTransformPts = []
+    _yTransformPts = []
 
     def __init__(self):
         # general instantiations
@@ -509,8 +512,48 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.zControlCmd.SetCommandTimeoutSec(1.0)
 
     def ICPRegistration(self):
-        ICPregistration = vtk.vtkIterativeClosestPointTransform()
-        ICPregistration.SetMaximumNumberOfLandmarks(10)
+        ICPregistration = vtk.vtkLandmarkTransform()
+        #ICPregistration.SetMaximumNumberOfLandmarks(10)
+        fidList = slicer.util.getNode("MarkupsFiducial")
+        numFids = fidList.GetNumberOfFiducials()
+        fidList2 = slicer.util.getNode("F")
+
+        self.fiducialData = vtk.vtkPoints()
+        for i in xrange(numFids):
+            ras = [0, 0, 0]
+            pos = fidList.GetNthFiducialPosition(i, ras)
+            world = [0, 0, 0, 0]
+            fidList.GetNthFiducialWorldCoordinates(0, world)
+            self.fiducialData.InsertNextPoint(ras[0], ras[1], ras[2])
+
+
+        self.fiducialData2 = vtk.vtkPoints()
+        for i in xrange(numFids):
+            ras = [0, 0, 0]
+            pos = fidList2.GetNthFiducialPosition(i, ras)
+            world = [0, 0, 0, 0]
+            fidList2.GetNthFiducialWorldCoordinates(0, world)
+            self.fiducialData2.InsertNextPoint(ras[0], ras[1], ras[2])
+
+
+        self.fiducialPoints = vtk.vtkPolyData()
+        self.fiducialPoints.SetPoints(self.fiducialData)
+
+        self.fiducialPoints2 = vtk.vtkPolyData()
+        self.fiducialPoints2.SetPoints(self.fiducialData2)
+        ICPregistration.SetModeToRigidBody()
+        ICPregistration.SetSourceLandmarks(self.fiducialData)
+        ICPregistration.SetTargetLandmarks(self.fiducialData2)
+        TransformationMatrix = ICPregistration.GetMatrix()
+      
+
+
+
+
+
+        #x,y,z =  u.GetOutput().GetCenter()
+
+        #self.landmarkFiducialMarker(x,y,z)
 
 
      # necessary to have this in a function activated by Active keyboard short cut function so that the movements can be instantiated after IGTL has already been instantiated.
