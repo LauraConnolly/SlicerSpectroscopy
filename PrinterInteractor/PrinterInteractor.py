@@ -421,6 +421,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     _xTransformPts = []
     _yTransformPts = []
 
+    _pos= []
+
     def __init__(self):
         # general instantiations
         self.serialIGTLNode = None
@@ -512,11 +514,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.zControlCmd.SetCommandTimeoutSec(1.0)
 
     def ICPRegistration(self):
-        ICPregistration = vtk.vtkLandmarkTransform()
-        #ICPregistration.SetMaximumNumberOfLandmarks(10)
-        fidList = slicer.util.getNode("MarkupsFiducial")
+        fidList = slicer.util.getNode("S")
         numFids = fidList.GetNumberOfFiducials()
-        fidList2 = slicer.util.getNode("F")
+        fidList2 = slicer.util.getNode("T")
 
         self.fiducialData = vtk.vtkPoints()
         for i in xrange(numFids):
@@ -525,7 +525,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             world = [0, 0, 0, 0]
             fidList.GetNthFiducialWorldCoordinates(0, world)
             self.fiducialData.InsertNextPoint(ras[0], ras[1], ras[2])
-
 
         self.fiducialData2 = vtk.vtkPoints()
         for i in xrange(numFids):
@@ -541,11 +540,104 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         self.fiducialPoints2 = vtk.vtkPolyData()
         self.fiducialPoints2.SetPoints(self.fiducialData2)
+
+        source = self.fiducialPoints
+        target = self.fiducialPoints2
+
+        icp = vtk.vtkIterativeClosestPointTransform()
+        icp.SetSource(source)
+        icp.SetTarget(target)
+        icp.GetLandmarkTransform().SetModeToRigidBody()
+        icp.SetMaximumNumberOfIterations(20)
+        icp.StartByMatchingCentroidsOn()
+
+
+        v = slicer.vtkMRMLTransformNode()
+        v.CanApplyNonLinearTransforms()
+        matrix = icp.GetLandmarkTransform().GetMatrix()
+        v.SetMatrixTransformToParent(matrix)
+
+        slicer.mrmlScene.AddNode(v)
+
+
+    def ICPRegistration2(self):
+        ICPregistration = vtk.vtkLandmarkTransform()
+        #ICPregistration.SetMaximumNumberOfLandmarks(10)
+        #fidList = slicer.util.getNode("MarkupsFiducial")
+        #numFids = fidList.GetNumberOfFiducials()
+        #fidList2 = slicer.util.getNode("F")
+
+        #self.fiducialData = vtk.vtkPoints()
+        #for i in xrange(numFids):
+        #    ras = [0, 0, 0]
+        #    pos = fidList.GetNthFiducialPosition(i, ras)
+        #    world = [0, 0, 0, 0]
+        #    fidList.GetNthFiducialWorldCoordinates(0, world)
+        #    self.fiducialData.InsertNextPoint(ras[0], ras[1], ras[2])
+
+        #self.fiducialData2 = vtk.vtkPoints()
+        #for i in xrange(numFids):
+        #    ras = [0, 0, 0]
+        #    pos = fidList2.GetNthFiducialPosition(i, ras)
+        #    world = [0, 0, 0, 0]
+        #    fidList2.GetNthFiducialWorldCoordinates(0, world)
+        #    self.fiducialData2.InsertNextPoint(ras[0], ras[1], ras[2])
+
+
+        #self.fiducialPoints = vtk.vtkPolyData()
+        #self.fiducialPoints.SetPoints(self.fiducialData)
+
+        #self.fiducialPoints2 = vtk.vtkPolyData()
+        #self.fiducialPoints2.SetPoints(self.fiducialData2)
+
+        #sa = vtk.vtkActor()
+
+        #pos = [0,0,0]
+
+        #icp = vtk.vtkIterativeClosestPointTransform()
+        #icp.SetSource(self.fiducialPoints)
+        #icp.SetTarget(self.fiducialPoints2)
+        #icp.SetCheckMeanDistance(1)
+        #icp.SetMaximumMeanDistance(0.001)
+        #icp.SetMaximumNumberOfIterations(30)
+        #icp.SetMaximumNumberOfLandmarks(50)
+
+
+        #icp.StartByMatchingCentroidsOn()
+        #print icp
+
+        #sm = vtk.vtkPolyDataMapper()
+        #sm.SetInputConnection(icp)
+        #sa.SetMapper(sm)
+        fidList = slicer.util.getNode('MarkupsFiducial')
+        numFids = fidList.GetNumberOfFiducials()
+        centerOfMass = [0,0,0]
+        sumPos = np.zeros(3)
+        for i in xrange(numFids):
+            pos = np.zeros(3)
+            fidList.GetNthFiducialPosition(i,pos)
+            sumPos += pos
+        centerOfMass = sumPos / numFids
+        xcoord = centerOfMass[0]
+        ycoord = centerOfMass[1]
+
+        fidList2 = slicer.util.getNode('F')
+        numFids2 = fidList2.GetNumberOfFiducials()
+        centerOfMass2 = [0, 0, 0]
+        sumPos2 = np.zeros(3)
+        for i in xrange(numFids2):
+            pos = np.zeros(3)
+            fidList2.GetNthFiducialPosition(i, pos)
+            sumPos += pos
+        centerOfMass2 = sumPos / numFids
+        xcoord = centerOfMass2[0]
+        ycoord = centerOfMass2[1]
+
         ICPregistration.SetModeToRigidBody()
         ICPregistration.SetSourceLandmarks(self.fiducialData)
         ICPregistration.SetTargetLandmarks(self.fiducialData2)
-        TransformationMatrix = ICPregistration.GetMatrix()
-      
+        # TransformationMatrix = ICPregistration.GetMatrix()
+
 
 
 
