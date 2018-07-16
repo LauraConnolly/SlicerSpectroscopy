@@ -591,9 +591,12 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         lmt = vtk.vtkLandmarkTransform()
         lmt.SetSourceLandmarks(source)
+        source.Modified()
         lmt.SetTargetLandmarks(target)
+        target.Modified()
         lmt.SetModeToSimilarity()
         lmt.TransformPoints(source,target)
+
 
         print lmt
         v = slicer.vtkMRMLTransformNode()
