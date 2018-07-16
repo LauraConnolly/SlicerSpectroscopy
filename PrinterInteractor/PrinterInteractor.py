@@ -392,7 +392,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.logic.controlledXMovement(xVal)
 
     def onICPregistration(self):
-        self.logic.ICPRegistration()
+        self.logic.fiducialWizardRegistration()
 #
 # PrinterInteractorLogic
 #
@@ -547,8 +547,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         icp = vtk.vtkIterativeClosestPointTransform()
         icp.SetSource(source)
         icp.SetTarget(target)
-        icp.GetLandmarkTransform().SetModeToRigidBody()
-        icp.SetMaximumNumberOfIterations(20)
+        icp.GetLandmarkTransform().SetModeToSimilarity()
+        icp.SetMaximumNumberOfIterations(200)
         icp.StartByMatchingCentroidsOn()
 
 
@@ -559,6 +559,49 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         slicer.mrmlScene.AddNode(v)
 
+    def fiducialWizardRegistration(self):
+        fidList = slicer.util.getNode("S")
+        numFids = fidList.GetNumberOfFiducials()
+        fidList2 = slicer.util.getNode("T")
+
+        self.fiducialData = vtk.vtkPoints()
+        for i in xrange(numFids):
+            ras = [0, 0, 0]
+            pos = fidList.GetNthFiducialPosition(i, ras)
+            world = [0, 0, 0, 0]
+            fidList.GetNthFiducialWorldCoordinates(0, world)
+            self.fiducialData.InsertNextPoint(ras[0], ras[1], ras[2])
+
+        self.fiducialData2 = vtk.vtkPoints()
+        for i in xrange(numFids):
+            ras = [0, 0, 0]
+            pos = fidList2.GetNthFiducialPosition(i, ras)
+            world = [0, 0, 0, 0]
+            fidList2.GetNthFiducialWorldCoordinates(0, world)
+            self.fiducialData2.InsertNextPoint(ras[0], ras[1], ras[2])
+
+        self.fiducialPoints = vtk.vtkPolyData()
+        self.fiducialPoints.SetPoints(self.fiducialData)
+
+        self.fiducialPoints2 = vtk.vtkPolyData()
+        self.fiducialPoints2.SetPoints(self.fiducialData2)
+
+        source = self.fiducialData
+        target = self.fiducialData2
+
+        lmt = vtk.vtkLandmarkTransform()
+        lmt.SetSourceLandmarks(source)
+        lmt.SetTargetLandmarks(target)
+        lmt.SetModeToSimilarity()
+        lmt.TransformPoints(source,target)
+
+        print lmt
+        v = slicer.vtkMRMLTransformNode()
+        v.CanApplyNonLinearTransforms()
+        matrix = lmt.GetMatrix()
+        v.SetMatrixTransformToParent(matrix)
+
+        slicer.mrmlScene.AddNode(v)
 
     def ICPRegistration2(self):
         ICPregistration = vtk.vtkLandmarkTransform()
