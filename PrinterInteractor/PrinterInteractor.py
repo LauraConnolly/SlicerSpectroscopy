@@ -134,7 +134,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #
         # X Resolution
         #
-        self.xResolution_spinbox = qt.QSpinBox()
+        self.xResolution_spinbox = qt.QDoubleSpinBox()
         self.xResolution_spinbox.setMinimum(2)
         self.xResolution_spinbox.setMaximum(120)
         self.xResolution_spinbox.setValue(10)
@@ -142,7 +142,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #
         # Y Resolution
         #
-        self.yResolution_spinbox = qt.QSpinBox()
+        self.yResolution_spinbox = qt.QDoubleSpinBox()
         self.yResolution_spinbox.setMinimum(2)
         self.yResolution_spinbox.setMaximum(120)
         self.yResolution_spinbox.setValue(10)
@@ -245,6 +245,13 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.ICPregirstrationButton.enabled = True
         ImageRegistrationFormLayout.addRow(self.ICPregirstrationButton)
         self.ICPregirstrationButton.connect('clicked(bool)', self.onICPregistration)
+        #
+        # Convex Hull Stuff
+        #
+        self.chButton = qt.QPushButton("Convex Hull button")
+        self.chButton.enabled = True
+        ImageRegistrationFormLayout.addRow(self.chButton)
+        self.chButton.connect('clicked(bool)', self.onConvexHullForRegistration)
         # Center of Mass Button
         #
         self.COMButton = qt.QPushButton("Center of Mass")
@@ -393,7 +400,13 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
     def onICPregistration(self):
         self.logic.fiducialWizardRegistration()
+        #self.logic.fiducialWizard()
+        #self.logic.ICPRegistration()
+
+    def onConvexHullForRegistration(self):
+        self.logic.outlineFiducials()
 #
+
 # PrinterInteractorLogic
 #
 
@@ -513,6 +526,36 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.zControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
         self.zControlCmd.SetCommandTimeoutSec(1.0)
 
+    def outlineFiducials(self):
+        self.hullPolydata = vtk.vtkPolyData()
+        self.hullPolydata.SetPoints(self.pointsForHull)
+
+        hull = vtk.vtkConvexHull2D()
+        hull.SetInputData(self.hullPolydata)
+        hull.Update()
+
+        pointLimit = hull.GetOutput().GetNumberOfPoints()
+        for i in xrange(0, pointLimit):
+            self.pointsForEdgeTracing.InsertNextPoint(hull.GetOutput().GetPoint(i))
+
+        numPoints = self.pointsForEdgeTracing.GetNumberOfPoints()
+
+
+        centerOfMass = [0, 0, 0]
+        sumPos = np.zeros(3)
+        for i in xrange(numPoints):
+            pos = np.zeros(3)
+            self.pointsForEdgeTracing.GetPoint(i, pos)
+            sumPos += pos
+        centerOfMass = sumPos / numPoints
+
+        self.landmarkFiducialNode = slicer.vtkMRMLMarkupsFiducialNode()
+
+        slicer.mrmlScene.AddNode(self.fiducialNode)
+
+
+
+
     def ICPRegistration(self):
         fidList = slicer.util.getNode("S")
         numFids = fidList.GetNumberOfFiducials()
@@ -547,7 +590,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         icp = vtk.vtkIterativeClosestPointTransform()
         icp.SetSource(source)
         icp.SetTarget(target)
-        icp.GetLandmarkTransform().SetModeToSimilarity()
+        icp.GetLandmarkTransform().SetModeToRigidBody()
         icp.SetMaximumNumberOfIterations(200)
         icp.StartByMatchingCentroidsOn()
 
@@ -904,14 +947,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         return self.xcoordinate
 
     def getLandmarkFiducialsCoordinate(self):
-        slicer.modules.openigtlinkremote.logic().SendCommand(self.getCoordinateCmd, self.serialIGTLNode.GetID())
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.landmarkCoordinateCmd, self.serialIGTLNode.GetID())
 
     def onLandmarkCoordinateCmd(self, observer, eventid):
-        coordinateValues = self.getCoordinateCmd.GetResponseMessage()
-        print("Command completed with status: " + self.getCoordinateCmd.StatusToString(
-            self.getCoordinateCmd.GetStatus()))
+        coordinateValues = self.landmarkCoordinateCmd.GetResponseMessage()
+        print("Command completed with status: " + self.landmarkCoordinateCmd.StatusToString(self.landmarkCoordinateCmd.GetStatus()))
         print("Response message: " + coordinateValues)
-        print("Full response: " + self.getCoordinateCmd.GetResponseText())
+        print("Full response: " + self.landmarkCoordinateCmd.GetResponseText())
         # parsing the string for specific coordinate values
         mylist = coordinateValues.split(" ")
 
