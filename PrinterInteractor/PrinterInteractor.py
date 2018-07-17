@@ -246,6 +246,13 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         ImageRegistrationFormLayout.addRow(self.ICPregirstrationButton)
         self.ICPregirstrationButton.connect('clicked(bool)', self.onICPregistration)
         #
+        # Landmark registration Button
+        #
+        self.landmarkRegButton = qt.QPushButton("Landmark Registration")
+        self.landmarkRegButton.enabled = True
+        ImageRegistrationFormLayout.addRow(self.landmarkRegButton)
+        self.landmarkRegButton.connect('clicked(bool)', self.onLandmarkRegButton)
+        #
         # Convex Hull Stuff
         #
         self.chButton = qt.QPushButton("Convex Hull button")
@@ -399,9 +406,12 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.logic.controlledXMovement(xVal)
 
     def onICPregistration(self):
-        self.logic.fiducialWizardRegistration()
+        self.logic.ICPRegistration()
         #self.logic.fiducialWizard()
         #self.logic.ICPRegistration()
+
+    def onLandmarkRegButton(self):
+        self.logic.landmarkRegistration()
 
     def onConvexHullForRegistration(self):
         self.logic.landmarkRegistration()
@@ -526,32 +536,25 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.zControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
         self.zControlCmd.SetCommandTimeoutSec(1.0)
 
-    def outlineFiducials(self):
-        self.hullPolydata = vtk.vtkPolyData()
-        self.hullPolydata.SetPoints(self.pointsForHull)
+    def ICPRegistration(self):
+        # TODO: fix this registratoin
 
-        hull = vtk.vtkConvexHull2D()
-        hull.SetInputData(self.hullPolydata)
-        hull.Update()
+        source = slicer.mrmlScene.GetNodesByName('ModelPic')
+        target = slicer.mrmlScene.GetNodesByName('Model')
 
-        pointLimit = hull.GetOutput().GetNumberOfPoints()
-        for i in xrange(0, pointLimit):
-            self.pointsForEdgeTracing.InsertNextPoint(hull.GetOutput().GetPoint(i))
+        icp = vtk.vtkIterativeClosestPointTransform()
+        icp.SetSource(source)
+        icp.SetTarget(target)
+        icp.GetLandmarkTransform().SetModeToRigidBody()
+        icp.SetMaximumNumberOfIterations(200)
+        icp.StartByMatchingCentroidsOn()
 
-        numPoints = self.pointsForEdgeTracing.GetNumberOfPoints()
+        v = slicer.vtkMRMLLinearTransformNode()
+        v.CanApplyNonLinearTransforms()
+        matrix = icp.GetLandmarkTransform().GetMatrix()
+        v.SetMatrixTransformToParent(matrix)
 
-
-        centerOfMass = [0, 0, 0]
-        sumPos = np.zeros(3)
-        for i in xrange(numPoints):
-            pos = np.zeros(3)
-            self.pointsForEdgeTracing.GetPoint(i, pos)
-            sumPos += pos
-        centerOfMass = sumPos / numPoints
-
-        self.landmarkFiducialNode = slicer.vtkMRMLMarkupsFiducialNode()
-
-        slicer.mrmlScene.AddNode(self.fiducialNode)
+        slicer.mrmlScene.AddNode(v)
 
 
     def landmarkRegistration(self):
@@ -1079,7 +1082,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.controlledXYMovement(xcoord,ycoord)
 
     def ROIsystematicSearch(self):
-        fidList = slicer.util.getNode('MarkupsFiducial')
+        fidList = slicer.util.getNode('ModelLandmarkPoints')
         numFids = fidList.GetNumberOfFiducials()
 
         for i in xrange(numFids):
@@ -1221,24 +1224,24 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
                 self.XMovement(delayMs, xValue)
 
     def yMovement(self, timeValue, yResolution):
-        self.randomScanTimer = qt.QTimer()
-        self.randomScanTimer.singleShot(timeValue, lambda: self.controlledYMovement(yResolution))
+        self.scanTimer = qt.QTimer()
+        self.scanTimer.singleShot(timeValue, lambda: self.controlledYMovement(yResolution))
 
     def XMovement(self, timevar, movevar):
-        self.randomScanTimer = qt.QTimer()
-        self.randomScanTimer.singleShot(timevar, lambda: self.controlledXMovement(movevar))
+        self.scanTimer = qt.QTimer()
+        self.scanTimer.singleShot(timevar, lambda: self.controlledXMovement(movevar))
 
     def slowEdgeTracing(self, xcoordinate, ycoordinate, timevar):
         self.edgetimer = qt.QTimer()
         self.edgetimer.singleShot(timevar, lambda: self.controlledXYMovement(xcoordinate, ycoordinate))
 
     def xyMovement(self,xcoordinate, ycoordinate, timevar):
-        self.randomScanTimer = qt.QTimer()
-        self.randomScanTimer.singleShot(timevar, lambda: self.controlledXYMovement(xcoordinate,ycoordinate))
+        self.scanTimer = qt.QTimer()
+        self.scanTimer.singleShot(timevar, lambda: self.controlledXYMovement(xcoordinate,ycoordinate))
 
     def ZMovement(self, timeValue, zcoordinate):
-        self.randomScanTimer = qt.QTimer()
-        self.randomScanTimer.singleShot(timeValue, lambda: self.controlledZMovement(zcoordinate))
+        self.scanTimer = qt.QTimer()
+        self.scanTimer.singleShot(timeValue, lambda: self.controlledZMovement(zcoordinate))
 
     def controlledXYMovement(self, xcoordinate, ycoordinate):
         self.xyControlCmd.SetCommandAttribute('Text', 'G1 X%d Y%d' % (xcoordinate, ycoordinate))
