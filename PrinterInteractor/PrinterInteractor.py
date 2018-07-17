@@ -135,7 +135,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         # X Resolution
         #
         self.xResolution_spinbox = qt.QDoubleSpinBox()
-        self.xResolution_spinbox.setMinimum(2)
+        self.xResolution_spinbox.setMinimum(0)
         self.xResolution_spinbox.setMaximum(120)
         self.xResolution_spinbox.setValue(10)
         PrinterControlFormLayout.addRow("X resolution (mm / step) :", self.xResolution_spinbox)
@@ -143,7 +143,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         # Y Resolution
         #
         self.yResolution_spinbox = qt.QDoubleSpinBox()
-        self.yResolution_spinbox.setMinimum(2)
+        self.yResolution_spinbox.setMinimum(0)
         self.yResolution_spinbox.setMaximum(120)
         self.yResolution_spinbox.setValue(10)
         PrinterControlFormLayout.addRow("Y resolution (mm/ step):", self.yResolution_spinbox)
@@ -317,7 +317,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
         stopsToVisitX = 120 / xResolution
         stopsToVisitY = 120 / yResolution
-        for self.iterationTimingValue in xrange(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + (10*self.timeValue), self.timeValue):
+        for self.iterationTimingValue in self.logic.frange(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + (10*self.timeValue), self.timeValue):
             self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
             self.iterationTimingValue = self.iterationTimingValue + self.timeValue
 
@@ -387,7 +387,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.iterationTimingValue = 0
         stopsToVisitX = (xMax - xMin) / xResolution
         stopsToVisitY = (yMax - yMin) / yResolution
-        for self.iterationTimingValue in range(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + 10 * self.timeValue,self.timeValue):
+        for self.iterationTimingValue in self.logic.frange(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + 10 * self.timeValue,self.timeValue):
             self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
             self.iterationTimingValue = self.iterationTimingValue + self.timeValue
 
@@ -404,7 +404,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #self.logic.ICPRegistration()
 
     def onConvexHullForRegistration(self):
-        self.logic.outlineFiducials()
+        self.logic.landmarkRegistration()
 #
 
 # PrinterInteractorLogic
@@ -554,58 +554,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         slicer.mrmlScene.AddNode(self.fiducialNode)
 
 
-
-
-    def ICPRegistration(self):
-        fidList = slicer.util.getNode("S")
+    def landmarkRegistration(self):
+        fidList = slicer.util.getNode("ImageLandmarkPoints")
         numFids = fidList.GetNumberOfFiducials()
-        fidList2 = slicer.util.getNode("T")
-
-        self.fiducialData = vtk.vtkPoints()
-        for i in xrange(numFids):
-            ras = [0, 0, 0]
-            pos = fidList.GetNthFiducialPosition(i, ras)
-            world = [0, 0, 0, 0]
-            fidList.GetNthFiducialWorldCoordinates(0, world)
-            self.fiducialData.InsertNextPoint(ras[0], ras[1], ras[2])
-
-        self.fiducialData2 = vtk.vtkPoints()
-        for i in xrange(numFids):
-            ras = [0, 0, 0]
-            pos = fidList2.GetNthFiducialPosition(i, ras)
-            world = [0, 0, 0, 0]
-            fidList2.GetNthFiducialWorldCoordinates(0, world)
-            self.fiducialData2.InsertNextPoint(ras[0], ras[1], ras[2])
-
-
-        self.fiducialPoints = vtk.vtkPolyData()
-        self.fiducialPoints.SetPoints(self.fiducialData)
-
-        self.fiducialPoints2 = vtk.vtkPolyData()
-        self.fiducialPoints2.SetPoints(self.fiducialData2)
-
-        source = self.fiducialPoints
-        target = self.fiducialPoints2
-
-        icp = vtk.vtkIterativeClosestPointTransform()
-        icp.SetSource(source)
-        icp.SetTarget(target)
-        icp.GetLandmarkTransform().SetModeToRigidBody()
-        icp.SetMaximumNumberOfIterations(200)
-        icp.StartByMatchingCentroidsOn()
-
-
-        v = slicer.vtkMRMLTransformNode()
-        v.CanApplyNonLinearTransforms()
-        matrix = icp.GetLandmarkTransform().GetMatrix()
-        v.SetMatrixTransformToParent(matrix)
-
-        slicer.mrmlScene.AddNode(v)
-
-    def fiducialWizardRegistration(self):
-        fidList = slicer.util.getNode("S")
-        numFids = fidList.GetNumberOfFiducials()
-        fidList2 = slicer.util.getNode("T")
+        fidList2 = slicer.util.getNode("ModelLandmarkPoints")
 
         self.fiducialData = vtk.vtkPoints()
         for i in xrange(numFids):
@@ -640,104 +592,31 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         lmt.SetModeToSimilarity()
         lmt.TransformPoints(source,target)
 
-
-        print lmt
-        v = slicer.vtkMRMLTransformNode()
+        v = slicer.vtkMRMLLinearTransformNode()
+        v.SetName('ReferenceImageToOpticalModel')
         v.CanApplyNonLinearTransforms()
         matrix = lmt.GetMatrix()
         v.SetMatrixTransformToParent(matrix)
 
         slicer.mrmlScene.AddNode(v)
 
-    def ICPRegistration2(self):
-        ICPregistration = vtk.vtkLandmarkTransform()
-        #ICPregistration.SetMaximumNumberOfLandmarks(10)
-        #fidList = slicer.util.getNode("MarkupsFiducial")
-        #numFids = fidList.GetNumberOfFiducials()
-        #fidList2 = slicer.util.getNode("F")
-
-        #self.fiducialData = vtk.vtkPoints()
-        #for i in xrange(numFids):
-        #    ras = [0, 0, 0]
-        #    pos = fidList.GetNthFiducialPosition(i, ras)
-        #    world = [0, 0, 0, 0]
-        #    fidList.GetNthFiducialWorldCoordinates(0, world)
-        #    self.fiducialData.InsertNextPoint(ras[0], ras[1], ras[2])
-
-        #self.fiducialData2 = vtk.vtkPoints()
-        #for i in xrange(numFids):
-        #    ras = [0, 0, 0]
-        #    pos = fidList2.GetNthFiducialPosition(i, ras)
-        #    world = [0, 0, 0, 0]
-        #    fidList2.GetNthFiducialWorldCoordinates(0, world)
-        #    self.fiducialData2.InsertNextPoint(ras[0], ras[1], ras[2])
+        #self.fiducialNode1.ApplyTransform('ReferenceImageToOpticalModel')
+        #imageNode = slicer.mrmlScene.GetNodesByName('GroundTruthImage') # change to reference image name
+        #imageNode.ApplyTransform('ReferenceImageToOpticalModel')
+        print "Landmark Transform completed succesfully."
 
 
-        #self.fiducialPoints = vtk.vtkPolyData()
-        #self.fiducialPoints.SetPoints(self.fiducialData)
+    # these two functions offer the same functionality as xrange but are able to accept floating point values
+    def frange(self, start, end, stepsize):
+        while start < end:
+            yield start
+            start += stepsize
+    def backfrange(self,start,end,stepsize):
+        while start > end:
+            yield start
+            start += stepsize
 
-        #self.fiducialPoints2 = vtk.vtkPolyData()
-        #self.fiducialPoints2.SetPoints(self.fiducialData2)
-
-        #sa = vtk.vtkActor()
-
-        #pos = [0,0,0]
-
-        #icp = vtk.vtkIterativeClosestPointTransform()
-        #icp.SetSource(self.fiducialPoints)
-        #icp.SetTarget(self.fiducialPoints2)
-        #icp.SetCheckMeanDistance(1)
-        #icp.SetMaximumMeanDistance(0.001)
-        #icp.SetMaximumNumberOfIterations(30)
-        #icp.SetMaximumNumberOfLandmarks(50)
-
-
-        #icp.StartByMatchingCentroidsOn()
-        #print icp
-
-        #sm = vtk.vtkPolyDataMapper()
-        #sm.SetInputConnection(icp)
-        #sa.SetMapper(sm)
-        fidList = slicer.util.getNode('MarkupsFiducial')
-        numFids = fidList.GetNumberOfFiducials()
-        centerOfMass = [0,0,0]
-        sumPos = np.zeros(3)
-        for i in xrange(numFids):
-            pos = np.zeros(3)
-            fidList.GetNthFiducialPosition(i,pos)
-            sumPos += pos
-        centerOfMass = sumPos / numFids
-        xcoord = centerOfMass[0]
-        ycoord = centerOfMass[1]
-
-        fidList2 = slicer.util.getNode('F')
-        numFids2 = fidList2.GetNumberOfFiducials()
-        centerOfMass2 = [0, 0, 0]
-        sumPos2 = np.zeros(3)
-        for i in xrange(numFids2):
-            pos = np.zeros(3)
-            fidList2.GetNthFiducialPosition(i, pos)
-            sumPos += pos
-        centerOfMass2 = sumPos / numFids
-        xcoord = centerOfMass2[0]
-        ycoord = centerOfMass2[1]
-
-        ICPregistration.SetModeToRigidBody()
-        ICPregistration.SetSourceLandmarks(self.fiducialData)
-        ICPregistration.SetTargetLandmarks(self.fiducialData2)
-        # TransformationMatrix = ICPregistration.GetMatrix()
-
-
-
-
-
-
-        #x,y,z =  u.GetOutput().GetCenter()
-
-        #self.landmarkFiducialMarker(x,y,z)
-
-
-     # necessary to have this in a function activated by Active keyboard short cut function so that the movements can be instantiated after IGTL has already been instantiated.
+    # necessary to have this in a function activated by Active keyboard short cut function so that the movements can be instantiated after IGTL has already been instantiated.
     def declareShortcut(self, serialIGTLNode):
         self.installShortcutKeys(serialIGTLNode)
 
@@ -980,12 +859,14 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def landmarkFiducialMarker(self, xcoordinate, ycoordinate, zcoordinate):
         self.fiducialNode1 = slicer.vtkMRMLMarkupsFiducialNode()
+        self.fiducialNode1.SetName("ModelLandmarkPoints")
         slicer.mrmlScene.AddNode(self.fiducialNode1)
         self.fiducialNode1.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
 
     def addToLandmarkFiducialNode(self, xcoordinate, ycoordinate, zcoordinate):
         self.fiducialNode1.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
         self.fiducialIndex = self.fiducialIndex + 1
+        print self.fiducialNode1.GetName()
 
     def fiducialMarkerChecked(self):
         self.fiducialIndex = 1234 # will break if 1234 fiducials is ever reached
@@ -1222,7 +1103,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             # necessary for looping the x commands on static intervals
         oscillatingTime = ((xMax- xMin) / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
         lengthOfOneWidth = (((xMax-xMin) / xResolution) * 2) * timeValue # the amount of movements per oscillation back and forth
-        for xCoordinateValue in xrange(xMin, (oscillatingTime * lengthOfOneWidth) + lengthOfOneWidth,lengthOfOneWidth):  # calls forwards and backwards as necessary
+        for xCoordinateValue in self.frange(xMin, (oscillatingTime * lengthOfOneWidth) + lengthOfOneWidth,lengthOfOneWidth):  # calls forwards and backwards as necessary
             self.ROIsearchXWidthForward(xCoordinateValue, timeValue, xResolution, xMin, xMax)
             self.ROIsearchXWidthBackward(xCoordinateValue, timeValue, xResolution, xMin, xMax)
 
@@ -1230,16 +1111,16 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         # Move the width of the bed forward in the positive x direction
         # Corresponds to a timer called in printer interactor widget
         self.scanTimer = qt.QTimer()
-        for xValue in xrange(xMin, xMax, xResolution):
-            for xValue in xrange(xMin, xMax, xResolution):  # increment by 10 until 120
-                delayMs = xCoordinate + xValue * (timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
-                self.XMovement(delayMs, xValue)
+        # for xValue in xrange(xMin, xMax, xResolution):
+        for xValue in self.frange(xMin, xMax, xResolution):  # increment by 10 until 120
+            delayMs = xCoordinate + xValue * (timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
+            self.XMovement(delayMs, xValue)
 
     def ROIsearchXWidthBackward(self, xCoordinate, timeValue, xResolution, xMin, xMax):
         # Move the width of the bed backwards in the negative x direction
         # Corresponds to a timer called in printer interactor widget
         self.scanTimer = qt.QTimer()
-        for xValue in xrange(xMax, xMin, -xResolution):
+        for xValue in self.backfrange(xMax, xMin, -xResolution):
             delayMs = abs(xValue -(xMax)) * (timeValue / xResolution) + ((xMax - xMin) / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
             self.XMovement(delayMs, xValue)
 
@@ -1253,12 +1134,12 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.yMovement((secondDistance + 1) * timeValue, (yResolution * 2)+ yMin )
         self.i = 0
         self.j = 0
-        for yValue in xrange(yMin + (yResolution * 3), yMax + yResolution, yResolution * 2):
+        for yValue in self.frange(yMin + (yResolution * 3), yMax + yResolution, yResolution * 2):
             delayMs = (((secondDistance + firstDistance)+ 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
             self.yMovement(delayMs, yValue)
             self.i = self.i + 1
             print yValue
-        for yValue in xrange(yMin + (yResolution * 4), yMax + yResolution, yResolution * 2):
+        for yValue in self.frange(yMin + (yResolution * 4), yMax + yResolution, yResolution * 2):
             delayMs = ((((2 * secondDistance)+ 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
             self.yMovement(delayMs, yValue)
             print yValue
@@ -1284,21 +1165,21 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.i = 0
         self.j = 0
         if yResolution < 38 or yResolution == 40: # resolutions less than 40 will go right to the end of the platform, anything above 40 will stop at a distance %(120/yResolution) away
-            for yValue in xrange(yResolution * 3, 120 + yResolution, yResolution * 2): # third iteration of yMovement
+            for yValue in self.frange(yResolution * 3, 120 + yResolution, yResolution * 2): # third iteration of yMovement
                 delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
                 self.yMovement(delayMs, yValue)
                 self.i = self.i + 1
-            for yValue in xrange(yResolution * 4, 120 + yResolution, yResolution * 2): # got ride of + yResolution in max
+            for yValue in self.frange(yResolution * 4, 120 + yResolution, yResolution * 2): # got ride of + yResolution in max
                 delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
                 self.yMovement(delayMs, yValue)
                 self.j = self.j + 1
         else:
-           for yValue in xrange(yResolution * 3, 120, yResolution * 2):  # third iteration of yMovement
+           for yValue in self.frange(yResolution * 3, 120, yResolution * 2):  # third iteration of yMovement
                delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + (
                            (secondDistance * timeValue) * (self.i))
                self.yMovement(delayMs, yValue)
                self.i = self.i + 1
-           for yValue in xrange(yResolution * 4, 120, yResolution * 2):  # got ride of + yResolution in max
+           for yValue in self.frange(yResolution * 4, 120, yResolution * 2):  # got ride of + yResolution in max
                delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
                self.yMovement(delayMs, yValue)
                self.j = self.j + 1
@@ -1308,7 +1189,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         oscillatingTime = (120 / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
         lengthOfOneWidth = ((120 / xResolution) * 2) * timeValue # how long it takes to go back and forth once
         # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
-        for xCoordinateValue in xrange(0, (oscillatingTime * lengthOfOneWidth) + lengthOfOneWidth, lengthOfOneWidth):  # calls forwards and backwards as necessary
+        for xCoordinateValue in self.frange(0, (oscillatingTime * lengthOfOneWidth) + (lengthOfOneWidth), lengthOfOneWidth):  # calls forwards and backwards as necessary
             self.xWidthForward(xCoordinateValue, timeValue, xResolution)
             self.xWidthBackwards(xCoordinateValue, timeValue, xResolution)
 
@@ -1318,11 +1199,11 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         # Corresponds to a timer called in printer interactor widget
         self.scanTimer = qt.QTimer()
         if xResolution < 38 or xResolution == 40:
-            for xValue in xrange(0, 120 + xResolution, xResolution):  # increment by 10 until 120
+            for xValue in self.frange(0, 120 + xResolution, xResolution):  # increment by 10 until 120
                 delayMs = xCoordinate + xValue * ( timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
                 self.XMovement(delayMs, xValue)
         else:
-            for xValue in xrange(0, 120, xResolution):  # increment by 10 until 120
+            for xValue in self.frange(0, 120, xResolution):  # increment by 10 until 120
                 delayMs = xCoordinate + xValue * ( timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
                 self.XMovement(delayMs, xValue)
 
@@ -1331,11 +1212,11 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         # Corresponds to a timer called in printer interactor widget
         self.scanTimer = qt.QTimer()
         if xResolution < 38 or xResolution == 40:
-            for xValue in xrange(120, -xResolution, -xResolution):
+            for xValue in self.backfrange(120, -xResolution, -xResolution):
                 delayMs = abs(xValue - 120) * (timeValue / xResolution) + (120 / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
                 self.XMovement(delayMs, xValue)
         else:
-            for xValue in xrange(120, 0, -xResolution):
+            for xValue in self.backfrange(120, 0, -xResolution):
                 delayMs = abs(xValue - 120) * (timeValue / xResolution) + (120 / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
                 self.XMovement(delayMs, xValue)
 
