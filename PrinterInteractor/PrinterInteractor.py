@@ -67,8 +67,8 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
         ContourTracingCollapsibleButton = ctk.ctkCollapsibleButton()
         ContourTracingCollapsibleButton.text = " Contour Tracing Tools"
+        ContourTracingCollapsibleButton.collapsed = True
         self.layout.addWidget(ContourTracingCollapsibleButton)
-        #
         ContourTracingFormLayout = qt.QFormLayout(ContourTracingCollapsibleButton)
 
         #
@@ -77,6 +77,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
         ImageRegistrationCollapsibleButton = ctk.ctkCollapsibleButton()
         ImageRegistrationCollapsibleButton.text = " Image Registration Tools"
+        ImageRegistrationCollapsibleButton.collapsed = True
         self.layout.addWidget(ImageRegistrationCollapsibleButton)
         #
         ImageRegistrationFormLayout = qt.QFormLayout(ImageRegistrationCollapsibleButton)
@@ -237,7 +238,12 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #self.followFiducialButton.toolTip = " Oscillate about selected fiducials for 10 rotations."
         #self.followFiducialButton.enabled = True
         #ImageRegistrationFormLayout.addRow(self.followFiducialButton)
-        #self.followFiducialButton.connect('clicked(bool)', self.followFiducials)
+
+        self.textLine = qt.QTextEdit()
+        self.textLine.setPlainText("Note: If transformation is not showing up correctly in slice views,"
+                             " check transform hierarchy in Data module and Volume Reslice Driver.")
+        self.textLine.setReadOnly(1)
+        ImageRegistrationFormLayout.addRow(self.textLine)
         #
         # ICP registration stuff
         #
@@ -253,12 +259,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         ImageRegistrationFormLayout.addRow(self.landmarkRegButton)
         self.landmarkRegButton.connect('clicked(bool)', self.onLandmarkRegButton)
         #
-        # Convex Hull Stuff
-        #
-        self.chButton = qt.QPushButton("Convex Hull button")
-        self.chButton.enabled = True
-        ImageRegistrationFormLayout.addRow(self.chButton)
-        self.chButton.connect('clicked(bool)', self.onConvexHullForRegistration)
         # Center of Mass Button
         #
         self.COMButton = qt.QPushButton("Center of Mass")
@@ -324,13 +324,15 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
         stopsToVisitX = 120 / xResolution
         stopsToVisitY = 120 / yResolution
-        for self.iterationTimingValue in self.logic.frange(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + (10*self.timeValue), self.timeValue):
-            self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
-            self.iterationTimingValue = self.iterationTimingValue + self.timeValue
+
+        #trying to getrid of some stuff for low resolution got rid of + (10*self.timeValue) in stopping condition of frange (10*self.timeValue)
+       # for self.iterationTimingValue in self.logic.frange(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + (10*self.timeValue), self.timeValue):
+        #    self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
+         #   self.iterationTimingValue = self.iterationTimingValue + self.timeValue
 
     def tissueDecision(self):
         self.ondoubleArrayNodeChanged()
-        self.onSerialIGLTSelectorChanged()
+        #self.onSerialIGLTSelectorChanged()
         UVthreshold = self.UVthresholdBar.value
         print UVthreshold
         # places a fiducial in the correct coordinate if tissue decision returns the same spectra as the reference spectra
@@ -407,14 +409,11 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
     def onICPregistration(self):
         self.logic.ICPRegistration()
-        #self.logic.fiducialWizard()
-        #self.logic.ICPRegistration()
 
     def onLandmarkRegButton(self):
         self.logic.landmarkRegistration()
 
-    def onConvexHullForRegistration(self):
-        self.logic.landmarkRegistration()
+
 #
 
 # PrinterInteractorLogic
@@ -440,9 +439,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     # ROI boundary arrays
     _ROIxbounds = []
     _ROIybounds = []
-    # transform arrays
-    _xTransformPts = []
-    _yTransformPts = []
+
 
     _pos= []
 
@@ -538,54 +535,91 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def ICPRegistration(self):
         # TODO: fix this registratoin
+        ILfidList = slicer.util.getNode("ImageLandmarkPoints")
+        numFids = ILfidList.GetNumberOfFiducials()
+        MLfidList = slicer.util.getNode("ModelLandmarkPoints")
 
-        source = slicer.mrmlScene.GetNodesByName('ModelPic')
-        target = slicer.mrmlScene.GetNodesByName('Model')
+        self.ILData = vtk.vtkPoints()
+        for i in xrange(numFids):
+            ras = [0, 0, 0]
+            pos = ILfidList.GetNthFiducialPosition(i, ras)
+            world = [0, 0, 0, 0]
+            ILfidList.GetNthFiducialWorldCoordinates(0, world)
+            self.ILData.InsertNextPoint(ras[0], ras[1], ras[2])
+
+        self.MLData = vtk.vtkPoints()
+        for i in xrange(numFids):
+            ras = [0, 0, 0]
+            pos = MLfidList.GetNthFiducialPosition(i, ras)
+            world = [0, 0, 0, 0]
+            MLfidList.GetNthFiducialWorldCoordinates(0, world)
+            self.MLData.InsertNextPoint(ras[0], ras[1], ras[2])
+
+        self.ILPointsData = vtk.vtkPolyData()
+        self.ILPointsData.SetPoints(self.ILData)
+
+        self.MLPointsData = vtk.vtkPolyData()
+        self.MLPointsData.SetPoints(self.MLData)
+
+        source = self.ILPointsData
+        target = self.MLPointsData
+        #source = slicer.mrmlScene.GetNodesByName('ModelPic')
+        #targettarget = slicer.mrmlScene.GetNodesByName('Model')
 
         icp = vtk.vtkIterativeClosestPointTransform()
         icp.SetSource(source)
         icp.SetTarget(target)
-        icp.GetLandmarkTransform().SetModeToRigidBody()
-        icp.SetMaximumNumberOfIterations(200)
+        icp.DebugOn()
+        icp.SetMaximumNumberOfLandmarks(source.GetNumberOfPoints())
+        icp.SetCheckMeanDistance(1)
+        icp.SetMaximumMeanDistance(0.00000001)
+        icp.GetLandmarkTransform().SetModeToSimilarity()
         icp.StartByMatchingCentroidsOn()
+        icp.SetMaximumNumberOfIterations(200)
+        icp.GetLandmarkTransform().SetSourceLandmarks(self.ILData)
+        icp.GetLandmarkTransform().SetTargetLandmarks(self.MLData)
+        icp.Modified()
 
-        v = slicer.vtkMRMLLinearTransformNode()
-        v.CanApplyNonLinearTransforms()
+
+
+        transformNode = slicer.vtkMRMLLinearTransformNode()
+        transformNode.CanApplyNonLinearTransforms()
+        transformNode.SetName('ReferenceImageToOpticalModel')
         matrix = icp.GetLandmarkTransform().GetMatrix()
-        v.SetMatrixTransformToParent(matrix)
+        transformNode.SetMatrixTransformToParent(matrix)
 
-        slicer.mrmlScene.AddNode(v)
-
+        slicer.mrmlScene.AddNode(transformNode)
+        print "ICP registration Complete."
 
     def landmarkRegistration(self):
-        fidList = slicer.util.getNode("ImageLandmarkPoints")
-        numFids = fidList.GetNumberOfFiducials()
-        fidList2 = slicer.util.getNode("ModelLandmarkPoints")
+        ILfidList = slicer.util.getNode("ImageLandmarkPoints")
+        numFids = ILfidList.GetNumberOfFiducials()
+        MLfidList = slicer.util.getNode("ModelLandmarkPoints")
 
-        self.fiducialData = vtk.vtkPoints()
+        self.ILData = vtk.vtkPoints()
         for i in xrange(numFids):
             ras = [0, 0, 0]
-            pos = fidList.GetNthFiducialPosition(i, ras)
+            pos = ILfidList.GetNthFiducialPosition(i, ras)
             world = [0, 0, 0, 0]
-            fidList.GetNthFiducialWorldCoordinates(0, world)
-            self.fiducialData.InsertNextPoint(ras[0], ras[1], ras[2])
+            ILfidList.GetNthFiducialWorldCoordinates(0, world)
+            self.ILData.InsertNextPoint(ras[0], ras[1], ras[2])
 
-        self.fiducialData2 = vtk.vtkPoints()
+        self.MLData = vtk.vtkPoints()
         for i in xrange(numFids):
             ras = [0, 0, 0]
-            pos = fidList2.GetNthFiducialPosition(i, ras)
+            pos = MLfidList.GetNthFiducialPosition(i, ras)
             world = [0, 0, 0, 0]
-            fidList2.GetNthFiducialWorldCoordinates(0, world)
-            self.fiducialData2.InsertNextPoint(ras[0], ras[1], ras[2])
+            MLfidList.GetNthFiducialWorldCoordinates(0, world)
+            self.MLData.InsertNextPoint(ras[0], ras[1], ras[2])
 
-        self.fiducialPoints = vtk.vtkPolyData()
-        self.fiducialPoints.SetPoints(self.fiducialData)
+        self.ILPointsData = vtk.vtkPolyData()
+        self.ILPointsData.SetPoints(self.ILData)
 
-        self.fiducialPoints2 = vtk.vtkPolyData()
-        self.fiducialPoints2.SetPoints(self.fiducialData2)
+        self.MLPointsData = vtk.vtkPolyData()
+        self.MLPointsData.SetPoints(self.MLData)
 
-        source = self.fiducialData
-        target = self.fiducialData2
+        source = self.ILData
+        target = self.MLData
 
         lmt = vtk.vtkLandmarkTransform()
         lmt.SetSourceLandmarks(source)
@@ -595,17 +629,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         lmt.SetModeToSimilarity()
         lmt.TransformPoints(source,target)
 
-        v = slicer.vtkMRMLLinearTransformNode()
-        v.SetName('ReferenceImageToOpticalModel')
-        v.CanApplyNonLinearTransforms()
+        transformNode = slicer.vtkMRMLLinearTransformNode()
+        transformNode.SetName('ReferenceImageToOpticalModel')
+        transformNode.CanApplyNonLinearTransforms()
         matrix = lmt.GetMatrix()
-        v.SetMatrixTransformToParent(matrix)
+        transformNode.SetMatrixTransformToParent(matrix)
 
-        slicer.mrmlScene.AddNode(v)
-
-        #self.fiducialNode1.ApplyTransform('ReferenceImageToOpticalModel')
-        #imageNode = slicer.mrmlScene.GetNodesByName('GroundTruthImage') # change to reference image name
-        #imageNode.ApplyTransform('ReferenceImageToOpticalModel')
+        slicer.mrmlScene.AddNode(transformNode)
         print "Landmark Transform completed succesfully."
 
 
@@ -1052,14 +1082,14 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             fiducialTimer.singleShot(delay, lambda: self.followFiducialCoordinates())
             
     def followFiducialCoordinates(self):
-        fidList = slicer.util.getNode('MarkupsFiducial') # was F
-        numFids = fidList.GetNumberOfFiducials()
+        ILfidList = slicer.util.getNode('MarkupsFiducial') # was F
+        numFids = ILfidList.GetNumberOfFiducials()
 
         for i in xrange(numFids):
             ras = [0,0,0]
-            pos = fidList.GetNthFiducialPosition(i, ras)
+            pos = ILfidList.GetNthFiducialPosition(i, ras)
             world = [0,0,0,0]
-            fidList.GetNthFiducialWorldCoordinates(0,world)
+            ILfidList.GetNthFiducialWorldCoordinates(0,world)
             self.fiducialMovementDelay= self.fiducialMovementDelay+ 1000
             xcoord = abs(int(ras[0]))
             ycoord = abs(int(ras[1]))
@@ -1068,13 +1098,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             # ras is the coordinate of the fiducial
             
     def findCenterOfMassOfFiducials(self):
-        fidList = slicer.util.getNode('MarkupsFiducial')
-        numFids = fidList.GetNumberOfFiducials()
+        ILfidList = slicer.util.getNode('MarkupsFiducial')
+        numFids = ILfidList.GetNumberOfFiducials()
         centerOfMass = [0,0,0]
         sumPos = np.zeros(3)
         for i in xrange(numFids):
             pos = np.zeros(3)
-            fidList.GetNthFiducialPosition(i,pos)
+            ILfidList.GetNthFiducialPosition(i,pos)
             sumPos += pos
         centerOfMass = sumPos / numFids
         xcoord = centerOfMass[0]
@@ -1082,14 +1112,14 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.controlledXYMovement(xcoord,ycoord)
 
     def ROIsystematicSearch(self):
-        fidList = slicer.util.getNode('ModelLandmarkPoints')
-        numFids = fidList.GetNumberOfFiducials()
+        ILfidList = slicer.util.getNode('ModelLandmarkPoints')
+        numFids = ILfidList.GetNumberOfFiducials()
 
         for i in xrange(numFids):
             ras = [0, 0, 0]
-            pos = fidList.GetNthFiducialPosition(i, ras)
+            pos = ILfidList.GetNthFiducialPosition(i, ras)
             world = [0, 0, 0, 0]
-            fidList.GetNthFiducialWorldCoordinates(0, world)
+            ILfidList.GetNthFiducialWorldCoordinates(0, world)
             xcoord = int(ras[0])
             ycoord = int(ras[1])
             self._ROIxbounds.append(xcoord)
