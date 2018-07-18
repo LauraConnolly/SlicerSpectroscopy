@@ -62,26 +62,30 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.layout.addWidget(PrinterControlCollapsibleButton)
         # Layout within the Printer Control collapsible button
         PrinterControlFormLayout = qt.QFormLayout(PrinterControlCollapsibleButton)
-
+        #
+        # ROI Systematic Search tools
+        #
+        ROICollapsibleButton = ctk.ctkCollapsibleButton()
+        ROICollapsibleButton.text = " Optimized Scanning Tools"
+        ROICollapsibleButton.collapsed = True
+        self.layout.addWidget(ROICollapsibleButton)
+        ROIFormLayout = qt.QFormLayout(ROICollapsibleButton)
+        #
         # Contour Tracing tools
-
+        #
         ContourTracingCollapsibleButton = ctk.ctkCollapsibleButton()
         ContourTracingCollapsibleButton.text = " Contour Tracing Tools"
         ContourTracingCollapsibleButton.collapsed = True
         self.layout.addWidget(ContourTracingCollapsibleButton)
         ContourTracingFormLayout = qt.QFormLayout(ContourTracingCollapsibleButton)
-
         #
         # Image Registration tools
         #
-
         ImageRegistrationCollapsibleButton = ctk.ctkCollapsibleButton()
         ImageRegistrationCollapsibleButton.text = " Image Registration Tools"
         ImageRegistrationCollapsibleButton.collapsed = True
         self.layout.addWidget(ImageRegistrationCollapsibleButton)
-        #
         ImageRegistrationFormLayout = qt.QFormLayout(ImageRegistrationCollapsibleButton)
-
         #
         # Home Button
         #
@@ -200,6 +204,23 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.stopButton.connect('clicked(bool)', self.onStopButton)
         self.stopButton.setStyleSheet("background-color: red; font: bold")
         #
+        # Place boundary point
+        #
+        self.placeBoundaryButton = qt.QPushButton("Place Boundary Fiducial")
+        self.placeBoundaryButton.toolTip = " Calculate and move to the center of mass of a ROI indicated by fiducials"
+        self.placeBoundaryButton.enabled = True
+        ROIFormLayout.addRow(self.placeBoundaryButton)
+        self.placeBoundaryButton.connect('clicked(bool)', self.onPlaceBoundaries)
+        #
+        # ROI Systematic Search Button
+        #
+        self.ROIsearchButton = qt.QPushButton("ROI Systematic Search")
+        self.ROIsearchButton.toolTip = " "
+        self.ROIsearchButton.enabled = True
+        ROIFormLayout.addRow(self.ROIsearchButton)
+        self.ROIsearchButton.connect('clicked(bool)', self.ROIsearch)
+        self.ROIsearchButton.setStyleSheet("background-color: green")
+        #
         # Edge Tracing Button
         #
         self.createModelButton = qt.QPushButton("Trace Contour (after systematic scan)")
@@ -226,11 +247,19 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #
         # Place Fiducials
         #
-        self.placeFiducialsButton = qt.QPushButton("Place Fiducial")
-        self.placeFiducialsButton.toolTip = "Place fiducials around ROI"
+        self.placeFiducialsButton = qt.QPushButton("Place Optical Landmark")
+        self.placeFiducialsButton.toolTip = "Place landmark fiducials visible in optical space."
         self.placeFiducialsButton.enabled = True
         ImageRegistrationFormLayout.addRow(self.placeFiducialsButton)
         self.placeFiducialsButton.connect('clicked(bool)', self.onPlaceFiducials)
+        #
+        # Center of Mass Button
+        #
+        self.COMButton = qt.QPushButton("Center of Mass")
+        self.COMButton.toolTip = " Calculate and move to the center of mass of a ROI indicated by fiducials"
+        self.COMButton.enabled = True
+        ImageRegistrationFormLayout.addRow(self.COMButton)
+        self.COMButton.connect('clicked(bool)', self.goToCenterOfMass)
         #
         #Follow Fiducials Button
         #
@@ -258,23 +287,9 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.landmarkRegButton.enabled = True
         ImageRegistrationFormLayout.addRow(self.landmarkRegButton)
         self.landmarkRegButton.connect('clicked(bool)', self.onLandmarkRegButton)
-        #
-        # Center of Mass Button
-        #
-        self.COMButton = qt.QPushButton("Center of Mass")
-        self.COMButton.toolTip = " Calculate and move to the center of mass of a ROI indicated by fiducials"
-        self.COMButton.enabled = True
-        ImageRegistrationFormLayout.addRow(self.COMButton)
-        self.COMButton.connect('clicked(bool)', self.goToCenterOfMass)
-        #
-        # ROI Systematic Search Button
-        #
-        self.ROIsearchButton = qt.QPushButton("ROI Systematic Search")
-        self.ROIsearchButton.toolTip = " "
-        self.ROIsearchButton.enabled = True
-        ImageRegistrationFormLayout.addRow(self.ROIsearchButton)
-        self.ROIsearchButton.connect('clicked(bool)', self.ROIsearch)
-        self.ROIsearchButton.setStyleSheet("background-color: green")
+
+
+
 
 
         self.layout.addStretch(1)
@@ -325,10 +340,10 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         stopsToVisitX = 120 / xResolution
         stopsToVisitY = 120 / yResolution
 
-        #trying to getrid of some stuff for low resolution got rid of + (10*self.timeValue) in stopping condition of frange (10*self.timeValue)
-       # for self.iterationTimingValue in self.logic.frange(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + (10*self.timeValue), self.timeValue):
-        #    self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
-         #   self.iterationTimingValue = self.iterationTimingValue + self.timeValue
+
+        for self.iterationTimingValue in self.logic.frange(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + (10*self.timeValue), self.timeValue):
+            self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
+            self.iterationTimingValue = self.iterationTimingValue + self.timeValue
 
     def tissueDecision(self):
         self.ondoubleArrayNodeChanged()
@@ -369,6 +384,11 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.onSerialIGLTSelectorChanged()
         self.logic.getLandmarkFiducialsCoordinate()
 
+    def onPlaceBoundaries(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+        self.logic.getBoundaryFiducialsCoordinate()
+
     def followFiducials(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
@@ -394,6 +414,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
         self.tumorTimer = qt.QTimer()
         self.iterationTimingValue = 0
+
         stopsToVisitX = (xMax - xMin) / xResolution
         stopsToVisitY = (yMax - yMin) / yResolution
         for self.iterationTimingValue in self.logic.frange(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + 10 * self.timeValue,self.timeValue):
@@ -456,6 +477,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.spectraCollectedflag = 0
         self.fiducialIndex = 0
         self.fiducialIndex2 = 0
+        self.fiducialIndex3 = 0
         self.averageSpectrumDifferences = 0
         self.fiducialMovementDelay = 0
         self.currentXcoordinate = 0
@@ -495,6 +517,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.landmarkCoordinateCmd.SetCommandTimeoutSec(1.0)
         self.landmarkCoordinateCmd.SetCommandAttribute('Text', 'M114')
         self.landmarkCoordinateCmd.AddObserver(self.getCoordinateCmd.CommandCompletedEvent, self.onLandmarkCoordinateCmd)
+        # instantiate boundary coordinate command
+        self.boundaryCoordinateCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+        self.boundaryCoordinateCmd.SetCommandName('SendText')
+        self.boundaryCoordinateCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+        self.boundaryCoordinateCmd.SetCommandTimeoutSec(1.0)
+        self.boundaryCoordinateCmd.SetCommandAttribute('Text', 'M114')
+        self.boundaryCoordinateCmd.AddObserver(self.boundaryCoordinateCmd.CommandCompletedEvent, self.onBoundaryCoordinateCmd)
         # instantiate home command
         self.homeCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.homeCmd.SetCommandName('SendText')
@@ -856,6 +885,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         else:
             self.addToCurrentFiducialNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
 
+
+        print self.fiducialIndex
         return self.xcoordinate
 
     def getLandmarkFiducialsCoordinate(self):
@@ -900,6 +931,49 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.fiducialNode1.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
         self.fiducialIndex = self.fiducialIndex + 1
         print self.fiducialNode1.GetName()
+
+    def getBoundaryFiducialsCoordinate(self):
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.boundaryCoordinateCmd, self.serialIGTLNode.GetID())
+
+    def onBoundaryCoordinateCmd(self, observer, eventid):
+        coordinateValues = self.boundaryCoordinateCmd.GetResponseMessage()
+        print("Command completed with status: " + self.boundaryCoordinateCmd.StatusToString(self.boundaryCoordinateCmd.GetStatus()))
+        print("Response message: " + coordinateValues)
+        print("Full response: " + self.boundaryCoordinateCmd.GetResponseText())
+        # parsing the string for specific coordinate values
+        mylist = coordinateValues.split(" ")
+
+        # Parse string for x coordinate value
+        xvalues = mylist[0].split(":")
+        self.xcoordinate = float(xvalues[1])
+
+        # Parse string for y coordinate value
+        yvalues = mylist[1].split(":")
+        self.ycoordinate = float(yvalues[1])
+
+        # Parse string for z coordinate value
+        zvalues = mylist[2].split(":")
+        self.zcoordinate = float(zvalues[1])
+
+
+        if self.fiducialIndex3 < 1:
+            self.boundaryFiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
+            self.fiducialIndex3 = self.fiducialIndex3 + 1
+        elif self.fiducialIndex3 == 1234:
+            return self.xcoordinate
+        else:
+            self.addtoBoundaryFiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
+
+    def boundaryFiducialMarker(self, xcoordinate, ycoordinate, zcoordinate):
+        self.fiducialNode2 = slicer.vtkMRMLMarkupsFiducialNode()
+        self.fiducialNode2.SetName("BoundaryPoints")
+        slicer.mrmlScene.AddNode(self.fiducialNode2)
+        self.fiducialNode2.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
+
+    def addtoBoundaryFiducialMarker(self, xcoordinate, ycoordinate, zcoordinate):
+        self.fiducialNode2.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
+        self.fiducialIndex = self.fiducialIndex + 1
+
 
     def fiducialMarkerChecked(self):
         self.fiducialIndex = 1234 # will break if 1234 fiducials is ever reached
@@ -1112,7 +1186,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.controlledXYMovement(xcoord,ycoord)
 
     def ROIsystematicSearch(self):
-        ILfidList = slicer.util.getNode('ModelLandmarkPoints')
+        ILfidList = slicer.util.getNode('BoundaryPoints')
         numFids = ILfidList.GetNumberOfFiducials()
 
         for i in xrange(numFids):
@@ -1191,8 +1265,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def yLoop(self, timeValue, yResolution, xResolution):
        # the following code was developed to execute a y Movement at the beginning and end of successive x oscillations to ensure that the platform
        # is systematically scanned along the y axis as well as the x
+
         firstDistance = (120 / xResolution) # distance of one x oscillation
         secondDistance = 2 * (120 / xResolution) # distance of two x oscillations
+
         self.yMovement((firstDistance + 2) * timeValue, yResolution) # call yMovement once the first oscillation in the x direction is finished
         self.yMovement((secondDistance + 1) * timeValue, yResolution * 2) # call yMovement again once the second oscillation in the x direction is finished
         self.i = 0
@@ -1219,6 +1295,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def xLoop(self, timeValue, xResolution, yResolution):
         # necessary for looping the x commands on static intervals
+
         oscillatingTime = (120 / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
         lengthOfOneWidth = ((120 / xResolution) * 2) * timeValue # how long it takes to go back and forth once
         # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
