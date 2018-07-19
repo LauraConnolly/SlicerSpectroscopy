@@ -296,6 +296,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.onSerialIGLTSelectorChanged()
         self.logic.home()
 
+
     def onActivateKeyboardShortcuts(self):
         self.logic.declareShortcut(serialIGTLNode=self.inputSelector.currentNode())
         print "Shortcuts activated."
@@ -479,7 +480,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.createTumorArray = 0
         self.startNext = 6000
         self.timerTracker = 0
-
+        self.checker = 0
         # polydata definitions
         self.referenceSpectra = vtk.vtkPolyData()
         self.spectra = vtk.vtkPoints()
@@ -1139,7 +1140,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.scanTimer = qt.QTimer()
         # for xValue in xrange(xMin, xMax, xResolution):
         for xValue in self.frange(xMin, xMax, xResolution):  # increment by 10 until 120
-            delayMs = xCoordinate + xValue * (timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to del
+            # delay had xCoordinate aswell
+            delayMs = (xValue-xMin) * (timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to del
             self.XMovement(delayMs, xValue)
 
 
