@@ -45,10 +45,9 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
-
     def setup(self):
 
-        #self.installShortcutKeys()
+        # self.installShortcutKeys()
 
         ScriptedLoadableModuleWidget.setup(self)
 
@@ -57,7 +56,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #
         # Parameters Area
         #
-        PrinterControlCollapsibleButton= ctk.ctkCollapsibleButton()
+        PrinterControlCollapsibleButton = ctk.ctkCollapsibleButton()
         PrinterControlCollapsibleButton.text = "Printer Control "
         self.layout.addWidget(PrinterControlCollapsibleButton)
         # Layout within the Printer Control collapsible button
@@ -166,7 +165,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #
         self.fiducialMarkerCheckBox = qt.QCheckBox()
         self.fiducialMarkerCheckBox.checked = 0
-        PrinterControlFormLayout.addRow("Fiducial Marking Off:" ,self.fiducialMarkerCheckBox)
+        PrinterControlFormLayout.addRow("Fiducial Marking Off:", self.fiducialMarkerCheckBox)
         self.fiducialMarkerCheckBox.connect('stateChanged(int)', self.onFiducialMarkerChecked)
         #
         # UV Threshold Bar
@@ -261,16 +260,16 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         ImageRegistrationFormLayout.addRow(self.COMButton)
         self.COMButton.connect('clicked(bool)', self.goToCenterOfMass)
         #
-        #Follow Fiducials Button
+        # Follow Fiducials Button
         #
-        #self.followFiducialButton = qt.QPushButton("Follow Fiducial")
-        #self.followFiducialButton.toolTip = " Oscillate about selected fiducials for 10 rotations."
-        #self.followFiducialButton.enabled = True
-        #ImageRegistrationFormLayout.addRow(self.followFiducialButton)
+        # self.followFiducialButton = qt.QPushButton("Follow Fiducial")
+        # self.followFiducialButton.toolTip = " Oscillate about selected fiducials for 10 rotations."
+        # self.followFiducialButton.enabled = True
+        # ImageRegistrationFormLayout.addRow(self.followFiducialButton)
 
         self.textLine = qt.QTextEdit()
         self.textLine.setPlainText("Note: If transformation is not showing up correctly in slice views,"
-                             " check transform hierarchy in Data module and Volume Reslice Driver.")
+                                   " check transform hierarchy in Data module and Volume Reslice Driver.")
         self.textLine.setReadOnly(1)
         ImageRegistrationFormLayout.addRow(self.textLine)
         #
@@ -322,8 +321,10 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.timeValue = self.timeDelay_spinbox.value
         xResolution = self.xResolution_spinbox.value
         yResolution = self.yResolution_spinbox.value
-        self.logic.xLoop(self.timeValue, xResolution,yResolution)  # calls a loop to toggle printer back and forth in the x direction
-        self.logic.yLoop(self.timeValue, yResolution, xResolution)  # calls a loop to increment the printer back in the y direction
+        self.logic.xLoop(self.timeValue, xResolution,
+                         yResolution)  # calls a loop to toggle printer back and forth in the x direction
+        self.logic.yLoop(self.timeValue, yResolution,
+                         xResolution)  # calls a loop to increment the printer back in the y direction
 
         # tissue analysis
         self.tumorTimer = qt.QTimer()
@@ -335,24 +336,23 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
             stopsToVisitX = 120 / xResolution
             stopsToVisitY = 120 / yResolution
 
-
-        for self.iterationTimingValue in self.logic.frange(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + (10*self.timeValue), self.timeValue):
+        for self.iterationTimingValue in self.logic.frange(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + (
+                10 * self.timeValue), self.timeValue):
             self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
             self.iterationTimingValue = self.iterationTimingValue + self.timeValue
 
     def tissueDecision(self):
         self.ondoubleArrayNodeChanged()
-        #self.onSerialIGLTSelectorChanged()
+        # self.onSerialIGLTSelectorChanged()
         UVthreshold = self.UVthresholdBar.value
-        print UVthreshold
         # places a fiducial in the correct coordinate if tissue decision returns the same spectra as the reference spectra
         # Note: for UV the spectrum comparison does not compare the average differences, instead the intensity at a particular wavelength
-        if (self.laserSelector.currentIndex) == 0 :
-         if self.logic.spectrumComparisonUV(self.outputArraySelector.currentNode(), UVthreshold ) == False:  # add a fiducial if the the tumor detecting function returns false
-            self.logic.get_coordinates()
+        if (self.laserSelector.currentIndex) == 0:
+            if self.logic.spectrumComparisonUV(self.outputArraySelector.currentNode(),UVthreshold) == False:  # add a fiducial if the the tumor detecting function returns false
+                self.logic.get_coordinates()
         elif (self.laserSelector.currentIndex) == 1:
-          if self.logic.spectrumComparison(self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
-            self.logic.get_coordinates()
+            if self.logic.spectrumComparison(self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
+                self.logic.get_coordinates()
         else:
             return
 
@@ -368,6 +368,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.onSerialIGLTSelectorChanged()
         self.logic.emergencyStop()
         # Note: the stop command uses G-code command M112 which requires slicer reboot and printer reboot after each usage.
+
     # Outline area of interest following systematic scan
 
     def onPlaceBoundaries(self):
@@ -384,8 +385,8 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         xMin, xMax, yMin, yMax = self.logic.ROIsystematicSearch()
         self.logic.yMovement(0, yMin)
         self.logic.XMovement(0, xMin)
-        self.logic.ROIsearchXLoop(self.timeValue, xResolution,yResolution, xMin, xMax)  # calls a loop to toggle printer back and forth in the x direction
-        self.logic.ROIsearchYLoop(self.timeValue, yResolution, xResolution, yMin, yMax, xMin, xMax)  # calls a loop to increment the printer back in the y direction
+        self.logic.ROIsearchXLoop(self.timeValue, xResolution, yResolution, xMin,xMax, yMin, yMax)  # calls a loop to toggle printer back and forth in the x direction
+        self.logic.ROIsearchYLoop(self.timeValue, yResolution, xResolution, yMin, yMax, xMin,xMax)  # calls a loop to increment the printer back in the y direction
 
         self.tumorTimer = qt.QTimer()
         self.iterationTimingValue = 0
@@ -397,7 +398,8 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
             self.iterationTimingValue = self.iterationTimingValue + self.timeValue
 
     def onFindConvexHull(self):
-         self.logic.convexHull()
+        self.logic.convexHull()
+
     # Use to find the edge of the area of interest before independent edge tracing
     def onFindEdge(self):
         self.ondoubleArrayNodeChanged()
@@ -426,6 +428,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     def onLandmarkRegButton(self):
         self.logic.landmarkRegistration()
 
+
 #
 # PrinterInteractorLogic
 #
@@ -451,8 +454,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     _ROIxbounds = []
     _ROIybounds = []
 
-
-    _pos= []
+    _pos = []
 
     def __init__(self):
         # general instantiations
@@ -478,8 +480,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.startNext = 6000
         self.timerTracker = 0
 
-        #polydata definitions
-        self.referenceSpectra = vtk.vtkPolyData() 
+        # polydata definitions
+        self.referenceSpectra = vtk.vtkPolyData()
         self.spectra = vtk.vtkPoints()
         self.pointsForHull = vtk.vtkPoints()
         self.currentSpectrum = vtk.vtkPoints()
@@ -493,7 +495,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.pointsForEdgeTracing = vtk.vtkPoints()
         self.edgeTracingTimerStart = 2000
 
-       # instantiate coordinate values
+        # instantiate coordinate values
         self.getCoordinateCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.getCoordinateCmd.SetCommandName('SendText')
         self.getCoordinateCmd.SetCommandAttribute('DeviceId', "SerialDevice")
@@ -506,14 +508,16 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.landmarkCoordinateCmd.SetCommandAttribute('DeviceId', "SerialDevice")
         self.landmarkCoordinateCmd.SetCommandTimeoutSec(1.0)
         self.landmarkCoordinateCmd.SetCommandAttribute('Text', 'M114')
-        self.landmarkCoordinateCmd.AddObserver(self.getCoordinateCmd.CommandCompletedEvent, self.onLandmarkCoordinateCmd)
+        self.landmarkCoordinateCmd.AddObserver(self.getCoordinateCmd.CommandCompletedEvent,
+                                               self.onLandmarkCoordinateCmd)
         # instantiate boundary coordinate command
         self.boundaryCoordinateCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.boundaryCoordinateCmd.SetCommandName('SendText')
         self.boundaryCoordinateCmd.SetCommandAttribute('DeviceId', "SerialDevice")
         self.boundaryCoordinateCmd.SetCommandTimeoutSec(1.0)
         self.boundaryCoordinateCmd.SetCommandAttribute('Text', 'M114')
-        self.boundaryCoordinateCmd.AddObserver(self.boundaryCoordinateCmd.CommandCompletedEvent, self.onBoundaryCoordinateCmd)
+        self.boundaryCoordinateCmd.AddObserver(self.boundaryCoordinateCmd.CommandCompletedEvent,
+                                               self.onBoundaryCoordinateCmd)
         # instantiate home command
         self.homeCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.homeCmd.SetCommandName('SendText')
@@ -558,7 +562,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             yield start
             start += stepsize
 
-    def backfrange(self,start,end,stepsize):
+    def backfrange(self, start, end, stepsize):
         while start > end:
             yield start
             start += stepsize
@@ -571,15 +575,15 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         """Turn on editor-wide shortcuts.  These are active independent
         of the currently selected effect."""
 
-          # not in PythonQt
+        # not in PythonQt
         self.shortcuts = []
         keysAndCallbacks = (
             ('Right', lambda: self.keyboardControlledXMovementForward(serialIGTLNode)),
             ('Left', lambda: self.keyboardControlledXMovementBackwards(serialIGTLNode)),
             ('Up', lambda: self.keyboardControlledYMovementForward(serialIGTLNode)),
             ('Down', lambda: self.keyboardControlledYMovementBackwards(serialIGTLNode)),
-            ( 'H', lambda: self.keyboardControlledHomeMovement(serialIGTLNode)),
-              )
+            ('H', lambda: self.keyboardControlledHomeMovement(serialIGTLNode)),
+        )
 
         for key, callback in keysAndCallbacks:
             shortcut = qt.QShortcut(slicer.util.mainWindow())
@@ -596,7 +600,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def addObservers(self):
         if self.spectrumImageNode:
             print "Add observer to {0}".format(self.spectrumImageNode.GetName())
-            self.observerTags.append([self.spectrumImageNode, self.spectrumImageNode.AddObserver(vtk.vtkCommand.ModifiedEvent,self.onSpectrumImageNodeModified)])
+            self.observerTags.append([self.spectrumImageNode,
+                                      self.spectrumImageNode.AddObserver(vtk.vtkCommand.ModifiedEvent,
+                                                                         self.onSpectrumImageNodeModified)])
 
     def removeObservers(self):
         print "Remove observers"
@@ -657,8 +663,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         print"Spectra collected."
         # 10 specifies coordinates to be float values
 
-
-     # used for spectrum acquisition where there is a distinctive different between the spectra of the material of interest and surrounding material
+    # used for spectrum acquisition where there is a distinctive different between the spectra of the material of interest and surrounding material
     def spectrumComparison(self, outputArrayNode):
 
         if self.spectraCollectedflag == 0:
@@ -679,10 +684,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             y = self.spectra.GetPoint(j)
             self.averageSpectrumDifferences = self.averageSpectrumDifferences + (y[1] - x[1])
 
-        #useful for debugging purposed
-        #print self.averageSpectrumDifferences
+        # useful for debugging purposed
+        # print self.averageSpectrumDifferences
 
-        if abs(self.averageSpectrumDifferences) <9 : # < 7 for white and black
+        if abs(self.averageSpectrumDifferences) < 9:  # < 7 for white and black
             print " tumor"
             if self.firstComparison == 1:
                 self.get_coordinates()
@@ -696,28 +701,30 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             return True
 
         # used with UV laser to distinguish between spectrums that vary in intensity by a small amount at a specific wavelength / data point
+
     def spectrumComparisonUV(self, outputArrayNode, UVthreshold):
 
         self.outputArrayNode = outputArrayNode
         pointsArray = self.outputArrayNode.GetArray()
-            # point contains a wavelength and a corresponding intensity
-            # each data point has 2 rows of data, one corresponding to wavelength and one corresponding to intensity
+        # point contains a wavelength and a corresponding intensity
+        # each data point has 2 rows of data, one corresponding to wavelength and one corresponding to intensity
         self.componentIndexWavelength = 0
         self.componentIndexIntensity = 1
-            # Data is acquired from probe in a double array with each index corresponding to either wavelength or intensity
-            # There are 100 points (tuples) each consisting of one wavelength and a corresponding intensity
-            # The first index (0) is where wavelength values are stored
-            # The second index (1) is where intensities are stored
-            # test lines that could be useful eventually
-            # numberOfPoints = pointsArray.GetNumberOfTuples() #access the number of points received from the spectra
-            # for pointIndex in xrange(numberOfPoints): #could potentially loop to check a certain range of data points
-            # wavelengthValue = pointsArray.GetComponent(63,0) #checks the 187th point in the data stream
-            # intensityValue = pointsArray.GetComponent(62, 1)
+        # Data is acquired from probe in a double array with each index corresponding to either wavelength or intensity
+        # There are 100 points (tuples) each consisting of one wavelength and a corresponding intensity
+        # The first index (0) is where wavelength values are stored
+        # The second index (1) is where intensities are stored
+        # test lines that could be useful eventually
+        # numberOfPoints = pointsArray.GetNumberOfTuples() #access the number of points received from the spectra
+        # for pointIndex in xrange(numberOfPoints): #could potentially loop to check a certain range of data points
+        # wavelengthValue = pointsArray.GetComponent(63,0) #checks the 187th point in the data stream
+        # intensityValue = pointsArray.GetComponent(62, 1)
 
-        #wavelengthCheck = pointsArray.GetComponent(26,0) # use to varify which wavelength the tumor Check intensity corresponds to
-        tumorCheck = pointsArray.GetComponent(26,1)# check the 395th wavelength to determine if it sees the invisible ink or not
+        # wavelengthCheck = pointsArray.GetComponent(26,0) # use to varify which wavelength the tumor Check intensity corresponds to
+        tumorCheck = pointsArray.GetComponent(26,
+                                              1)  # check the 395th wavelength to determine if it sees the invisible ink or not
 
-        if tumorCheck < UVthreshold: #threshold is variable using the slider widget on the GUI, useful because intensity difference is inconsistent
+        if tumorCheck < UVthreshold:  # threshold is variable using the slider widget on the GUI, useful because intensity difference is inconsistent
             print "tumor"
             return False
         else:
@@ -729,7 +736,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def onPrinterCommandCompleted(self, observer, eventid):
         coordinateValues = self.getCoordinateCmd.GetResponseMessage()
-        print("Command completed with status: " + self.getCoordinateCmd.StatusToString(self.getCoordinateCmd.GetStatus()))
+        print("Command completed with status: " + self.getCoordinateCmd.StatusToString(
+            self.getCoordinateCmd.GetStatus()))
         print("Response message: " + coordinateValues)
         print("Full response: " + self.getCoordinateCmd.GetResponseText())
         # parsing the string for specific coordinate values
@@ -764,7 +772,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         else:
             self.addToCurrentFiducialNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
 
-
         print self.fiducialIndex
         return self.xcoordinate
 
@@ -786,7 +793,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def onLandmarkCoordinateCmd(self, observer, eventid):
         coordinateValues = self.landmarkCoordinateCmd.GetResponseMessage()
-        print("Command completed with status: " + self.landmarkCoordinateCmd.StatusToString(self.landmarkCoordinateCmd.GetStatus()))
+        print("Command completed with status: " + self.landmarkCoordinateCmd.StatusToString(
+            self.landmarkCoordinateCmd.GetStatus()))
         print("Response message: " + coordinateValues)
         print("Full response: " + self.landmarkCoordinateCmd.GetResponseText())
         # parsing the string for specific coordinate values
@@ -803,7 +811,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         # Parse string for z coordinate value
         zvalues = mylist[2].split(":")
         self.zcoordinate = float(zvalues[1])
-
 
         if self.fiducialIndex2 < 1:
             self.landmarkFiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
@@ -829,7 +836,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def onBoundaryCoordinateCmd(self, observer, eventid):
         coordinateValues = self.boundaryCoordinateCmd.GetResponseMessage()
-        print("Command completed with status: " + self.boundaryCoordinateCmd.StatusToString(self.boundaryCoordinateCmd.GetStatus()))
+        print("Command completed with status: " + self.boundaryCoordinateCmd.StatusToString(
+            self.boundaryCoordinateCmd.GetStatus()))
         print("Response message: " + coordinateValues)
         print("Full response: " + self.boundaryCoordinateCmd.GetResponseText())
         # parsing the string for specific coordinate values
@@ -846,7 +854,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         # Parse string for z coordinate value
         zvalues = mylist[2].split(":")
         self.zcoordinate = float(zvalues[1])
-
 
         if self.fiducialIndex3 < 1:
             self.boundaryFiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
@@ -866,16 +873,15 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.fiducialNode2.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
         self.fiducialIndex3 = self.fiducialIndex3 + 1
 
-
     # independent edge tracing: the following code was developed using a series of qt single shot timers and a root searching algorithm
-    # to determine the approximate boundaries of an image without a systematic search. 
-    
+    # to determine the approximate boundaries of an image without a systematic search.
+
     def edgeTrace(self, outputArrayNode):
 
-        for i in xrange(0,400000,9000):
-            self.callQuadrantCheck(i, outputArrayNode) # checks which region to continue in
-            self.callGetCoordinates(i+5500) #determines the coordinates of the edge point, places a fiducial there
-            self.callNewOrigin(i+7000)
+        for i in xrange(0, 400000, 9000):
+            self.callQuadrantCheck(i, outputArrayNode)  # checks which region to continue in
+            self.callGetCoordinates(i + 5500)  # determines the coordinates of the edge point, places a fiducial there
+            self.callNewOrigin(i + 7000)
 
     def callNewOrigin(self, delay):
         originTimer = qt.QTimer()
@@ -885,10 +891,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         quadTimer = qt.QTimer()
         quadTimer.singleShot(delay, lambda: self.checkQuadrantValues(outputArrayNode))
 
-    def callPrintFunc(self,delay):
+    def callPrintFunc(self, delay):
         self.edgeTraceTimer.singleShot(delay, lambda: self.printFunc())
 
-    def callMovement(self,delay,xcoordinate,ycoordinate):
+    def callMovement(self, delay, xcoordinate, ycoordinate):
         self.cutInTimer = qt.QTimer()
         self.cutInTimer.singleShot(delay, lambda: self.controlledXYMovement(xcoordinate, ycoordinate))
 
@@ -903,10 +909,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.cutInTimer = qt.QTimer()
         self.edgeTraceTimer = qt.QTimer()
         # move forward until reference spectra is observed then return to that spot
-        for y in xrange(0,62,2):
-            delayMs = ((y/2)*500) + 500
-            self.callMovement(delayMs,y,y)
-        for x in xrange(0,15500, 500):
+        for y in xrange(0, 62, 2):
+            delayMs = ((y / 2) * 500) + 500
+            self.callMovement(delayMs, y, y)
+        for x in xrange(0, 15500, 500):
             self.readCoordinatesAtTimeInterval(x, outputArrayNode)
         self.moveBackToOriginalEdgePoint()
 
@@ -916,26 +922,26 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         index = len(self._savexcoordinate) - 1
         print(self._savexcoordinate)
         print(index)
-        self.callMovement(1000, (self._savexcoordinate[index] + 10), (self._saveycoordinate[index])) # right 10
-        self.readCoordinatesAtTimeInterval2(2000,outputArrayNode)
+        self.callMovement(1000, (self._savexcoordinate[index] + 10), (self._saveycoordinate[index]))  # right 10
+        self.readCoordinatesAtTimeInterval2(2000, outputArrayNode)
 
-        self.callMovement(2000, (self._savexcoordinate[index]), (self._saveycoordinate[index] - 10)) # back 10
+        self.callMovement(2000, (self._savexcoordinate[index]), (self._saveycoordinate[index] - 10))  # back 10
         self.readCoordinatesAtTimeInterval2(3000, outputArrayNode)
 
-        self.callMovement(3000, (self._savexcoordinate[index] - 10), (self._saveycoordinate[index])) # left 10
+        self.callMovement(3000, (self._savexcoordinate[index] - 10), (self._saveycoordinate[index]))  # left 10
         self.readCoordinatesAtTimeInterval2(4000, outputArrayNode)
 
-        self.callMovement(4000, (self._savexcoordinate[index]), (self._saveycoordinate[index] + 10)) # forward 10
+        self.callMovement(4000, (self._savexcoordinate[index]), (self._saveycoordinate[index] + 10))  # forward 10
         self.readCoordinatesAtTimeInterval2(5000, outputArrayNode)
 
-        self.callMovement(5000, (self._savexcoordinate[index]), (self._saveycoordinate[index])) # back to center
+        self.callMovement(5000, (self._savexcoordinate[index]), (self._saveycoordinate[index]))  # back to center
 
         self.callPrintFunc(7000)
         self.startTrajectorySearch(outputArrayNode)
         self.timerTracker = self.timerTracker + 6000
 
     def printFunc(self):
-        print(self._tumorCheck) # useful for debugging purposes
+        print(self._tumorCheck)  # useful for debugging purposes
 
     def readCoordinatesAtTimeInterval(self, delay, outputArrayNode):
         self.firstComparison = 1
@@ -946,32 +952,54 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.edgeTraceTimer.singleShot(delay, lambda: self.spectrumComparison(outputArrayNode))
 
     def readCoordinatesAtTimeInterval3(self, delay, outputArrayNode):
-        self.edgeTraceTimer.singleShot(delay, lambda: self.spectrumComparison(outputArrayNode)) # only difference was spectrum comparision 3 had < 7 rather than 9
+        self.edgeTraceTimer.singleShot(delay, lambda: self.spectrumComparison(
+            outputArrayNode))  # only difference was spectrum comparision 3 had < 7 rather than 9
 
     def moveBackToOriginalEdgePoint(self):
         x = len(self._savexcoordinate) - 1
-        self.edgeTraceTimer.singleShot(16500, lambda: self.controlledXYMovement(self._savexcoordinate[x], self._saveycoordinate[x]))
+        self.edgeTraceTimer.singleShot(16500, lambda: self.controlledXYMovement(self._savexcoordinate[x],
+                                                                                self._saveycoordinate[x]))
 
     def findTrajectory(self, outputArrayNode):
         self.trajectoryTimer = qt.QTimer()
         index = len(self._tumorCheck)
         y = len(self._savexcoordinate) - 1
 
-        if (self._tumorCheck[index - 4] ==1 and self._tumorCheck[index -3 ] == 0 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index -1 ] ==1) or ((self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index - 1] == 1)):
+        if (self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
+            index - 2] == 0 and self._tumorCheck[index - 1] == 1) or ((
+                self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
+            index - 2] == 0 and self._tumorCheck[index - 1] == 1)):
             print "Quadrant 2"
-            self.callMovement(0,self._savexcoordinate[y] -4, self._saveycoordinate[y] + 6)
+            self.callMovement(0, self._savexcoordinate[y] - 4, self._saveycoordinate[y] + 6)
 
-        if (self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index - 1] == 0) or (self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index - 1] == 0) or ((self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 0))  or ((self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
+        if (self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
+            index - 2] == 0 and self._tumorCheck[index - 1] == 0) or (
+                self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
+            index - 2] == 0 and self._tumorCheck[index - 1] == 0) or ((
+                self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
+            index - 2] == 1 and self._tumorCheck[index - 1] == 0)) or ((
+                self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
+            index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
             print "Quadrant 1"
             self.callMovement(0, self._savexcoordinate[y] + 4, self._saveycoordinate[y] + 6)
 
-
-        if (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 1) or (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 0) or ((self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 1)) or ((self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
+        if (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
+            index - 2] == 1 and self._tumorCheck[index - 1] == 1) or (
+                self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
+            index - 2] == 1 and self._tumorCheck[index - 1] == 0) or ((
+                self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
+            index - 2] == 1 and self._tumorCheck[index - 1] == 1)) or ((
+                self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
+            index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
             print "Quadrant 3"
             self.callMovement(0, self._savexcoordinate[y] - 4, self._saveycoordinate[y] - 6)
 
-
-        if (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 0) or (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 0 and self._tumorCheck[index - 1] == 0)or ((self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
+        if (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
+            index - 2] == 1 and self._tumorCheck[index - 1] == 0) or (
+                self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
+            index - 2] == 0 and self._tumorCheck[index - 1] == 0) or ((
+                self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
+            index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
             print "Quadrant 4"
             self.callMovement(0, self._savexcoordinate[y] + 4, self._saveycoordinate[y] - 6)
 
@@ -979,17 +1007,17 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.call_getCoordinates(self.timerTracker + 1000)
 
     def newOrigin(self):
-        self.addedEdge =0
+        self.addedEdge = 0
         self.get_coordinates()
         if self.fiducialIndex < 1:
             self.fiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
             self.fiducialIndex = self.fiducialIndex + 1
         else:
-             self.addToCurrentFiducialNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
+            self.addToCurrentFiducialNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
 
-    def startTrajectorySearch(self,outputArrayNode):
+    def startTrajectorySearch(self, outputArrayNode):
         trajTimer = qt.QTimer()
-        trajTimer.singleShot(self.startNext,lambda: self.findTrajectory(outputArrayNode)) # was self.startNext
+        trajTimer.singleShot(self.startNext, lambda: self.findTrajectory(outputArrayNode))  # was self.startNext
 
     # The following code was developed for contour tracing following a systamtic scan by determining the convex hull of a list of collected points
     def createPolyDataPoint(self, xcoordinate, ycoordinate, zcoordinate):
@@ -1015,7 +1043,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def getCoordinatesForEdgeTracing(self, pointsForEdgeTracing, pointLimit):
 
-        for i in xrange(0,pointLimit):
+        for i in xrange(0, pointLimit):
             pointVal = pointsForEdgeTracing.GetPoint(i)
             xcoordinate = pointVal[0]
             ycoordinate = pointVal[1]
@@ -1024,45 +1052,45 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             self.slowEdgeTracing(xcoordinate, ycoordinate, self.edgeTracingTimerStart)
 
             self.edgeTracingTimerStart = self.edgeTracingTimerStart + 2000
-        self.slowEdgeTracing(self._xHullArray[0], self._yHullArray[0], (2000*pointLimit + 2000))
-        self.ZMovement(2000, -5) # moves the probe down (useful for actual tracing if probe is replaced by a marker)
-        self.ZMovement(2000*pointLimit + 4000, 0) # moves the probe back up after edge tracing is finished 
+        self.slowEdgeTracing(self._xHullArray[0], self._yHullArray[0], (2000 * pointLimit + 2000))
+        self.ZMovement(2000, -5)  # moves the probe down (useful for actual tracing if probe is replaced by a marker)
+        self.ZMovement(2000 * pointLimit + 4000, 0)  # moves the probe back up after edge tracing is finished
 
     # Image Registration functions
     def callFollowFiducials(self):
         fiducialTimer = qt.QTimer()
-        for delay in xrange(0,3000,1000):
+        for delay in xrange(0, 3000, 1000):
             fiducialTimer.singleShot(delay, lambda: self.followFiducialCoordinates())
-            
+
     def followFiducialCoordinates(self):
-        ILfidList = slicer.util.getNode('MarkupsFiducial') # was F
+        ILfidList = slicer.util.getNode('MarkupsFiducial')  # was F
         numFids = ILfidList.GetNumberOfFiducials()
 
         for i in xrange(numFids):
-            ras = [0,0,0]
+            ras = [0, 0, 0]
             pos = ILfidList.GetNthFiducialPosition(i, ras)
-            world = [0,0,0,0]
-            ILfidList.GetNthFiducialWorldCoordinates(0,world)
-            self.fiducialMovementDelay= self.fiducialMovementDelay+ 1000
+            world = [0, 0, 0, 0]
+            ILfidList.GetNthFiducialWorldCoordinates(0, world)
+            self.fiducialMovementDelay = self.fiducialMovementDelay + 1000
             xcoord = abs(int(ras[0]))
             ycoord = abs(int(ras[1]))
-            if xcoord < 120 and ycoord < 120: # maintains that the coordinates stay within the test bed limitations
-                self.xyMovement(xcoord, ycoord,self.fiducialMovementDelay)
+            if xcoord < 120 and ycoord < 120:  # maintains that the coordinates stay within the test bed limitations
+                self.xyMovement(xcoord, ycoord, self.fiducialMovementDelay)
             # ras is the coordinate of the fiducial
-            
+
     def findCenterOfMassOfFiducials(self):
         ILfidList = slicer.util.getNode('MarkupsFiducial')
         numFids = ILfidList.GetNumberOfFiducials()
-        centerOfMass = [0,0,0]
+        centerOfMass = [0, 0, 0]
         sumPos = np.zeros(3)
         for i in xrange(numFids):
             pos = np.zeros(3)
-            ILfidList.GetNthFiducialPosition(i,pos)
+            ILfidList.GetNthFiducialPosition(i, pos)
             sumPos += pos
         centerOfMass = sumPos / numFids
         xcoord = centerOfMass[0]
         ycoord = centerOfMass[1]
-        self.controlledXYMovement(xcoord,ycoord)
+        self.controlledXYMovement(xcoord, ycoord)
 
     def ROIsystematicSearch(self):
         ILfidList = slicer.util.getNode('BoundaryPoints')
@@ -1084,53 +1112,69 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         yMax = max(self._ROIybounds)
         return xMin, xMax, yMin, yMax
 
-    def ROIsearchXLoop(self, timeValue, xResolution, yResolution, xMin, xMax):
-            # necessary for looping the x commands on static intervals
-        oscillatingTime = ((xMax- xMin) / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
-        lengthOfOneWidth = (((xMax-xMin) / xResolution) * 2) * timeValue # the amount of movements per oscillation back and forth
-        for xCoordinateValue in self.frange(xMin, (oscillatingTime * lengthOfOneWidth) + lengthOfOneWidth,lengthOfOneWidth):  # calls forwards and backwards as necessary
-            self.ROIsearchXWidthForward(xCoordinateValue, timeValue, xResolution, xMin, xMax)
-            self.ROIsearchXWidthBackward(xCoordinateValue, timeValue, xResolution, xMin, xMax)
+    def ROIsearchXLoop(self, timeValue, xResolution, yResolution, xMin, xMax, yMin, yMax):
+        print "YOURE IN THE FUNCTION"
+        if xResolution < 2 or yResolution < 2:
+            oscillatingTime = ((yMax -yMin) / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
+            lengthOfOneWidth = (((xMax - xMin) / xResolution) * 2) * timeValue  # how long it takes to go back and forth once
+            # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
+            for xCoordinateValue in self.frange(0, (oscillatingTime * lengthOfOneWidth) + (lengthOfOneWidth),lengthOfOneWidth):  # calls forwards and backwards as necessary
+                self.ROIsearchXWidthForward(xCoordinateValue, timeValue, xResolution, xMin, xMax)
+                self.ROIsearchXWidthBackward(xCoordinateValue, timeValue, xResolution, xMin, xMax)
+        else:
+            oscillatingTime = ((yMax- yMin) / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
+            lengthOfOneWidth = (((xMax-xMin) / xResolution) * 2) * timeValue  # how long it takes to go back and forth once
+            # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
+
+            for xCoordinateValue in self.frange(0, lengthOfOneWidth*oscillatingTime,lengthOfOneWidth):  # calls forwards and backwards as necessary
+
+                self.ROIsearchXWidthForward(xCoordinateValue, timeValue, xResolution, xMin, xMax)
+                self.ROIsearchXWidthBackward(xCoordinateValue, timeValue, xResolution, xMin, xMax)
+
 
     def ROIsearchXWidthForward(self, xCoordinate, timeValue, xResolution, xMin, xMax):  # used to be passed xCoordinate
         # Move the width of the bed forward in the positive x direction
         # Corresponds to a timer called in printer interactor widget
+        print "in xwidth forward"
         self.scanTimer = qt.QTimer()
         # for xValue in xrange(xMin, xMax, xResolution):
         for xValue in self.frange(xMin, xMax, xResolution):  # increment by 10 until 120
-            delayMs = xCoordinate + xValue * (timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
+            delayMs = xCoordinate + xValue * (timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to del
             self.XMovement(delayMs, xValue)
+
 
     def ROIsearchXWidthBackward(self, xCoordinate, timeValue, xResolution, xMin, xMax):
         # Move the width of the bed backwards in the negative x direction
         # Corresponds to a timer called in printer interactor widget
+        print " in x width backwards"
         self.scanTimer = qt.QTimer()
         for xValue in self.backfrange(xMax, xMin, -xResolution):
-            delayMs = abs(xValue -(xMax)) * (timeValue / xResolution) + ((xMax - xMin) / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
+            delayMs = abs(xValue - (xMax)) * (timeValue / xResolution) + ((xMax - xMin) / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
             self.XMovement(delayMs, xValue)
+
 
     def ROIsearchYLoop(self, timeValue, yResolution, xResolution, yMin, yMax, xMin, xMax):
         # specific intervals correspond to timeValues divisible by 1000
         # The variances in intervals were timed specifically to account for mechanical delays with the printer
 
-        firstDistance = ((xMax-xMin) / xResolution)
-        secondDistance = 2 * ((xMax-xMin) / xResolution)
+        firstDistance = ((xMax - xMin) / xResolution)
+        secondDistance = 2 * ((xMax - xMin) / xResolution)
         self.yMovement((firstDistance + 2) * timeValue, yResolution + yMin)
-        self.yMovement((secondDistance + 1) * timeValue, (yResolution * 2)+ yMin )
+        self.yMovement((secondDistance + 1) * timeValue, (yResolution * 2) + yMin)
         self.i = 0
         self.j = 0
         for yValue in self.frange(yMin + (yResolution * 3), yMax + yResolution, yResolution * 2):
-            delayMs = (((secondDistance + firstDistance)+ 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
+            delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
             self.yMovement(delayMs, yValue)
             self.i = self.i + 1
             print yValue
         for yValue in self.frange(yMin + (yResolution * 4), yMax + yResolution, yResolution * 2):
-            delayMs = ((((2 * secondDistance)+ 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
+            delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
             self.yMovement(delayMs, yValue)
             print yValue
             self.j = self.j + 1
-            
-    # General Printer Movement Commands       
+
+    # General Printer Movement Commands
     def home(self):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.homeCmd, self.serialIGTLNode.GetID())
 
@@ -1141,8 +1185,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.emergStopCmd.AddObserver(self.emergStopCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
 
     def yLoop(self, timeValue, yResolution, xResolution):
-       # the following code was developed to execute a y Movement at the beginning and end of successive x oscillations to ensure that the platform
-       # is systematically scanned along the y axis as well as the x
+        # the following code was developed to execute a y Movement at the beginning and end of successive x oscillations to ensure that the platform
+        # is systematically scanned along the y axis as well as the x
         if xResolution < 2 or yResolution < 2:
             firstDistance = (30 / xResolution)  # distance of one x oscillation
             secondDistance = 2 * (30 / xResolution)  # distance of two x oscillations
@@ -1153,35 +1197,43 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
                            yResolution * 2)  # call yMovement again once the second oscillation in the x direction is finished
             self.i = 0
             self.j = 0
-            for yValue in self.frange(yResolution * 3, 30 + yResolution, yResolution * 2):  # third iteration of yMovement
-                delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
+            for yValue in self.frange(yResolution * 3, 30 + yResolution,
+                                      yResolution * 2):  # third iteration of yMovement
+                delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + (
+                            (secondDistance * timeValue) * (self.i))
                 self.yMovement(delayMs, yValue)
                 self.i = self.i + 1
-            for yValue in self.frange(yResolution * 4, 30 + yResolution,yResolution * 2):  # got ride of + yResolution in max
+            for yValue in self.frange(yResolution * 4, 30 + yResolution,
+                                      yResolution * 2):  # got ride of + yResolution in max
                 delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
                 self.yMovement(delayMs, yValue)
                 self.j = self.j + 1
         else:
-            firstDistance = (120 / xResolution) # distance of one x oscillation
-            secondDistance = 2 * (120 / xResolution) # distance of two x oscillations
+            firstDistance = (120 / xResolution)  # distance of one x oscillation
+            secondDistance = 2 * (120 / xResolution)  # distance of two x oscillations
 
-            self.yMovement((firstDistance + 2) * timeValue, yResolution) # call yMovement once the first oscillation in the x direction is finished
-            self.yMovement((secondDistance + 1) * timeValue, yResolution * 2) # call yMovement again once the second oscillation in the x direction is finished
+            self.yMovement((firstDistance + 2) * timeValue,
+                           yResolution)  # call yMovement once the first oscillation in the x direction is finished
+            self.yMovement((secondDistance + 1) * timeValue,
+                           yResolution * 2)  # call yMovement again once the second oscillation in the x direction is finished
             self.i = 0
             self.j = 0
-            if yResolution < 38 or yResolution == 40: # resolutions less than 40 will go right to the end of the platform, anything above 40 will stop at a distance %(120/yResolution) away
-                for yValue in self.frange(yResolution * 3, 120 + yResolution, yResolution * 2): # third iteration of yMovement
-                    delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
+            if yResolution < 38 or yResolution == 40:  # resolutions less than 40 will go right to the end of the platform, anything above 40 will stop at a distance %(120/yResolution) away
+                for yValue in self.frange(yResolution * 3, 120 + yResolution,
+                                          yResolution * 2):  # third iteration of yMovement
+                    delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + (
+                                (secondDistance * timeValue) * (self.i))
                     self.yMovement(delayMs, yValue)
                     self.i = self.i + 1
-                for yValue in self.frange(yResolution * 4, 120 + yResolution, yResolution * 2): # got ride of + yResolution in max
+                for yValue in self.frange(yResolution * 4, 120 + yResolution,
+                                          yResolution * 2):  # got ride of + yResolution in max
                     delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
                     self.yMovement(delayMs, yValue)
                     self.j = self.j + 1
             else:
                 for yValue in self.frange(yResolution * 3, 120, yResolution * 2):  # third iteration of yMovement
                     delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + (
-                                   (secondDistance * timeValue) * (self.i))
+                            (secondDistance * timeValue) * (self.i))
                     self.yMovement(delayMs, yValue)
                     self.i = self.i + 1
                 for yValue in self.frange(yResolution * 4, 120, yResolution * 2):  # got ride of + yResolution in max
@@ -1193,19 +1245,19 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         # necessary for looping the x commands on static intervals
         if xResolution < 2 or yResolution < 2:
             oscillatingTime = (30 / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
-            lengthOfOneWidth = ((30 / xResolution) * 2) * timeValue  # how long it takes to go back and forth once
+            lengthOfOneWidth = ((120 / xResolution) * 2) * timeValue  # how long it takes to go back and forth once
             # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
             for xCoordinateValue in self.frange(0, (oscillatingTime * lengthOfOneWidth) + (lengthOfOneWidth),lengthOfOneWidth):  # calls forwards and backwards as necessary
                 self.xWidthForward(xCoordinateValue, timeValue, xResolution)
                 self.xWidthBackwards(xCoordinateValue, timeValue, xResolution)
         else:
             oscillatingTime = (120 / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
-            lengthOfOneWidth = ((120 / xResolution) * 2) * timeValue # how long it takes to go back and forth once
+            lengthOfOneWidth = ((120 / xResolution) * 2) * timeValue  # how long it takes to go back and forth once
             # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
-            for xCoordinateValue in self.frange(0, (oscillatingTime * lengthOfOneWidth) + (lengthOfOneWidth), lengthOfOneWidth):  # calls forwards and backwards as necessary
+            for xCoordinateValue in self.frange(0, (oscillatingTime * lengthOfOneWidth) + (lengthOfOneWidth),
+                                                lengthOfOneWidth):  # calls forwards and backwards as necessary
                 self.xWidthForward(xCoordinateValue, timeValue, xResolution)
                 self.xWidthBackwards(xCoordinateValue, timeValue, xResolution)
-
 
     def xWidthForward(self, xCoordinate, timeValue, xResolution):  # used to be passed xCoordinate
         # Move the width of the bed forward in the positive x direction
@@ -1213,11 +1265,12 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.scanTimer = qt.QTimer()
         if xResolution < 38 or xResolution == 40:
             for xValue in self.frange(0, 120 + xResolution, xResolution):  # increment by 10 until 120
-                delayMs = xCoordinate + xValue * ( timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
+                delayMs = xCoordinate + xValue * (timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
                 self.XMovement(delayMs, xValue)
         else:
             for xValue in self.frange(0, 120, xResolution):  # increment by 10 until 120
-                delayMs = xCoordinate + xValue * ( timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
+                delayMs = xCoordinate + xValue * (
+                            timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
                 self.XMovement(delayMs, xValue)
 
     def xWidthBackwards(self, xCoordinate, timeValue, xResolution):
@@ -1226,11 +1279,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.scanTimer = qt.QTimer()
         if xResolution < 38 or xResolution == 40:
             for xValue in self.backfrange(120, -xResolution, -xResolution):
-                delayMs = abs(xValue - 120) * (timeValue / xResolution) + (120 / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
+                delayMs = abs(xValue - 120) * (timeValue / xResolution) + (
+                            120 / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
                 self.XMovement(delayMs, xValue)
         else:
             for xValue in self.backfrange(120, 0, -xResolution):
-                delayMs = abs(xValue - 120) * (timeValue / xResolution) + (120 / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
+                delayMs = abs(xValue - 120) * (timeValue / xResolution) + (
+                            120 / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
                 self.XMovement(delayMs, xValue)
 
     def yMovement(self, timeValue, yResolution):
@@ -1245,9 +1300,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.edgetimer = qt.QTimer()
         self.edgetimer.singleShot(timevar, lambda: self.controlledXYMovement(xcoordinate, ycoordinate))
 
-    def xyMovement(self,xcoordinate, ycoordinate, timevar):
+    def xyMovement(self, xcoordinate, ycoordinate, timevar):
         self.scanTimer = qt.QTimer()
-        self.scanTimer.singleShot(timevar, lambda: self.controlledXYMovement(xcoordinate,ycoordinate))
+        self.scanTimer.singleShot(timevar, lambda: self.controlledXYMovement(xcoordinate, ycoordinate))
 
     def ZMovement(self, timeValue, zcoordinate):
         self.scanTimer = qt.QTimer()
@@ -1306,7 +1361,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.yControlCmd.SetCommandAttribute('Text', 'G1 Y%d' % (self.currentYcoordinate))
         slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, serialIGTLNode.GetID())
 
-    def keyboardControlledYMovementBackwards(self,serialIGTLNode):  # y movement
+    def keyboardControlledYMovementBackwards(self, serialIGTLNode):  # y movement
         if self.currentYcoordinate > 5:
             self.currentYcoordinate = self.currentYcoordinate - 5
         else:
@@ -1318,14 +1373,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.yControlCmd.SetCommandAttribute('Text', 'G1 Y%d' % (self.currentYcoordinate))
         slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, serialIGTLNode.GetID())
 
-    def keyboardControlledHomeMovement(self,serialIGTLNode):
+    def keyboardControlledHomeMovement(self, serialIGTLNode):
         self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.yControlCmd.SetCommandName('SendText')
         self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
         self.yControlCmd.SetCommandTimeoutSec(1.0)
         self.yControlCmd.SetCommandAttribute('Text', 'G28 X Y')
         slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, serialIGTLNode.GetID())
-
 
     def ICPRegistration(self):
         ILfidList = slicer.util.getNode("ImageLandmarkPoints")
