@@ -288,10 +288,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         ImageRegistrationFormLayout.addRow(self.landmarkRegButton)
         self.landmarkRegButton.connect('clicked(bool)', self.onLandmarkRegButton)
 
-
-
-
-
         self.layout.addStretch(1)
 
     def cleanup(self):
@@ -314,13 +310,9 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.logic.setdoubleArrayNode(doubleArrayNode=self.inputSelector.currentNode())
         pass
 
-    def onLearnSpectraButton(self):
-        self.ondoubleArrayNodeChanged()
+    def highResolutionScanning(self):
+        # This function divides the bed into 4 sections and calls them at different intervals to avoid straining the windows dispatcher.
         self.onSerialIGLTSelectorChanged()
-        self.logic.getSpectralData(self.outputArraySelector.currentNode())
-
-    def onFiducialMarkerChecked(self):
-        self.logic.fiducialMarkerChecked()
 
     def onScanButton(self):
         # TODO: fix bugs at low / high resolution!!
@@ -336,9 +328,12 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         # tissue analysis
         self.tumorTimer = qt.QTimer()
         self.iterationTimingValue = 0
-
-        stopsToVisitX = 120 / xResolution
-        stopsToVisitY = 120 / yResolution
+        if xResolution or yResolution < 2:
+            stopsToVisitX = 30
+            stopsToVisitY = 30
+        else:
+            stopsToVisitX = 120 / xResolution
+            stopsToVisitY = 120 / yResolution
 
 
         for self.iterationTimingValue in self.logic.frange(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + (10*self.timeValue), self.timeValue):
@@ -361,45 +356,25 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         else:
             return
 
+    def onFiducialMarkerChecked(self):
+        self.logic.fiducialMarkerChecked()
+
+    def onLearnSpectraButton(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+        self.logic.getSpectralData(self.outputArraySelector.currentNode())
+
     def onStopButton(self):
         self.onSerialIGLTSelectorChanged()
         self.logic.emergencyStop()
         # Note: the stop command uses G-code command M112 which requires slicer reboot and printer reboot after each usage.
     # Outline area of interest following systematic scan
-    def onFindConvexHull(self):
-         self.logic.convexHull()
-    # Use to find the edge of the area of interest before independent edge tracing
-    def onFindEdge(self):
-        self.ondoubleArrayNodeChanged()
-        self.onSerialIGLTSelectorChanged()
-        self.logic.findAndMoveToEdge(self.outputArraySelector.currentNode())
-
-    def onIndependentContourTrace(self):
-        self.ondoubleArrayNodeChanged()
-        self.onSerialIGLTSelectorChanged()
-        self.logic.edgeTrace(self.outputArraySelector.currentNode())
-    # oscillate between fiducials, updated with fiducial movement or addition
-    def onPlaceFiducials(self):
-        self.ondoubleArrayNodeChanged()
-        self.onSerialIGLTSelectorChanged()
-        self.logic.getLandmarkFiducialsCoordinate()
 
     def onPlaceBoundaries(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
         self.logic.getBoundaryFiducialsCoordinate()
 
-    def followFiducials(self):
-        self.ondoubleArrayNodeChanged()
-        self.onSerialIGLTSelectorChanged()
-        self.logic.callFollowFiducials()
-    # find the center of mass of a group of fiducials and move to it
-    def goToCenterOfMass(self):
-        self.ondoubleArrayNodeChanged()
-        self.onSerialIGLTSelectorChanged()
-        self.logic.findCenterOfMassOfFiducials()
-
-    # TODO: fix delays
     def ROIsearch(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
@@ -421,12 +396,29 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
             self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
             self.iterationTimingValue = self.iterationTimingValue + self.timeValue
 
-
-    def test(self):
+    def onFindConvexHull(self):
+         self.logic.convexHull()
+    # Use to find the edge of the area of interest before independent edge tracing
+    def onFindEdge(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-        xVal = self.xResolution_spinbox.value
-        self.logic.controlledXMovement(xVal)
+        self.logic.findAndMoveToEdge(self.outputArraySelector.currentNode())
+
+    def onIndependentContourTrace(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+        self.logic.edgeTrace(self.outputArraySelector.currentNode())
+
+    def onPlaceFiducials(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+        self.logic.getLandmarkFiducialsCoordinate()
+
+    # find the center of mass of a group of fiducials and move to it
+    def goToCenterOfMass(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+        self.logic.findCenterOfMassOfFiducials()
 
     def onICPregistration(self):
         self.logic.ICPRegistration()
@@ -434,9 +426,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     def onLandmarkRegButton(self):
         self.logic.landmarkRegistration()
 
-
 #
-
 # PrinterInteractorLogic
 #
 
@@ -562,117 +552,12 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.zControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
         self.zControlCmd.SetCommandTimeoutSec(1.0)
 
-    def ICPRegistration(self):
-        # TODO: fix this registratoin
-        ILfidList = slicer.util.getNode("ImageLandmarkPoints")
-        numFids = ILfidList.GetNumberOfFiducials()
-        MLfidList = slicer.util.getNode("ModelLandmarkPoints")
-
-        self.ILData = vtk.vtkPoints()
-        for i in xrange(numFids):
-            ras = [0, 0, 0]
-            pos = ILfidList.GetNthFiducialPosition(i, ras)
-            world = [0, 0, 0, 0]
-            ILfidList.GetNthFiducialWorldCoordinates(0, world)
-            self.ILData.InsertNextPoint(ras[0], ras[1], ras[2])
-
-        self.MLData = vtk.vtkPoints()
-        for i in xrange(numFids):
-            ras = [0, 0, 0]
-            pos = MLfidList.GetNthFiducialPosition(i, ras)
-            world = [0, 0, 0, 0]
-            MLfidList.GetNthFiducialWorldCoordinates(0, world)
-            self.MLData.InsertNextPoint(ras[0], ras[1], ras[2])
-
-        self.ILPointsData = vtk.vtkPolyData()
-        self.ILPointsData.SetPoints(self.ILData)
-
-        self.MLPointsData = vtk.vtkPolyData()
-        self.MLPointsData.SetPoints(self.MLData)
-
-        source = self.ILPointsData
-        target = self.MLPointsData
-        #source = slicer.mrmlScene.GetNodesByName('ModelPic')
-        #targettarget = slicer.mrmlScene.GetNodesByName('Model')
-
-        icp = vtk.vtkIterativeClosestPointTransform()
-        icp.SetSource(source)
-        icp.SetTarget(target)
-        icp.DebugOn()
-        icp.SetMaximumNumberOfLandmarks(source.GetNumberOfPoints())
-        icp.SetCheckMeanDistance(1)
-        icp.SetMaximumMeanDistance(0.00000001)
-        icp.GetLandmarkTransform().SetModeToSimilarity()
-        icp.StartByMatchingCentroidsOn()
-        icp.SetMaximumNumberOfIterations(200)
-        icp.GetLandmarkTransform().SetSourceLandmarks(self.ILData)
-        icp.GetLandmarkTransform().SetTargetLandmarks(self.MLData)
-        icp.Modified()
-
-
-
-        transformNode = slicer.vtkMRMLLinearTransformNode()
-        transformNode.CanApplyNonLinearTransforms()
-        transformNode.SetName('ReferenceImageToOpticalModel')
-        matrix = icp.GetLandmarkTransform().GetMatrix()
-        transformNode.SetMatrixTransformToParent(matrix)
-
-        slicer.mrmlScene.AddNode(transformNode)
-        print "ICP registration Complete."
-
-    def landmarkRegistration(self):
-        ILfidList = slicer.util.getNode("ImageLandmarkPoints")
-        numFids = ILfidList.GetNumberOfFiducials()
-        MLfidList = slicer.util.getNode("ModelLandmarkPoints")
-
-        self.ILData = vtk.vtkPoints()
-        for i in xrange(numFids):
-            ras = [0, 0, 0]
-            pos = ILfidList.GetNthFiducialPosition(i, ras)
-            world = [0, 0, 0, 0]
-            ILfidList.GetNthFiducialWorldCoordinates(0, world)
-            self.ILData.InsertNextPoint(ras[0], ras[1], ras[2])
-
-        self.MLData = vtk.vtkPoints()
-        for i in xrange(numFids):
-            ras = [0, 0, 0]
-            pos = MLfidList.GetNthFiducialPosition(i, ras)
-            world = [0, 0, 0, 0]
-            MLfidList.GetNthFiducialWorldCoordinates(0, world)
-            self.MLData.InsertNextPoint(ras[0], ras[1], ras[2])
-
-        self.ILPointsData = vtk.vtkPolyData()
-        self.ILPointsData.SetPoints(self.ILData)
-
-        self.MLPointsData = vtk.vtkPolyData()
-        self.MLPointsData.SetPoints(self.MLData)
-
-        source = self.ILData
-        target = self.MLData
-
-        lmt = vtk.vtkLandmarkTransform()
-        lmt.SetSourceLandmarks(source)
-        source.Modified()
-        lmt.SetTargetLandmarks(target)
-        target.Modified()
-        lmt.SetModeToSimilarity()
-        lmt.TransformPoints(source,target)
-
-        transformNode = slicer.vtkMRMLLinearTransformNode()
-        transformNode.SetName('ReferenceImageToOpticalModel')
-        transformNode.CanApplyNonLinearTransforms()
-        matrix = lmt.GetMatrix()
-        transformNode.SetMatrixTransformToParent(matrix)
-
-        slicer.mrmlScene.AddNode(transformNode)
-        print "Landmark Transform completed succesfully."
-
-
-    # these two functions offer the same functionality as xrange but are able to accept floating point values
+    # these two functions offer the same functionality as xrange but are able to accept floating point values. Implemented to facilitate high resolution scanning.
     def frange(self, start, end, stepsize):
         while start < end:
             yield start
             start += stepsize
+
     def backfrange(self,start,end,stepsize):
         while start > end:
             yield start
@@ -702,7 +587,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             shortcut.connect('activated()', callback)
             self.shortcuts.append(shortcut)
 
-
     def setSerialIGTLNode(self, serialIGTLNode):
         self.serialIGTLNode = serialIGTLNode
 
@@ -720,7 +604,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             nodeTagPair[0].RemoveObserver(nodeTagPair[1])
 
     def onSpectrumImageNodeModified(self, observer, eventid):
-
         if not self.spectrumImageNode or not self.outputArrayNode:
             return
 
@@ -772,11 +655,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         self.spectraCollectedflag = 1
         print"Spectra collected."
-
-    def setTumorBoundaries(self):
-        self.referenceSpectra = vtk.vtkPolyData()
-        self.referenceSpectra.SetPoints(self.spectra)
-        print "Boundaries set."
         # 10 specifies coordinates to be float values
 
 
@@ -880,6 +758,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         if self.fiducialIndex < 1:
             self.fiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
             self.fiducialIndex = self.fiducialIndex + 1
+            print " in "
         elif self.fiducialIndex == 1234:
             return self.xcoordinate
         else:
@@ -888,6 +767,19 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         print self.fiducialIndex
         return self.xcoordinate
+
+    def fiducialMarkerChecked(self):
+        self.fiducialIndex = 1234  # will break if 1234 fiducials is ever reached, implemented for the fiducial marking off function
+
+    def fiducialMarker(self, xcoordinate, ycoordinate, zcoordinate):
+        self.fiducialNode = slicer.vtkMRMLMarkupsFiducialNode()
+        slicer.mrmlScene.AddNode(self.fiducialNode)
+        self.fiducialNode.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
+
+    def addToCurrentFiducialNode(self, xcoordinate, ycoordinate, zcoordinate):
+        self.fiducialNode.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
+        self.fiducialIndex = self.fiducialIndex + 1
+        print(self.fiducialIndex)
 
     def getLandmarkFiducialsCoordinate(self):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.landmarkCoordinateCmd, self.serialIGTLNode.GetID())
@@ -972,23 +864,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def addtoBoundaryFiducialMarker(self, xcoordinate, ycoordinate, zcoordinate):
         self.fiducialNode2.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
-        self.fiducialIndex = self.fiducialIndex + 1
+        self.fiducialIndex3 = self.fiducialIndex3 + 1
 
 
-    def fiducialMarkerChecked(self):
-        self.fiducialIndex = 1234 # will break if 1234 fiducials is ever reached
-
-    def fiducialMarker(self, xcoordinate, ycoordinate, zcoordinate):
-        self.fiducialNode = slicer.vtkMRMLMarkupsFiducialNode()
-        slicer.mrmlScene.AddNode(self.fiducialNode)
-        self.fiducialNode.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
-
-    def addToCurrentFiducialNode(self, xcoordinate, ycoordinate, zcoordinate):
-        self.fiducialNode.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
-        self.fiducialIndex = self.fiducialIndex + 1
-        print(self.fiducialIndex)
-
-    # independent edge tracing: the following code was developed using a series of qt single shot timers and a root searching algorithm 
+    # independent edge tracing: the following code was developed using a series of qt single shot timers and a root searching algorithm
     # to determine the approximate boundaries of an image without a systematic search. 
     
     def edgeTrace(self, outputArrayNode):
@@ -1198,14 +1077,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             ycoord = int(ras[1])
             self._ROIxbounds.append(xcoord)
             self._ROIybounds.append(ycoord)
-        print(self._ROIxbounds)
-        print(self._ROIybounds)
+
         xMin = min(self._ROIxbounds)
         xMax = max(self._ROIxbounds)
         yMin = min(self._ROIybounds)
         yMax = max(self._ROIybounds)
         return xMin, xMax, yMin, yMax
-        # For ROI searching
+
     def ROIsearchXLoop(self, timeValue, xResolution, yResolution, xMin, xMax):
             # necessary for looping the x commands on static intervals
         oscillatingTime = ((xMax- xMin) / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
@@ -1265,43 +1143,68 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def yLoop(self, timeValue, yResolution, xResolution):
        # the following code was developed to execute a y Movement at the beginning and end of successive x oscillations to ensure that the platform
        # is systematically scanned along the y axis as well as the x
+        if xResolution < 2 or yResolution < 2:
+            firstDistance = (30 / xResolution)  # distance of one x oscillation
+            secondDistance = 2 * (30 / xResolution)  # distance of two x oscillations
 
-        firstDistance = (120 / xResolution) # distance of one x oscillation
-        secondDistance = 2 * (120 / xResolution) # distance of two x oscillations
-
-        self.yMovement((firstDistance + 2) * timeValue, yResolution) # call yMovement once the first oscillation in the x direction is finished
-        self.yMovement((secondDistance + 1) * timeValue, yResolution * 2) # call yMovement again once the second oscillation in the x direction is finished
-        self.i = 0
-        self.j = 0
-        if yResolution < 38 or yResolution == 40: # resolutions less than 40 will go right to the end of the platform, anything above 40 will stop at a distance %(120/yResolution) away
-            for yValue in self.frange(yResolution * 3, 120 + yResolution, yResolution * 2): # third iteration of yMovement
+            self.yMovement((firstDistance + 2) * timeValue,
+                           yResolution)  # call yMovement once the first oscillation in the x direction is finished
+            self.yMovement((secondDistance + 1) * timeValue,
+                           yResolution * 2)  # call yMovement again once the second oscillation in the x direction is finished
+            self.i = 0
+            self.j = 0
+            for yValue in self.frange(yResolution * 3, 30 + yResolution, yResolution * 2):  # third iteration of yMovement
                 delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
                 self.yMovement(delayMs, yValue)
                 self.i = self.i + 1
-            for yValue in self.frange(yResolution * 4, 120 + yResolution, yResolution * 2): # got ride of + yResolution in max
+            for yValue in self.frange(yResolution * 4, 30 + yResolution,yResolution * 2):  # got ride of + yResolution in max
                 delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
                 self.yMovement(delayMs, yValue)
                 self.j = self.j + 1
         else:
-           for yValue in self.frange(yResolution * 3, 120, yResolution * 2):  # third iteration of yMovement
-               delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + (
-                           (secondDistance * timeValue) * (self.i))
-               self.yMovement(delayMs, yValue)
-               self.i = self.i + 1
-           for yValue in self.frange(yResolution * 4, 120, yResolution * 2):  # got ride of + yResolution in max
-               delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
-               self.yMovement(delayMs, yValue)
-               self.j = self.j + 1
+            firstDistance = (120 / xResolution) # distance of one x oscillation
+            secondDistance = 2 * (120 / xResolution) # distance of two x oscillations
+
+            self.yMovement((firstDistance + 2) * timeValue, yResolution) # call yMovement once the first oscillation in the x direction is finished
+            self.yMovement((secondDistance + 1) * timeValue, yResolution * 2) # call yMovement again once the second oscillation in the x direction is finished
+            self.i = 0
+            self.j = 0
+            if yResolution < 38 or yResolution == 40: # resolutions less than 40 will go right to the end of the platform, anything above 40 will stop at a distance %(120/yResolution) away
+                for yValue in self.frange(yResolution * 3, 120 + yResolution, yResolution * 2): # third iteration of yMovement
+                    delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
+                    self.yMovement(delayMs, yValue)
+                    self.i = self.i + 1
+                for yValue in self.frange(yResolution * 4, 120 + yResolution, yResolution * 2): # got ride of + yResolution in max
+                    delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
+                    self.yMovement(delayMs, yValue)
+                    self.j = self.j + 1
+            else:
+                for yValue in self.frange(yResolution * 3, 120, yResolution * 2):  # third iteration of yMovement
+                    delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + (
+                                   (secondDistance * timeValue) * (self.i))
+                    self.yMovement(delayMs, yValue)
+                    self.i = self.i + 1
+                for yValue in self.frange(yResolution * 4, 120, yResolution * 2):  # got ride of + yResolution in max
+                    delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
+                    self.yMovement(delayMs, yValue)
+                    self.j = self.j + 1
 
     def xLoop(self, timeValue, xResolution, yResolution):
         # necessary for looping the x commands on static intervals
-
-        oscillatingTime = (120 / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
-        lengthOfOneWidth = ((120 / xResolution) * 2) * timeValue # how long it takes to go back and forth once
-        # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
-        for xCoordinateValue in self.frange(0, (oscillatingTime * lengthOfOneWidth) + (lengthOfOneWidth), lengthOfOneWidth):  # calls forwards and backwards as necessary
-            self.xWidthForward(xCoordinateValue, timeValue, xResolution)
-            self.xWidthBackwards(xCoordinateValue, timeValue, xResolution)
+        if xResolution < 2 or yResolution < 2:
+            oscillatingTime = (30 / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
+            lengthOfOneWidth = ((30 / xResolution) * 2) * timeValue  # how long it takes to go back and forth once
+            # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
+            for xCoordinateValue in self.frange(0, (oscillatingTime * lengthOfOneWidth) + (lengthOfOneWidth),lengthOfOneWidth):  # calls forwards and backwards as necessary
+                self.xWidthForward(xCoordinateValue, timeValue, xResolution)
+                self.xWidthBackwards(xCoordinateValue, timeValue, xResolution)
+        else:
+            oscillatingTime = (120 / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
+            lengthOfOneWidth = ((120 / xResolution) * 2) * timeValue # how long it takes to go back and forth once
+            # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
+            for xCoordinateValue in self.frange(0, (oscillatingTime * lengthOfOneWidth) + (lengthOfOneWidth), lengthOfOneWidth):  # calls forwards and backwards as necessary
+                self.xWidthForward(xCoordinateValue, timeValue, xResolution)
+                self.xWidthBackwards(xCoordinateValue, timeValue, xResolution)
 
 
     def xWidthForward(self, xCoordinate, timeValue, xResolution):  # used to be passed xCoordinate
@@ -1424,6 +1327,105 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, serialIGTLNode.GetID())
 
 
+    def ICPRegistration(self):
+        ILfidList = slicer.util.getNode("ImageLandmarkPoints")
+        numFids = ILfidList.GetNumberOfFiducials()
+        MLfidList = slicer.util.getNode("ModelLandmarkPoints")
+
+        self.ILData = vtk.vtkPoints()
+        for i in xrange(numFids):
+            ras = [0, 0, 0]
+            pos = ILfidList.GetNthFiducialPosition(i, ras)
+            world = [0, 0, 0, 0]
+            ILfidList.GetNthFiducialWorldCoordinates(0, world)
+            self.ILData.InsertNextPoint(ras[0], ras[1], ras[2])
+
+        self.MLData = vtk.vtkPoints()
+        for i in xrange(numFids):
+            ras = [0, 0, 0]
+            pos = MLfidList.GetNthFiducialPosition(i, ras)
+            world = [0, 0, 0, 0]
+            MLfidList.GetNthFiducialWorldCoordinates(0, world)
+            self.MLData.InsertNextPoint(ras[0], ras[1], ras[2])
+
+        self.ILPointsData = vtk.vtkPolyData()
+        self.ILPointsData.SetPoints(self.ILData)
+
+        self.MLPointsData = vtk.vtkPolyData()
+        self.MLPointsData.SetPoints(self.MLData)
+
+        source = self.ILPointsData
+        target = self.MLPointsData
+
+        icp = vtk.vtkIterativeClosestPointTransform()
+        icp.SetSource(source)
+        icp.SetTarget(target)
+        icp.DebugOn()
+        icp.SetMaximumNumberOfLandmarks(source.GetNumberOfPoints())
+        icp.SetCheckMeanDistance(1)
+        icp.SetMaximumMeanDistance(0.00000001)
+        icp.GetLandmarkTransform().SetModeToSimilarity()
+        icp.StartByMatchingCentroidsOn()
+        icp.SetMaximumNumberOfIterations(200)
+        icp.GetLandmarkTransform().SetSourceLandmarks(self.ILData)
+        icp.GetLandmarkTransform().SetTargetLandmarks(self.MLData)
+        icp.Modified()
+
+        transformNode = slicer.vtkMRMLLinearTransformNode()
+        transformNode.CanApplyNonLinearTransforms()
+        transformNode.SetName('ReferenceImageToOpticalModel')
+        matrix = icp.GetLandmarkTransform().GetMatrix()
+        transformNode.SetMatrixTransformToParent(matrix)
+
+        slicer.mrmlScene.AddNode(transformNode)
+        print "ICP registration Complete."
+
+    def landmarkRegistration(self):
+        ILfidList = slicer.util.getNode("ImageLandmarkPoints")
+        numFids = ILfidList.GetNumberOfFiducials()
+        MLfidList = slicer.util.getNode("ModelLandmarkPoints")
+
+        self.ILData = vtk.vtkPoints()
+        for i in xrange(numFids):
+            ras = [0, 0, 0]
+            pos = ILfidList.GetNthFiducialPosition(i, ras)
+            world = [0, 0, 0, 0]
+            ILfidList.GetNthFiducialWorldCoordinates(0, world)
+            self.ILData.InsertNextPoint(ras[0], ras[1], ras[2])
+
+        self.MLData = vtk.vtkPoints()
+        for i in xrange(numFids):
+            ras = [0, 0, 0]
+            pos = MLfidList.GetNthFiducialPosition(i, ras)
+            world = [0, 0, 0, 0]
+            MLfidList.GetNthFiducialWorldCoordinates(0, world)
+            self.MLData.InsertNextPoint(ras[0], ras[1], ras[2])
+
+        self.ILPointsData = vtk.vtkPolyData()
+        self.ILPointsData.SetPoints(self.ILData)
+
+        self.MLPointsData = vtk.vtkPolyData()
+        self.MLPointsData.SetPoints(self.MLData)
+
+        source = self.ILData
+        target = self.MLData
+
+        lmt = vtk.vtkLandmarkTransform()
+        lmt.SetSourceLandmarks(source)
+        source.Modified()
+        lmt.SetTargetLandmarks(target)
+        target.Modified()
+        lmt.SetModeToSimilarity()
+        lmt.TransformPoints(source, target)
+
+        transformNode = slicer.vtkMRMLLinearTransformNode()
+        transformNode.SetName('ReferenceImageToOpticalModel')
+        transformNode.CanApplyNonLinearTransforms()
+        matrix = lmt.GetMatrix()
+        transformNode.SetMatrixTransformToParent(matrix)
+
+        slicer.mrmlScene.AddNode(transformNode)
+        print "Landmark Transform completed succesfully."
 
 
 class PrinterInteractorTest(ScriptedLoadableModuleTest):
