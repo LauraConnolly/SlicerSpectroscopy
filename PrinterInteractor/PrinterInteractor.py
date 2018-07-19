@@ -287,6 +287,11 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         ImageRegistrationFormLayout.addRow(self.landmarkRegButton)
         self.landmarkRegButton.connect('clicked(bool)', self.onLandmarkRegButton)
 
+        self.testButton2 = qt.QPushButton("testbutton")
+        self.testButton2.enabled = True
+        ImageRegistrationFormLayout.addRow(self.testButton2)
+        self.testButton2.connect('clicked(bool)', self.onTestButton)
+
         self.layout.addStretch(1)
 
     def cleanup(self):
@@ -429,6 +434,20 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     def onLandmarkRegButton(self):
         self.logic.landmarkRegistration()
 
+    def onTestButton(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+        UVthreshold = self.UVthresholdBar.value
+        # places a fiducial in the correct coordinate if tissue decision returns the same spectra as the reference spectra
+        # Note: for UV the spectrum comparison does not compare the average differences, instead the intensity at a particular wavelength
+        if (self.laserSelector.currentIndex) == 0:
+            if self.logic.spectrumComparisonUV(self.outputArraySelector.currentNode(),UVthreshold) == False:  # add a fiducial if the the tumor detecting function returns false
+                self.logic.get_coordinates()
+        elif (self.laserSelector.currentIndex) == 1:
+            if self.logic.spectrumComparison(self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
+                self.logic.get_coordinates()
+        else:
+            return
 
 #
 # PrinterInteractorLogic
@@ -722,10 +741,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         # intensityValue = pointsArray.GetComponent(62, 1)
 
         # wavelengthCheck = pointsArray.GetComponent(26,0) # use to varify which wavelength the tumor Check intensity corresponds to
-        tumorCheck = pointsArray.GetComponent(26,
-                                              1)  # check the 395th wavelength to determine if it sees the invisible ink or not
-
-        if tumorCheck < UVthreshold:  # threshold is variable using the slider widget on the GUI, useful because intensity difference is inconsistent
+        tumorCheck = pointsArray.GetComponent(26,1)  # check the 395th wavelength to determine if it sees the invisible ink or not
+        #print ("the val is %d:", pointsArray.GetComponent(30,0))
+        # TODO: play with UV numbers
+        if tumorCheck > UVthreshold:  # threshold is variable using the slider widget on the GUI, useful because intensity difference is inconsistent
             print "tumor"
             return False
         else:
@@ -787,7 +806,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def addToCurrentFiducialNode(self, xcoordinate, ycoordinate, zcoordinate):
         self.fiducialNode.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
         self.fiducialIndex = self.fiducialIndex + 1
-        print(self.fiducialIndex)
 
     def getLandmarkFiducialsCoordinate(self):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.landmarkCoordinateCmd, self.serialIGTLNode.GetID())
@@ -829,8 +847,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def addToLandmarkFiducialNode(self, xcoordinate, ycoordinate, zcoordinate):
         self.fiducialNode1.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
-        self.fiducialIndex = self.fiducialIndex + 1
-        print self.fiducialNode1.GetName()
+
 
     def getBoundaryFiducialsCoordinate(self):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.boundaryCoordinateCmd, self.serialIGTLNode.GetID())
@@ -1141,7 +1158,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         # for xValue in xrange(xMin, xMax, xResolution):
         for xValue in self.frange(xMin, xMax, xResolution):  # increment by 10 until 120
             # delay had xCoordinate aswell
-            delayMs = (xValue-xMin) * (timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to del
+            delayMs = (xValue-xMin) * ((timeValue / xResolution)/10)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to del
             self.XMovement(delayMs, xValue)
 
 
