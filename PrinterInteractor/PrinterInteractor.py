@@ -741,8 +741,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         # intensityValue = pointsArray.GetComponent(62, 1)
 
         # wavelengthCheck = pointsArray.GetComponent(26,0) # use to varify which wavelength the tumor Check intensity corresponds to
-        tumorCheck = pointsArray.GetComponent(26,1)  # check the 395th wavelength to determine if it sees the invisible ink or not
-        #print ("the val is %d:", pointsArray.GetComponent(30,0))
+        tumorCheck = pointsArray.GetComponent(32,1)  # was 26 last time
+
         # TODO: play with UV numbers
         if tumorCheck > UVthreshold:  # threshold is variable using the slider widget on the GUI, useful because intensity difference is inconsistent
             print "tumor"
@@ -1131,7 +1131,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         return xMin, xMax, yMin, yMax
 
     def ROIsearchXLoop(self, timeValue, xResolution, yResolution, xMin, xMax, yMin, yMax):
-        print "YOURE IN THE FUNCTION"
+     
         if xResolution < 2 or yResolution < 2:
             oscillatingTime = ((yMax -yMin) / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
             lengthOfOneWidth = (((xMax - xMin) / xResolution) * 2) * timeValue  # how long it takes to go back and forth once
@@ -1153,22 +1153,21 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def ROIsearchXWidthForward(self, xCoordinate, timeValue, xResolution, xMin, xMax):  # used to be passed xCoordinate
         # Move the width of the bed forward in the positive x direction
         # Corresponds to a timer called in printer interactor widget
-        print "in xwidth forward"
+
         self.scanTimer = qt.QTimer()
         # for xValue in xrange(xMin, xMax, xResolution):
         for xValue in self.frange(xMin, xMax, xResolution):  # increment by 10 until 120
             # delay had xCoordinate aswell
-            delayMs = (xValue-xMin) * ((timeValue / xResolution)/10)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to del
+            delayMs = xCoordinate + (xValue-xMin) * (timeValue / xResolution) + timeValue # added the divide by 10  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to del
             self.XMovement(delayMs, xValue)
-
 
     def ROIsearchXWidthBackward(self, xCoordinate, timeValue, xResolution, xMin, xMax):
         # Move the width of the bed backwards in the negative x direction
         # Corresponds to a timer called in printer interactor widget
-        print " in x width backwards"
+
         self.scanTimer = qt.QTimer()
         for xValue in self.backfrange(xMax, xMin, -xResolution):
-            delayMs = abs(xValue - (xMax)) * (timeValue / xResolution) + ((xMax - xMin) / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
+            delayMs = xCoordinate +  (((xMax - xMin)/xResolution) * timeValue) + (xMax - xValue)*(timeValue / abs(xResolution)) + timeValue
             self.XMovement(delayMs, xValue)
 
 
