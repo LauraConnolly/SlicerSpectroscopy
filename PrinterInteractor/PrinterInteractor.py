@@ -254,11 +254,11 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #
         # Center of Mass Button
         #
-        self.COMButton = qt.QPushButton("Center of Mass")
-        self.COMButton.toolTip = " Calculate and move to the center of mass of a ROI indicated by fiducials"
-        self.COMButton.enabled = True
-        ImageRegistrationFormLayout.addRow(self.COMButton)
-        self.COMButton.connect('clicked(bool)', self.goToCenterOfMass)
+        #self.COMButton = qt.QPushButton("Center of Mass")
+        #self.COMButton.toolTip = " Calculate and move to the center of mass of a ROI indicated by fiducials"
+        #self.COMButton.enabled = True
+        #ImageRegistrationFormLayout.addRow(self.COMButton)
+        #self.COMButton.connect('clicked(bool)', self.goToCenterOfMass)
         #
         # Follow Fiducials Button
         #
@@ -287,10 +287,10 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         ImageRegistrationFormLayout.addRow(self.landmarkRegButton)
         self.landmarkRegButton.connect('clicked(bool)', self.onLandmarkRegButton)
 
-        self.testButton2 = qt.QPushButton("testbutton")
-        self.testButton2.enabled = True
-        ImageRegistrationFormLayout.addRow(self.testButton2)
-        self.testButton2.connect('clicked(bool)', self.onTestButton)
+        #self.testButton2 = qt.QPushButton("testbutton")
+        #self.testButton2.enabled = True
+        #ImageRegistrationFormLayout.addRow(self.testButton2)
+        #self.testButton2.connect('clicked(bool)', self.onTestButton)
 
         self.layout.addStretch(1)
 
@@ -1334,9 +1334,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     # specific movement commands for keyboard control, necessary because of serialIGTLNode declaration
     def keyboardControlledXMovementForward(self, serialIGTLNode):  # x movement
         if self.currentXcoordinate < 120:
-            self.currentXcoordinate = self.currentXcoordinate + 5
+            self.currentXcoordinate = self.currentXcoordinate + 2
         else:
-            self.currentXcoordinate = self.currentXcoordinate - 5
+            self.currentXcoordinate = self.currentXcoordinate - 2
         self.xControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.xControlCmd.SetCommandName('SendText')
         self.xControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
@@ -1345,10 +1345,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.xControlCmd, serialIGTLNode.GetID())
 
     def keyboardControlledXMovementBackwards(self, serialIGTLNode):  # x movement
-        if self.currentXcoordinate > 5:
-            self.currentXcoordinate = self.currentXcoordinate - 5
+        if self.currentXcoordinate > 2:
+            self.currentXcoordinate = self.currentXcoordinate - 2
         else:
-            self.currentXcoordinate = self.currentXcoordinate + 5
+            self.currentXcoordinate = self.currentXcoordinate + 2
         self.xControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.xControlCmd.SetCommandName('SendText')
         self.xControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
@@ -1358,9 +1358,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def keyboardControlledYMovementForward(self, serialIGTLNode):  # y movement
         if self.currentYcoordinate < 120:
-            self.currentYcoordinate = self.currentYcoordinate + 5
+            self.currentYcoordinate = self.currentYcoordinate + 2
         else:
-            self.currentYcoordinate = self.currentYcoordinate - 5
+            self.currentYcoordinate = self.currentYcoordinate - 2
         self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.yControlCmd.SetCommandName('SendText')
         self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
@@ -1369,10 +1369,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, serialIGTLNode.GetID())
 
     def keyboardControlledYMovementBackwards(self, serialIGTLNode):  # y movement
-        if self.currentYcoordinate > 5:
-            self.currentYcoordinate = self.currentYcoordinate - 5
+        if self.currentYcoordinate > 2:
+            self.currentYcoordinate = self.currentYcoordinate - 2
         else:
-            self.currentYcoordinate = self.currentYcoordinate + 5
+            self.currentYcoordinate = self.currentYcoordinate + 2
         self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.yControlCmd.SetCommandName('SendText')
         self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
