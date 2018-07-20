@@ -437,18 +437,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     def onTestButton(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-        UVthreshold = self.UVthresholdBar.value
-        # places a fiducial in the correct coordinate if tissue decision returns the same spectra as the reference spectra
-        # Note: for UV the spectrum comparison does not compare the average differences, instead the intensity at a particular wavelength
-        if (self.laserSelector.currentIndex) == 0:
-            if self.logic.spectrumComparisonUV(self.outputArraySelector.currentNode(),UVthreshold) == False:  # add a fiducial if the the tumor detecting function returns false
-                self.logic.get_coordinates()
-        elif (self.laserSelector.currentIndex) == 1:
-            if self.logic.spectrumComparison(self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
-                self.logic.get_coordinates()
-        else:
-            return
-
+        self.logic.controlledZMovement(0)
 #
 # PrinterInteractorLogic
 #
@@ -1131,7 +1120,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         return xMin, xMax, yMin, yMax
 
     def ROIsearchXLoop(self, timeValue, xResolution, yResolution, xMin, xMax, yMin, yMax):
-     
+
         if xResolution < 2 or yResolution < 2:
             oscillatingTime = ((yMax -yMin) / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
             lengthOfOneWidth = (((xMax - xMin) / xResolution) * 2) * timeValue  # how long it takes to go back and forth once
