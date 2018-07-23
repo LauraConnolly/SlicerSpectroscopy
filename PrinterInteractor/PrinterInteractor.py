@@ -696,7 +696,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         # useful for debugging purposed
         # print self.averageSpectrumDifferences
 
-        if abs(self.averageSpectrumDifferences) < 9:  # < 7 for white and black
+        if abs(self.averageSpectrumDifferences) < 7:  # < 7 for white and black
             print " tumor"
             if self.firstComparison == 1:
                 self.get_coordinates()
