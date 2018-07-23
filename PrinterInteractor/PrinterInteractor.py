@@ -152,6 +152,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.yResolution_spinbox.setValue(10)
         PrinterControlFormLayout.addRow("Y resolution (mm/ step):", self.yResolution_spinbox)
         #
+        # Z movement
+        #
+        self.zResolution_spinbox = qt.QDoubleSpinBox()
+        self.zResolution_spinbox.setMinimum(-20)
+        self.zResolution_spinbox.setMaximum(120)
+        self.zResolution_spinbox.setValue(10)
+        PrinterControlFormLayout.addRow("Z resolution (mm/ step):", self.zResolution_spinbox)
+        #
         # Time per Reading
         #
         self.timeDelay_spinbox = qt.QSpinBox()
@@ -160,6 +168,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.timeDelay_spinbox.setValue(1000)
         # self.timeDelay_spinbox.setSingleStep(1000)
         PrinterControlFormLayout.addRow("Time for data delay (ms) :", self.timeDelay_spinbox)
+        #
+        # Z Movement
+        #
+        self.zButton = qt.QPushButton("Vertical Control")
+        self.zButton.toolTip = "Move over spectra of interest to collect reference."
+        self.zButton.enabled = True
+        PrinterControlFormLayout.addRow(self.zButton)
+        self.zButton.connect('clicked(bool)', self.onZResolutionButton)
         #
         # Fiducial Placement on/ off
         #
@@ -287,10 +303,10 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         ImageRegistrationFormLayout.addRow(self.landmarkRegButton)
         self.landmarkRegButton.connect('clicked(bool)', self.onLandmarkRegButton)
 
-        #self.testButton2 = qt.QPushButton("testbutton")
-        #self.testButton2.enabled = True
-        #ImageRegistrationFormLayout.addRow(self.testButton2)
-        #self.testButton2.connect('clicked(bool)', self.onTestButton)
+        self.testButton2 = qt.QPushButton("testbutton")
+        self.testButton2.enabled = True
+        ImageRegistrationFormLayout.addRow(self.testButton2)
+        self.testButton2.connect('clicked(bool)', self.onTestButton)
 
         self.layout.addStretch(1)
 
@@ -436,8 +452,26 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
     def onTestButton(self):
         self.ondoubleArrayNodeChanged()
+        # self.onSerialIGLTSelectorChanged()
+        UVthreshold = self.UVthresholdBar.value
+        # places a fiducial in the correct coordinate if tissue decision returns the same spectra as the reference spectra
+        # Note: for UV the spectrum comparison does not compare the average differences, instead the intensity at a particular wavelength
+        if (self.laserSelector.currentIndex) == 0:
+            if self.logic.spectrumComparisonUV(self.outputArraySelector.currentNode(),
+                                               UVthreshold) == False:  # add a fiducial if the the tumor detecting function returns false
+                self.logic.get_coordinates()
+        elif (self.laserSelector.currentIndex) == 1:
+            if self.logic.spectrumComparison(
+                    self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
+                self.logic.get_coordinates()
+        else:
+            return
+
+    def onZResolutionButton(self):
+        self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-        self.logic.controlledZMovement(0)
+        zValue = self.zResolution_spinbox.value
+        self.logic.controlledZMovement(zValue)
 #
 # PrinterInteractorLogic
 #
@@ -694,7 +728,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             self.averageSpectrumDifferences = self.averageSpectrumDifferences + (y[1] - x[1])
 
         # useful for debugging purposed
-        # print self.averageSpectrumDifferences
+        print self.averageSpectrumDifferences
 
         if abs(self.averageSpectrumDifferences) < 7:  # < 7 for white and black
             print " tumor"
@@ -1334,9 +1368,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     # specific movement commands for keyboard control, necessary because of serialIGTLNode declaration
     def keyboardControlledXMovementForward(self, serialIGTLNode):  # x movement
         if self.currentXcoordinate < 120:
-            self.currentXcoordinate = self.currentXcoordinate + 2
+            self.currentXcoordinate = self.currentXcoordinate + 5
         else:
-            self.currentXcoordinate = self.currentXcoordinate - 2
+            self.currentXcoordinate = self.currentXcoordinate - 5
         self.xControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.xControlCmd.SetCommandName('SendText')
         self.xControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
@@ -1346,9 +1380,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def keyboardControlledXMovementBackwards(self, serialIGTLNode):  # x movement
         if self.currentXcoordinate > 2:
-            self.currentXcoordinate = self.currentXcoordinate - 2
+            self.currentXcoordinate = self.currentXcoordinate - 5
         else:
-            self.currentXcoordinate = self.currentXcoordinate + 2
+            self.currentXcoordinate = self.currentXcoordinate + 5
         self.xControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.xControlCmd.SetCommandName('SendText')
         self.xControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
@@ -1358,9 +1392,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def keyboardControlledYMovementForward(self, serialIGTLNode):  # y movement
         if self.currentYcoordinate < 120:
-            self.currentYcoordinate = self.currentYcoordinate + 2
+            self.currentYcoordinate = self.currentYcoordinate + 5
         else:
-            self.currentYcoordinate = self.currentYcoordinate - 2
+            self.currentYcoordinate = self.currentYcoordinate - 5
         self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.yControlCmd.SetCommandName('SendText')
         self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
@@ -1370,9 +1404,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def keyboardControlledYMovementBackwards(self, serialIGTLNode):  # y movement
         if self.currentYcoordinate > 2:
-            self.currentYcoordinate = self.currentYcoordinate - 2
+            self.currentYcoordinate = self.currentYcoordinate - 5
         else:
-            self.currentYcoordinate = self.currentYcoordinate + 2
+            self.currentYcoordinate = self.currentYcoordinate + 5
         self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.yControlCmd.SetCommandName('SendText')
         self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
