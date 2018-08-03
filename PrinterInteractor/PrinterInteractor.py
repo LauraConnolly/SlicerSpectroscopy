@@ -158,7 +158,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.zResolution_spinbox.setMinimum(-20)
         self.zResolution_spinbox.setMaximum(120)
         self.zResolution_spinbox.setValue(10)
-        PrinterControlFormLayout.addRow("Z resolution (mm/ step):", self.zResolution_spinbox)
+        PrinterControlFormLayout.addRow("Z Position (distance from 0):", self.zResolution_spinbox)
         #
         # Time per Reading
         #
@@ -168,14 +168,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.timeDelay_spinbox.setValue(1000)
         # self.timeDelay_spinbox.setSingleStep(1000)
         PrinterControlFormLayout.addRow("Time for data delay (ms) :", self.timeDelay_spinbox)
-        #
-        # Z Movement
-        #
-        self.zButton = qt.QPushButton("Vertical Control")
-        self.zButton.toolTip = "Move over spectra of interest to collect reference."
-        self.zButton.enabled = True
-        PrinterControlFormLayout.addRow(self.zButton)
-        self.zButton.connect('clicked(bool)', self.onZResolutionButton)
+
         #
         # Fiducial Placement on/ off
         #
@@ -200,6 +193,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.learnSpectraButton.enabled = True
         PrinterControlFormLayout.addRow(self.learnSpectraButton)
         self.learnSpectraButton.connect('clicked(bool)', self.onLearnSpectraButton)
+        #
+        # Z Movement
+        #
+        self.zButton = qt.QPushButton("Vertical Control")
+        self.zButton.toolTip = "Move over spectra of interest to collect reference."
+        self.zButton.enabled = True
+        PrinterControlFormLayout.addRow(self.zButton)
+        self.zButton.connect('clicked(bool)', self.onZResolutionButton)
         #
         # Surface Scan Button
         #
@@ -252,6 +253,14 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         ContourTracingFormLayout.addRow(self.testButton)
         self.testButton.connect('clicked(bool)', self.onFindEdge)
         #
+        # Quadrant Resolution
+        #
+        self.quadResolution_spinbox = qt.QDoubleSpinBox()
+        self.quadResolution_spinbox.setMinimum(1)
+        self.quadResolution_spinbox.setMaximum(10)
+        self.quadResolution_spinbox.setValue(5)
+        ContourTracingFormLayout.addRow("Quadrant Searching Resolution (mm/ step):", self.quadResolution_spinbox)
+        #
         # Independent Contour Trace Button
         #
         self.independentEdgeTraceButton = qt.QPushButton("Trace Contour (after edge found, without systematic scan)")
@@ -270,11 +279,11 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #
         # Center of Mass Button
         #
-        #self.COMButton = qt.QPushButton("Center of Mass")
-        #self.COMButton.toolTip = " Calculate and move to the center of mass of a ROI indicated by fiducials"
-        #self.COMButton.enabled = True
-        #ImageRegistrationFormLayout.addRow(self.COMButton)
-        #self.COMButton.connect('clicked(bool)', self.goToCenterOfMass)
+        self.COMButton = qt.QPushButton("Center of Mass")
+        self.COMButton.toolTip = " Calculate and move to the center of mass of a ROI indicated by fiducials"
+        self.COMButton.enabled = True
+        ImageRegistrationFormLayout.addRow(self.COMButton)
+        self.COMButton.connect('clicked(bool)', self.goToCenterOfMass)
         #
         # Follow Fiducials Button
         #
@@ -302,11 +311,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.landmarkRegButton.enabled = True
         ImageRegistrationFormLayout.addRow(self.landmarkRegButton)
         self.landmarkRegButton.connect('clicked(bool)', self.onLandmarkRegButton)
-
-        self.testButton2 = qt.QPushButton("testbutton")
-        self.testButton2.enabled = True
-        ImageRegistrationFormLayout.addRow(self.testButton2)
-        self.testButton2.connect('clicked(bool)', self.onTestButton)
 
         self.layout.addStretch(1)
 
@@ -358,8 +362,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
             stopsToVisitX = 120 / xResolution
             stopsToVisitY = 120 / yResolution
 
-        for self.iterationTimingValue in self.logic.frange(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + (
-                10 * self.timeValue), self.timeValue):
+        for self.iterationTimingValue in self.logic.frange(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + (10 * self.timeValue), self.timeValue):
             self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
             self.iterationTimingValue = self.iterationTimingValue + self.timeValue
 
@@ -415,7 +418,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
         stopsToVisitX = (xMax - xMin) / xResolution
         stopsToVisitY = (yMax - yMin) / yResolution
-        for self.iterationTimingValue in self.logic.frange(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + 10 * self.timeValue,self.timeValue):
+        for self.iterationTimingValue in self.logic.frange(0, (stopsToVisitX * stopsToVisitY * self.timeValue) + 16 * self.timeValue,self.timeValue):
             self.tumorTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
             self.iterationTimingValue = self.iterationTimingValue + self.timeValue
 
@@ -431,7 +434,8 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     def onIndependentContourTrace(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-        self.logic.edgeTrace(self.outputArraySelector.currentNode())
+        quadrantResolution = self.quadResolution_spinbox.value
+        self.logic.edgeTrace(self.outputArraySelector.currentNode(), quadrantResolution)
 
     def onPlaceFiducials(self):
         self.ondoubleArrayNodeChanged()
@@ -449,23 +453,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
     def onLandmarkRegButton(self):
         self.logic.landmarkRegistration()
-
-    def onTestButton(self):
-        self.ondoubleArrayNodeChanged()
-        # self.onSerialIGLTSelectorChanged()
-        UVthreshold = self.UVthresholdBar.value
-        # places a fiducial in the correct coordinate if tissue decision returns the same spectra as the reference spectra
-        # Note: for UV the spectrum comparison does not compare the average differences, instead the intensity at a particular wavelength
-        if (self.laserSelector.currentIndex) == 0:
-            if self.logic.spectrumComparisonUV(self.outputArraySelector.currentNode(),
-                                               UVthreshold) == False:  # add a fiducial if the the tumor detecting function returns false
-                self.logic.get_coordinates()
-        elif (self.laserSelector.currentIndex) == 1:
-            if self.logic.spectrumComparison(
-                    self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
-                self.logic.get_coordinates()
-        else:
-            return
 
     def onZResolutionButton(self):
         self.ondoubleArrayNodeChanged()
@@ -497,8 +484,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     _ROIxbounds = []
     _ROIybounds = []
 
-    _pos = []
-
     def __init__(self):
         # general instantiations
         self.serialIGTLNode = None
@@ -507,9 +492,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.observerTags = []
         self.outputArrayNode = None
 
-        self.numberOfDataPoints = 100
+        self.numberOfSpectrumDataPoints = 100
         self.firstDataPointGenerated = 0
-        self.spectraCollectedflag = 0
+        self.spectraCollected = 0
         self.fiducialIndex = 0
         self.fiducialIndex2 = 0
         self.fiducialIndex3 = 0
@@ -669,13 +654,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         # Create arrays of data
         a = self.outputArrayNode.GetArray()
-        a.SetNumberOfTuples(self.numberOfDataPoints)
+        a.SetNumberOfTuples(self.numberOfSpectrumDataPoints)
 
         for row in xrange(numberOfRows):
             lineSource = vtk.vtkLineSource()
             lineSource.SetPoint1(0, row, 0)
             lineSource.SetPoint2(numberOfPoints - 1, row, 0)
-            lineSource.SetResolution(self.numberOfDataPoints - 1)
+            lineSource.SetResolution(self.numberOfSpectrumDataPoints - 1)
             probeFilter = vtk.vtkProbeFilter()
             probeFilter.SetInputConnection(lineSource.GetOutputPort())
             if vtk.VTK_MAJOR_VERSION <= 5:
@@ -685,10 +670,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             probeFilter.Update()
             probedPoints = probeFilter.GetOutput()
             probedPointScalars = probedPoints.GetPointData().GetScalars()
-            for i in xrange(self.numberOfDataPoints):
+            for i in xrange(self.numberOfSpectrumDataPoints):
                 a.SetComponent(i, row, probedPointScalars.GetTuple(i)[0])
 
-        for i in xrange(self.numberOfDataPoints):
+        for i in xrange(self.numberOfSpectrumDataPoints):
             a.SetComponent(i, 2, 0)
 
         probedPoints.GetPointData().GetScalars().Modified()
@@ -702,14 +687,14 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         for i in xrange(0, 101, 1):
             self.spectra.SetPoint(i, referencePointsArray.GetTuple(i))
 
-        self.spectraCollectedflag = 1
+        self.spectraCollected = 1
         print"Spectra collected."
         # 10 specifies coordinates to be float values
 
     # used for spectrum acquisition where there is a distinctive different between the spectra of the material of interest and surrounding material
     def spectrumComparison(self, outputArrayNode):
 
-        if self.spectraCollectedflag == 0:
+        if self.spectraCollected == 0:
             print " Error: reference spectrum not collected."
             return
 
@@ -730,7 +715,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         # useful for debugging purposed
         print self.averageSpectrumDifferences
 
-        if abs(self.averageSpectrumDifferences) < 7:  # < 7 for white and black
+        if abs(self.averageSpectrumDifferences) < 10:  # < 7 for white and black
             print " tumor"
             if self.firstComparison == 1:
                 self.get_coordinates()
@@ -824,10 +809,15 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def fiducialMarker(self, xcoordinate, ycoordinate, zcoordinate):
         self.fiducialNode = slicer.vtkMRMLMarkupsFiducialNode()
         slicer.mrmlScene.AddNode(self.fiducialNode)
+        self.fiducialNode.SetName("Irregularity")
+        self.fiducialNode.SetNthFiducialLabel(0, "")
+        #self.fiducialNode.GetNthFiducialLabel(0).replace("Irregularity", "")
         self.fiducialNode.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
 
     def addToCurrentFiducialNode(self, xcoordinate, ycoordinate, zcoordinate):
         self.fiducialNode.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
+        self.fiducialNode.SetNthFiducialLabel(self.fiducialIndex, "")
+        #self.fiducialNode.GetNthFiducialLabel(self.fiducialIndex).replace("Irregularity", "")
         self.fiducialIndex = self.fiducialIndex + 1
 
     def getLandmarkFiducialsCoordinate(self):
@@ -920,7 +910,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def edgeTrace(self, outputArrayNode):
 
         for i in xrange(0, 400000, 9000):
-            self.callQuadrantCheck(i, outputArrayNode)  # checks which region to continue in
+            self.callQuadrantCheck(i, outputArrayNode, quadrantResolution)  # checks which region to continue in
             self.callGetCoordinates(i + 5500)  # determines the coordinates of the edge point, places a fiducial there
             self.callNewOrigin(i + 7000)
 
@@ -928,9 +918,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         originTimer = qt.QTimer()
         originTimer.singleShot(delay, lambda: self.newOrigin())
 
-    def callQuadrantCheck(self, delay, outputArrayNode):
+    def callQuadrantCheck(self, delay, outputArrayNode, quadrantResolution):
         quadTimer = qt.QTimer()
-        quadTimer.singleShot(delay, lambda: self.checkQuadrantValues(outputArrayNode))
+        quadTimer.singleShot(delay, lambda: self.checkQuadrantValues(outputArrayNode, quadrantResolution))
 
     def callPrintFunc(self, delay):
         self.edgeTraceTimer.singleShot(delay, lambda: self.printFunc())
@@ -957,22 +947,22 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             self.readCoordinatesAtTimeInterval(x, outputArrayNode)
         self.moveBackToOriginalEdgePoint()
 
-    def checkQuadrantValues(self, outputArrayNode):
+    def checkQuadrantValues(self, outputArrayNode, quadrantResolution):
         # go right, back, left, forward until you determine which quadrant to continue in
         self.printTimer = qt.QTimer()
         index = len(self._savexcoordinate) - 1
         print(self._savexcoordinate)
         print(index)
-        self.callMovement(1000, (self._savexcoordinate[index] + 10), (self._saveycoordinate[index]))  # right 10
+        self.callMovement(1000, (self._savexcoordinate[index] + quadrantResolution), (self._saveycoordinate[index]))  # right 10
         self.readCoordinatesAtTimeInterval2(2000, outputArrayNode)
 
-        self.callMovement(2000, (self._savexcoordinate[index]), (self._saveycoordinate[index] - 10))  # back 10
+        self.callMovement(2000, (self._savexcoordinate[index]), (self._saveycoordinate[index] - quadrantResolution))  # back 10
         self.readCoordinatesAtTimeInterval2(3000, outputArrayNode)
 
-        self.callMovement(3000, (self._savexcoordinate[index] - 10), (self._saveycoordinate[index]))  # left 10
+        self.callMovement(3000, (self._savexcoordinate[index] - quadrantResolution), (self._saveycoordinate[index]))  # left 10
         self.readCoordinatesAtTimeInterval2(4000, outputArrayNode)
 
-        self.callMovement(4000, (self._savexcoordinate[index]), (self._saveycoordinate[index] + 10))  # forward 10
+        self.callMovement(4000, (self._savexcoordinate[index]), (self._saveycoordinate[index] + quadrantResolution))  # forward 10
         self.readCoordinatesAtTimeInterval2(5000, outputArrayNode)
 
         self.callMovement(5000, (self._savexcoordinate[index]), (self._saveycoordinate[index]))  # back to center
@@ -1120,7 +1110,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             # ras is the coordinate of the fiducial
 
     def findCenterOfMassOfFiducials(self):
-        ILfidList = slicer.util.getNode('MarkupsFiducial')
+        ILfidList = slicer.util.getNode('Irregularity')
         numFids = ILfidList.GetNumberOfFiducials()
         centerOfMass = [0, 0, 0]
         sumPos = np.zeros(3)
@@ -1131,7 +1121,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         centerOfMass = sumPos / numFids
         xcoord = centerOfMass[0]
         ycoord = centerOfMass[1]
-        self.controlledXYMovement(xcoord, ycoord)
+        print xcoord, ycoord
+        #self.controlledXYMovement(xcoord, ycoord)
 
     def ROIsystematicSearch(self):
         ILfidList = slicer.util.getNode('BoundaryPoints')
@@ -1368,9 +1359,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     # specific movement commands for keyboard control, necessary because of serialIGTLNode declaration
     def keyboardControlledXMovementForward(self, serialIGTLNode):  # x movement
         if self.currentXcoordinate < 120:
-            self.currentXcoordinate = self.currentXcoordinate + 5
+            self.currentXcoordinate = self.currentXcoordinate + 1
         else:
-            self.currentXcoordinate = self.currentXcoordinate - 5
+            self.currentXcoordinate = self.currentXcoordinate - 1
         self.xControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.xControlCmd.SetCommandName('SendText')
         self.xControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
@@ -1379,10 +1370,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.xControlCmd, serialIGTLNode.GetID())
 
     def keyboardControlledXMovementBackwards(self, serialIGTLNode):  # x movement
-        if self.currentXcoordinate > 2:
-            self.currentXcoordinate = self.currentXcoordinate - 5
+        if self.currentXcoordinate > 1:
+            self.currentXcoordinate = self.currentXcoordinate - 1
         else:
-            self.currentXcoordinate = self.currentXcoordinate + 5
+            self.currentXcoordinate = self.currentXcoordinate + 1
         self.xControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.xControlCmd.SetCommandName('SendText')
         self.xControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
@@ -1392,9 +1383,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def keyboardControlledYMovementForward(self, serialIGTLNode):  # y movement
         if self.currentYcoordinate < 120:
-            self.currentYcoordinate = self.currentYcoordinate + 5
+            self.currentYcoordinate = self.currentYcoordinate + 1
         else:
-            self.currentYcoordinate = self.currentYcoordinate - 5
+            self.currentYcoordinate = self.currentYcoordinate - 1
         self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.yControlCmd.SetCommandName('SendText')
         self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
@@ -1403,10 +1394,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, serialIGTLNode.GetID())
 
     def keyboardControlledYMovementBackwards(self, serialIGTLNode):  # y movement
-        if self.currentYcoordinate > 2:
-            self.currentYcoordinate = self.currentYcoordinate - 5
+        if self.currentYcoordinate > 1:
+            self.currentYcoordinate = self.currentYcoordinate - 1
         else:
-            self.currentYcoordinate = self.currentYcoordinate + 5
+            self.currentYcoordinate = self.currentYcoordinate + 1
         self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.yControlCmd.SetCommandName('SendText')
         self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
