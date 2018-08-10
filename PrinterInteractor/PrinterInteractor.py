@@ -867,7 +867,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     # independent edge tracing: the following code was developed using a series of qt single shot timers and a root searching algorithm
     # to determine the approximate boundaries of an image without a systematic search.
 
-    def edgeTrace(self, outputArrayNode):
+    def edgeTrace(self, outputArrayNode, quadrantResolution):
 
         for i in xrange(0, 400000, 9000):
             self.callQuadrantCheck(i, outputArrayNode, quadrantResolution)  # checks which region to continue in
@@ -897,15 +897,20 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.edgeTraceTimer.singleShot(delay, lambda: self.get_coordinates())
 
     def findAndMoveToEdge(self, outputArrayNode):
+        # ROI Contour Tracing 
+        xMin, xMax, yMin, yMax =  self.ROIsystematicSearch()
         self.cutInTimer = qt.QTimer()
         self.edgeTraceTimer = qt.QTimer()
         # move forward until reference spectra is observed then return to that spot
-        for y in xrange(0, 62, 2):
-            delayMs = ((y / 2) * 500) + 500
+        for y in xrange(xMin, xMax + 1, 1):
+            delayMs = ((y / 2) * 500) - 2000
             self.callMovement(delayMs, y, y)
-        for x in xrange(0, 15500, 500):
+
+        lastdelay = ((yMax + 1) / 2) * 500
+
+        for x in xrange(0, lastdelay, 500):
             self.readCoordinatesAtTimeInterval(x, outputArrayNode)
-        self.moveBackToOriginalEdgePoint()
+        self.moveBackToOriginalEdgePoint(lastdelay)
 
     def checkQuadrantValues(self, outputArrayNode, quadrantResolution):
         # go right, back, left, forward until you determine which quadrant to continue in
@@ -946,9 +951,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.edgeTraceTimer.singleShot(delay, lambda: self.spectrumComparison(
             outputArrayNode))  # only difference was spectrum comparision 3 had < 7 rather than 9
 
-    def moveBackToOriginalEdgePoint(self):
+    def moveBackToOriginalEdgePoint(self, lastdelay):
         x = len(self._savexcoordinate) - 1
-        self.edgeTraceTimer.singleShot(16500, lambda: self.controlledXYMovement(self._savexcoordinate[x],self._saveycoordinate[x]))
+        self.edgeTraceTimer.singleShot(lastdelay, lambda: self.controlledXYMovement(self._savexcoordinate[x],self._saveycoordinate[x]))
 
     def findTrajectory(self, outputArrayNode):
         self.trajectoryTimer = qt.QTimer()
