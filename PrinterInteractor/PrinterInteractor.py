@@ -95,19 +95,19 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #
         # Wavelength Selector
         #
-        self.laserSelector = qt.QComboBox()
-        self.laserSelector.insertItem(1, "UV: 395 nm ")
-        self.laserSelector.insertItem(2, "RED: 660 nm")
-        DeviceSelectionFormLayout.addRow("Laser Wavelength :", self.laserSelector)
+        self.probeSelector = qt.QComboBox()
+        self.probeSelector.insertItem(1, "RED: 660 nm")
+        self.probeSelector.insertItem(2, "UV: 395 nm ")
+        DeviceSelectionFormLayout.addRow("Laser Wavelength :", self.probeSelector)
         #
         # UV Threshold Bar
         #
-        self.UVthresholdBar = ctk.ctkSliderWidget()
-        self.UVthresholdBar.singleStep = 0.1
-        self.UVthresholdBar.minimum = 0
-        self.UVthresholdBar.maximum = 1
-        self.UVthresholdBar.value = 0.5
-        DeviceSelectionFormLayout.addRow(" UV Intensity at 530 nm wavelength: ", self.UVthresholdBar)
+        #self.UVthresholdBar = ctk.ctkSliderWidget()
+        #self.UVthresholdBar.singleStep = 0.1
+        #self.UVthresholdBar.minimum = 0
+        #self.UVthresholdBar.maximum = 1
+        #self.UVthresholdBar.value = 0.5
+        #DeviceSelectionFormLayout.addRow(" UV Intensity at 530 nm wavelength: ", self.UVthresholdBar)
         #
         # Learn Spectra Button
         #
@@ -201,11 +201,11 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #
         # Z Movement
         #
-        self.zButton = qt.QPushButton("Vertical Control")
-        self.zButton.toolTip = "Move over spectra of interest to collect reference."
-        self.zButton.enabled = True
-        PrinterControlFormLayout.addRow(self.zButton)
-        self.zButton.connect('clicked(bool)', self.onZResolutionButton)
+        self.verticalControlButton = qt.QPushButton("Vertical Control")
+        self.verticalControlButton.toolTip = "Move over spectra of interest to collect reference."
+        self.verticalControlButton.enabled = True
+        PrinterControlFormLayout.addRow(self.verticalControlButton)
+        self.verticalControlButton.connect('clicked(bool)', self.onZResolutionButton)
         #
         # Surface Scan Button
         #
@@ -302,6 +302,19 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     def cleanup(self):
         pass
 
+    def onSerialIGLTSelectorChanged(self):
+        self.logic.setSerialIGTLNode(serialIGTLNode=self.inputSelector.currentNode())
+        pass
+
+    def ondoubleArrayNodeChanged(self):
+        self.logic.setdoubleArrayNode(doubleArrayNode=self.inputSelector.currentNode())
+        pass
+
+    def onLearnSpectraButton(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+        self.logic.getSpectralData(self.outputArraySelector.currentNode())
+
     def onHomeButton(self, SerialIGTLNode):
         self.onSerialIGLTSelectorChanged()
         self.logic.home()
@@ -310,13 +323,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.logic.declareShortcut(serialIGTLNode=self.inputSelector.currentNode())
         print "Shortcuts activated."
 
-    def onSerialIGLTSelectorChanged(self):
-        self.logic.setSerialIGTLNode(serialIGTLNode=self.inputSelector.currentNode())
-        pass  
-
-    def ondoubleArrayNodeChanged(self):
-        self.logic.setdoubleArrayNode(doubleArrayNode=self.inputSelector.currentNode())
-        pass
 
     def onScanButton(self):
         # The lowest resolution this function can be used at is 2x2 mm/step, otherwise it will overload the windows dispatcher
@@ -345,10 +351,10 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.ondoubleArrayNodeChanged()
         UVthreshold = self.UVthresholdBar.value
         # Note: for UV the spectrum comparison does not compare the average differences, instead the intensity at a particular wavelength
-        if (self.laserSelector.currentIndex) == 0:
+        if (self.probeSelector.currentIndex) == 0:
             if self.logic.spectrumComparisonUV(self.outputArraySelector.currentNode(),UVthreshold) == False:  # add a fiducial if the the tumor detecting function returns false
                 self.logic.get_coordinates()
-        elif (self.laserSelector.currentIndex) == 1:
+        elif (self.probeSelector.currentIndex) == 1:
             if self.logic.spectrumComparison(self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
                 self.logic.get_coordinates()
         else:
@@ -358,16 +364,16 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         # Turns off fiducial Marking when checked
         self.logic.fiducialMarkerChecked()
 
-    def onLearnSpectraButton(self):
+    def onZResolutionButton(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
-        self.logic.getSpectralData(self.outputArraySelector.currentNode())
+        zValue = self.zResolution_spinbox.value
+        self.logic.controlledZMovement(zValue)
 
     def onStopButton(self):
         self.onSerialIGLTSelectorChanged()
         self.logic.emergencyStop()
         # Note: the stop command uses G-code command M112 which requires slicer reboot and printer reboot after each usage.
-
 
     def onPlaceBoundaries(self):
         self.ondoubleArrayNodeChanged()
@@ -400,7 +406,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
     def onFindConvexHull(self):
         self.logic.convexHull()
 
-
     def onFindEdge(self):
         # Use to find the edge of the area of interest before independent edge tracing
         self.ondoubleArrayNodeChanged()
@@ -418,17 +423,9 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.onSerialIGLTSelectorChanged()
         self.logic.getLandmarkFiducialsCoordinate()
 
-    def onICPregistration(self):
-        self.logic.ICPRegistration()
-
     def onLandmarkRegButton(self):
         self.logic.landmarkRegistration()
 
-    def onZResolutionButton(self):
-        self.ondoubleArrayNodeChanged()
-        self.onSerialIGLTSelectorChanged()
-        zValue = self.zResolution_spinbox.value
-        self.logic.controlledZMovement(zValue)
 
 #
 # PrinterInteractorLogic
@@ -494,6 +491,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.pointsForEdgeTracing = vtk.vtkPoints()
         self.edgeTracingTimerStart = 2000
 
+
         # instantiate coordinate values
         self.getCoordinateCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.getCoordinateCmd.SetCommandName('SendText')
@@ -515,8 +513,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.boundaryCoordinateCmd.SetCommandAttribute('DeviceId', "SerialDevice")
         self.boundaryCoordinateCmd.SetCommandTimeoutSec(1.0)
         self.boundaryCoordinateCmd.SetCommandAttribute('Text', 'M114')
-        self.boundaryCoordinateCmd.AddObserver(self.boundaryCoordinateCmd.CommandCompletedEvent,
-                                               self.onBoundaryCoordinateCmd)
+        self.boundaryCoordinateCmd.AddObserver(self.boundaryCoordinateCmd.CommandCompletedEvent,self.onBoundaryCoordinateCmd)
         # instantiate home command
         self.homeCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.homeCmd.SetCommandName('SendText')
@@ -554,40 +551,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.zControlCmd.SetCommandName('SendText')
         self.zControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
         self.zControlCmd.SetCommandTimeoutSec(1.0)
-
-    # these two functions offer the same functionality as xrange but are able to accept floating point values. Implemented to facilitate high resolution scanning.
-    def frange(self, start, end, stepsize):
-        while start < end:
-            yield start
-            start += stepsize
-
-    def backfrange(self, start, end, stepsize):
-        while start > end:
-            yield start
-            start += stepsize
-
-
-    def declareShortcut(self, serialIGTLNode):
-        # necessary to have this in a function activated by Active keyboard short cut function so that the movements can be instantiated after IGTL has already been instantiated.
-        self.installShortcutKeys(serialIGTLNode)
-
-    def installShortcutKeys(self, serialIGTLNode):
-
-        self.shortcuts = []
-        keysAndCallbacks = (
-            ('Right', lambda: self.keyboardControlledXMovementForward(serialIGTLNode)),
-            ('Left', lambda: self.keyboardControlledXMovementBackwards(serialIGTLNode)),
-            ('Up', lambda: self.keyboardControlledYMovementForward(serialIGTLNode)),
-            ('Down', lambda: self.keyboardControlledYMovementBackwards(serialIGTLNode)),
-            ('H', lambda: self.keyboardControlledHomeMovement(serialIGTLNode)),
-        )
-
-        for key, callback in keysAndCallbacks:
-            shortcut = qt.QShortcut(slicer.util.mainWindow())
-            shortcut.setKey(qt.QKeySequence(key))
-            shortcut.connect('activated()', callback)
-            self.shortcuts.append(shortcut)
-
     def setSerialIGTLNode(self, serialIGTLNode):
         self.serialIGTLNode = serialIGTLNode
 
@@ -645,7 +608,17 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         probedPoints.GetPointData().GetScalars().Modified()
 
-    # collect spectra for reference and comparison
+    # these two functions offer the same functionality as xrange but are able to accept floating point values. Implemented to facilitate high resolution scanning.
+    def frange(self, start, end, stepsize):
+        while start < end:
+            yield start
+            start += stepsize
+
+    def backfrange(self, start, end, stepsize):
+        while start > end:
+            yield start
+            start += stepsize
+
     def getSpectralData(self, outputArrayNode):
         self.referenceOutputArrayNode = outputArrayNode
         referencePointsArray = self.referenceOutputArrayNode.GetArray()
@@ -658,69 +631,31 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         print"Spectra collected."
         # 10 specifies coordinates to be float values
 
+    def home(self):
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.homeCmd, self.serialIGTLNode.GetID())
 
-    def spectrumComparison(self, outputArrayNode):
-        # used for spectrum acquisition where there is a distinctive difference between the spectra of the material of interest and surrounding material
+    def declareShortcut(self, serialIGTLNode):
+        # necessary to have this in a function activated by Active keyboard short cut function so that the movements can be instantiated after IGTL has already been instantiated.
+        self.installShortcutKeys(serialIGTLNode)
 
-        if self.spectraCollected == 0:
-            print " Error: reference spectrum not collected."
-            return
+    def installShortcutKeys(self, serialIGTLNode):
 
-        self.currentOutputArrayNode = outputArrayNode
-        currentPointsArray = self.currentOutputArrayNode.GetArray()
-        # Data is acquired from probe in a double array with each index corresponding to either wavelength or intensity
-        # There are 100 points (tuples) each consisting of one wavelength and a corresponding intensity
-        # The first index (0) is where wavelength values are stored
-        # The second index (1) is where intensities are stored
-        self.currentSpectrum.SetNumberOfPoints(100)
-        for i in xrange(0, 101, 1):
-            self.currentSpectrum.SetPoint(i, currentPointsArray.GetTuple(i))
+        self.shortcuts = []
+        keysAndCallbacks = (
+            ('Right', lambda: self.keyboardControlledXMovementForward(serialIGTLNode)),
+            ('Left', lambda: self.keyboardControlledXMovementBackwards(serialIGTLNode)),
+            ('Up', lambda: self.keyboardControlledYMovementForward(serialIGTLNode)),
+            ('Down', lambda: self.keyboardControlledYMovementBackwards(serialIGTLNode)),
+            ('H', lambda: self.keyboardControlledHomeMovement(serialIGTLNode)),
+        )
 
-        self.averageSpectrumDifferences = 0
+        for key, callback in keysAndCallbacks:
+            shortcut = qt.QShortcut(slicer.util.mainWindow())
+            shortcut.setKey(qt.QKeySequence(key))
+            shortcut.connect('activated()', callback)
+            self.shortcuts.append(shortcut)
 
-        for j in xrange(0, 101, 1):
-            x = self.currentSpectrum.GetPoint(j)
-            y = self.spectra.GetPoint(j)
-            self.averageSpectrumDifferences = self.averageSpectrumDifferences + (y[1] - x[1])
-
-        # useful for debugging purposed
-        print self.averageSpectrumDifferences
-
-        if abs(self.averageSpectrumDifferences) < 10:  # < 7 for white and black
-            print " tumor"
-            if self.firstComparison == 1:
-                self.get_coordinates()
-            if self.createTumorArray == 1:
-                self._tumorCheck.append(1)
-            return False
-        else:
-            print "healthy"
-            if self.createTumorArray == 1:
-                self._tumorCheck.append(0)
-            return True
-
-
-
-    def spectrumComparisonUV(self, outputArrayNode, UVthreshold):
-        # used with UV laser to distinguish between spectrums that vary in intensity by a small amount at a specific wavelength / data point
-        self.outputArrayNode = outputArrayNode
-        pointsArray = self.outputArrayNode.GetArray()
-
-        self.componentIndexWavelength = 0
-        self.componentIndexIntensity = 1
-
-
-        # wavelengthCheck = pointsArray.GetComponent(26,0) # use to varify which wavelength the tumor Check intensity corresponds to
-        tumorCheck = pointsArray.GetComponent(32,1)
-
-        # TODO: play with UV numbers
-        if tumorCheck > UVthreshold:  # threshold is variable using the slider widget on the GUI, implemented because intensity difference is inconsistent
-            print "tumor"
-            return False
-        else:
-            print "healthy"
-            return True
-
+                                                # Locational Information
     def get_coordinates(self):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.getCoordinateCmd, self.serialIGTLNode.GetID())
 
@@ -780,48 +715,178 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.fiducialNode.SetNthFiducialLabel(self.fiducialIndex, "")
         self.fiducialIndex = self.fiducialIndex + 1
 
-    def getLandmarkFiducialsCoordinate(self):
-        slicer.modules.openigtlinkremote.logic().SendCommand(self.landmarkCoordinateCmd, self.serialIGTLNode.GetID())
+                                                    # Spectrum Comparison
 
-    def onLandmarkCoordinateCmd(self, observer, eventid):
-        coordinateValues = self.landmarkCoordinateCmd.GetResponseMessage()
-        print("Command completed with status: " + self.landmarkCoordinateCmd.StatusToString(
-            self.landmarkCoordinateCmd.GetStatus()))
-        print("Response message: " + coordinateValues)
-        print("Full response: " + self.landmarkCoordinateCmd.GetResponseText())
-        # parsing the string for specific coordinate values
-        mylist = coordinateValues.split(" ")
+    def spectrumComparison(self, outputArrayNode):
+        # used for spectrum acquisition where there is a distinctive difference between the spectra of the material of interest and surrounding material
 
-        # Parse string for x coordinate value
-        xvalues = mylist[0].split(":")
-        self.xcoordinate = float(xvalues[1])
+        if self.spectraCollected == 0:
+            print " Error: reference spectrum not collected."
+            return
 
-        # Parse string for y coordinate value
-        yvalues = mylist[1].split(":")
-        self.ycoordinate = float(yvalues[1])
+        self.currentOutputArrayNode = outputArrayNode
+        currentPointsArray = self.currentOutputArrayNode.GetArray()
+        # Data is acquired from probe in a double array with each index corresponding to either wavelength or intensity
+        # There are 100 points (tuples) each consisting of one wavelength and a corresponding intensity
+        # The first index (0) is where wavelength values are stored
+        # The second index (1) is where intensities are stored
+        self.currentSpectrum.SetNumberOfPoints(100)
+        for i in xrange(0, 101, 1):
+            self.currentSpectrum.SetPoint(i, currentPointsArray.GetTuple(i))
 
-        # Parse string for z coordinate value
-        zvalues = mylist[2].split(":")
-        self.zcoordinate = float(zvalues[1])
+        self.averageSpectrumDifferences = 0
 
-        if self.fiducialIndex2 < 1:
-            self.landmarkFiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
-            self.fiducialIndex2 = self.fiducialIndex2 + 1
-        elif self.fiducialIndex == 1234:
-            return self.xcoordinate
+        for j in xrange(0, 101, 1):
+            x = self.currentSpectrum.GetPoint(j)
+            y = self.spectra.GetPoint(j)
+            self.averageSpectrumDifferences = self.averageSpectrumDifferences + (y[1] - x[1])
+
+        # useful for debugging purposed
+        print self.averageSpectrumDifferences
+
+        if abs(self.averageSpectrumDifferences) < 10:  # < 7 for white and black
+            print " tumor"
+            if self.firstComparison == 1:
+                self.get_coordinates()
+            if self.createTumorArray == 1:
+                self._tumorCheck.append(1)
+            return False
         else:
-            self.addToLandmarkFiducialNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
+            print "healthy"
+            if self.createTumorArray == 1:
+                self._tumorCheck.append(0)
+            return True
 
-    def landmarkFiducialMarker(self, xcoordinate, ycoordinate, zcoordinate):
-        self.fiducialNode1 = slicer.vtkMRMLMarkupsFiducialNode()
-        self.fiducialNode1.SetName("ModelLandmarkPoints")
-        slicer.mrmlScene.AddNode(self.fiducialNode1)
-        self.fiducialNode1.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
+    def spectrumComparisonUV(self, outputArrayNode, UVthreshold):
+        # used with UV laser to distinguish between spectrums that vary in intensity by a small amount at a specific wavelength / data point
+        self.outputArrayNode = outputArrayNode
+        pointsArray = self.outputArrayNode.GetArray()
 
-    def addToLandmarkFiducialNode(self, xcoordinate, ycoordinate, zcoordinate):
-        self.fiducialNode1.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
+        self.componentIndexWavelength = 0
+        self.componentIndexIntensity = 1
 
 
+        # wavelengthCheck = pointsArray.GetComponent(26,0) # use to varify which wavelength the tumor Check intensity corresponds to
+        tumorCheck = pointsArray.GetComponent(32,1)
+
+        # TODO: play with UV numbers
+        if tumorCheck > UVthreshold:  # threshold is variable using the slider widget on the GUI, implemented because intensity difference is inconsistent
+            print "tumor"
+            return False
+        else:
+            print "healthy"
+            return True
+                                    # Systematic Scanning Scheme
+
+    def yLoop(self, timeValue, yResolution, xResolution):
+        # the following code was developed to execute a y Movement at the beginning and end of successive x oscillations to ensure that the platform
+        # is systematically scanned along the y axis as well as the x
+        if xResolution < 2 or yResolution < 2:
+            firstDistance = (30 / xResolution)  # distance of one x oscillation
+            secondDistance = 2 * (30 / xResolution)  # distance of two x oscillations
+
+            self.yMovement((firstDistance + 2) * timeValue,
+                           yResolution)  # call yMovement once the first oscillation in the x direction is finished
+            self.yMovement((secondDistance + 1) * timeValue,
+                           yResolution * 2)  # call yMovement again once the second oscillation in the x direction is finished
+            self.i = 0
+            self.j = 0
+            for yValue in self.frange(yResolution * 3, 30 + yResolution,
+                                      yResolution * 2):  # third iteration of yMovement
+                delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + (
+                            (secondDistance * timeValue) * (self.i))
+                self.yMovement(delayMs, yValue)
+                self.i = self.i + 1
+            for yValue in self.frange(yResolution * 4, 30 + yResolution,
+                                      yResolution * 2):  # got ride of + yResolution in max
+                delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
+                self.yMovement(delayMs, yValue)
+                self.j = self.j + 1
+        else:
+            firstDistance = (120 / xResolution)  # distance of one x oscillation
+            secondDistance = 2 * (120 / xResolution)  # distance of two x oscillations
+
+            self.yMovement((firstDistance + 2) * timeValue,
+                           yResolution)  # call yMovement once the first oscillation in the x direction is finished
+            self.yMovement((secondDistance + 1) * timeValue,
+                           yResolution * 2)  # call yMovement again once the second oscillation in the x direction is finished
+            self.i = 0
+            self.j = 0
+            if yResolution < 38 or yResolution == 40:  # resolutions less than 40 will go right to the end of the platform, anything above 40 will stop at a distance %(120/yResolution) away
+                for yValue in self.frange(yResolution * 3, 120 + yResolution,
+                                          yResolution * 2):  # third iteration of yMovement
+                    delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + (
+                                (secondDistance * timeValue) * (self.i))
+                    self.yMovement(delayMs, yValue)
+                    self.i = self.i + 1
+                for yValue in self.frange(yResolution * 4, 120 + yResolution,
+                                          yResolution * 2):  # got ride of + yResolution in max
+                    delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
+                    self.yMovement(delayMs, yValue)
+                    self.j = self.j + 1
+            else:
+                for yValue in self.frange(yResolution * 3, 120, yResolution * 2):  # third iteration of yMovement
+                    delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + (
+                                (secondDistance * timeValue) * (self.i))
+                    self.yMovement(delayMs, yValue)
+                    self.i = self.i + 1
+                for yValue in self.frange(yResolution * 4, 120, yResolution * 2):  # got ride of + yResolution in max
+                    delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
+                    self.yMovement(delayMs, yValue)
+                    self.j = self.j + 1
+
+    def xLoop(self, timeValue, xResolution, yResolution):
+        # necessary for looping the x commands on static intervals
+        if xResolution < 2 or yResolution < 2:
+            oscillatingTime = (
+                                          30 / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
+            lengthOfOneWidth = ((120 / xResolution) * 2) * timeValue  # how long it takes to go back and forth once
+            # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
+            for xCoordinateValue in self.frange(0, (oscillatingTime * lengthOfOneWidth) + (lengthOfOneWidth),
+                                                lengthOfOneWidth):  # calls forwards and backwards as necessary
+                self.xWidthForward(xCoordinateValue, timeValue, xResolution)
+                self.xWidthBackwards(xCoordinateValue, timeValue, xResolution)
+        else:
+            oscillatingTime = (
+                                          120 / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
+            lengthOfOneWidth = ((120 / xResolution) * 2) * timeValue  # how long it takes to go back and forth once
+            # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
+            for xCoordinateValue in self.frange(0, (oscillatingTime * lengthOfOneWidth) + (lengthOfOneWidth),
+                                                lengthOfOneWidth):  # calls forwards and backwards as necessary
+                self.xWidthForward(xCoordinateValue, timeValue, xResolution)
+                self.xWidthBackwards(xCoordinateValue, timeValue, xResolution)
+
+    def xWidthForward(self, xCoordinate, timeValue, xResolution):  # used to be passed xCoordinate
+        # Move the width of the bed forward in the positive x direction
+        # Corresponds to a timer called in printer interactor widget
+        self.scanTimer = qt.QTimer()
+        if xResolution < 38 or xResolution == 40:
+            for xValue in self.frange(0, 120 + xResolution, xResolution):  # increment by 10 until 120
+                delayMs = xCoordinate + xValue * (
+                            timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
+                self.XMovement(delayMs, xValue)
+        else:
+            for xValue in self.frange(0, 120, xResolution):  # increment by 10 until 120
+                delayMs = xCoordinate + xValue * (
+                            timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
+                self.XMovement(delayMs, xValue)
+
+    def xWidthBackwards(self, xCoordinate, timeValue, xResolution):
+        # Move the width of the bed backwards in the negative x direction
+        # Corresponds to a timer called in printer interactor widget
+        self.scanTimer = qt.QTimer()
+        if xResolution < 38 or xResolution == 40:
+            for xValue in self.backfrange(120, -xResolution, -xResolution):
+                delayMs = abs(xValue - 120) * (timeValue / xResolution) + (
+                            120 / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
+                self.XMovement(delayMs, xValue)
+        else:
+            for xValue in self.backfrange(120, 0, -xResolution):
+                delayMs = abs(xValue - 120) * (timeValue / xResolution) + (
+                            120 / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
+                self.XMovement(delayMs, xValue)
+
+                                                # ROI Systematic Searching
     def getBoundaryFiducialsCoordinate(self):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.boundaryCoordinateCmd, self.serialIGTLNode.GetID())
 
@@ -864,157 +929,98 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.fiducialNode2.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
         self.fiducialIndex3 = self.fiducialIndex3 + 1
 
-    # independent edge tracing: the following code was developed using a series of qt single shot timers and a root searching algorithm
-    # to determine the approximate boundaries of an image without a systematic search.
+    def ROIsystematicSearch(self):
+        ILfidList = slicer.util.getNode('BoundaryPoints')
+        numFids = ILfidList.GetNumberOfFiducials()
 
-    def edgeTrace(self, outputArrayNode, quadrantResolution):
+        for i in xrange(numFids):
+            ras = [0, 0, 0]
+            pos = ILfidList.GetNthFiducialPosition(i, ras)
+            world = [0, 0, 0, 0]
+            ILfidList.GetNthFiducialWorldCoordinates(0, world)
+            xcoord = int(ras[0])
+            ycoord = int(ras[1])
+            self._ROIxbounds.append(xcoord)
+            self._ROIybounds.append(ycoord)
 
-        for i in xrange(0, 400000, 9000):
-            self.callQuadrantCheck(i, outputArrayNode, quadrantResolution)  # checks which region to continue in
-            self.callGetCoordinates(i + 5500)  # determines the coordinates of the edge point, places a fiducial there
-            self.callNewOrigin(i + 7000)
+        xMin = min(self._ROIxbounds)
+        xMax = max(self._ROIxbounds)
+        yMin = min(self._ROIybounds)
+        yMax = max(self._ROIybounds)
+        return xMin, xMax, yMin, yMax
 
-    def callNewOrigin(self, delay):
-        originTimer = qt.QTimer()
-        originTimer.singleShot(delay, lambda: self.newOrigin())
+    def ROIsearchXLoop(self, timeValue, xResolution, yResolution, xMin, xMax, yMin, yMax):
 
-    def callQuadrantCheck(self, delay, outputArrayNode, quadrantResolution):
-        quadTimer = qt.QTimer()
-        quadTimer.singleShot(delay, lambda: self.checkQuadrantValues(outputArrayNode, quadrantResolution))
-
-    def callPrintFunc(self, delay):
-        self.edgeTraceTimer.singleShot(delay, lambda: self.printFunc())
-
-    def callMovement(self, delay, xcoordinate, ycoordinate):
-        self.cutInTimer = qt.QTimer()
-        self.cutInTimer.singleShot(delay, lambda: self.controlledXYMovement(xcoordinate, ycoordinate))
-
-    def callGetCoordinates(self, delay):
-        coordTimer = qt.QTimer()
-        coordTimer.singleShot(delay, lambda: self.get_coordinates())
-
-    def call_getCoordinates(self, delay):
-        self.edgeTraceTimer.singleShot(delay, lambda: self.get_coordinates())
-
-    def findAndMoveToEdge(self, outputArrayNode):
-        # ROI Contour Tracing 
-        xMin, xMax, yMin, yMax =  self.ROIsystematicSearch()
-        self.cutInTimer = qt.QTimer()
-        self.edgeTraceTimer = qt.QTimer()
-        # move forward until reference spectra is observed then return to that spot
-        for y in xrange(xMin, xMax + 1, 1):
-            delayMs = ((y / 2) * 500) - 2000
-            self.callMovement(delayMs, y, y)
-
-        lastdelay = ((yMax + 1) / 2) * 500
-
-        for x in xrange(0, lastdelay, 500):
-            self.readCoordinatesAtTimeInterval(x, outputArrayNode)
-        self.moveBackToOriginalEdgePoint(lastdelay)
-
-    def checkQuadrantValues(self, outputArrayNode, quadrantResolution):
-        # go right, back, left, forward until you determine which quadrant to continue in
-        self.printTimer = qt.QTimer()
-        index = len(self._savexcoordinate) - 1
-        print(self._savexcoordinate)
-        print(index)
-        self.callMovement(1000, (self._savexcoordinate[index] + quadrantResolution), (self._saveycoordinate[index]))  # right 10
-        self.readCoordinatesAtTimeInterval2(2000, outputArrayNode)
-
-        self.callMovement(2000, (self._savexcoordinate[index]), (self._saveycoordinate[index] - quadrantResolution))  # back 10
-        self.readCoordinatesAtTimeInterval2(3000, outputArrayNode)
-
-        self.callMovement(3000, (self._savexcoordinate[index] - quadrantResolution), (self._saveycoordinate[index]))  # left 10
-        self.readCoordinatesAtTimeInterval2(4000, outputArrayNode)
-
-        self.callMovement(4000, (self._savexcoordinate[index]), (self._saveycoordinate[index] + quadrantResolution))  # forward 10
-        self.readCoordinatesAtTimeInterval2(5000, outputArrayNode)
-
-        self.callMovement(5000, (self._savexcoordinate[index]), (self._saveycoordinate[index]))  # back to center
-
-        self.callPrintFunc(7000)
-        self.startTrajectorySearch(outputArrayNode)
-        self.timerTracker = self.timerTracker + 6000
-
-    def printFunc(self):
-        print(self._tumorCheck)  # useful for debugging purposes
-
-    def readCoordinatesAtTimeInterval(self, delay, outputArrayNode):
-        self.firstComparison = 1
-        self.edgeTraceTimer.singleShot(delay, lambda: self.spectrumComparison(outputArrayNode))
-
-    def readCoordinatesAtTimeInterval2(self, delay, outputArrayNode):
-        self.createTumorArray = 1
-        self.edgeTraceTimer.singleShot(delay, lambda: self.spectrumComparison(outputArrayNode))
-
-    def readCoordinatesAtTimeInterval3(self, delay, outputArrayNode):
-        self.edgeTraceTimer.singleShot(delay, lambda: self.spectrumComparison(
-            outputArrayNode))  # only difference was spectrum comparision 3 had < 7 rather than 9
-
-    def moveBackToOriginalEdgePoint(self, lastdelay):
-        x = len(self._savexcoordinate) - 1
-        self.edgeTraceTimer.singleShot(lastdelay, lambda: self.controlledXYMovement(self._savexcoordinate[x],self._saveycoordinate[x]))
-
-    def findTrajectory(self, outputArrayNode):
-        self.trajectoryTimer = qt.QTimer()
-        index = len(self._tumorCheck)
-        y = len(self._savexcoordinate) - 1
-
-        if (self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
-            index - 2] == 0 and self._tumorCheck[index - 1] == 1) or ((
-                self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
-            index - 2] == 0 and self._tumorCheck[index - 1] == 1)):
-            print "Quadrant 2"
-            self.callMovement(0, self._savexcoordinate[y] - 4, self._saveycoordinate[y] + 6)
-
-        if (self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
-            index - 2] == 0 and self._tumorCheck[index - 1] == 0) or (
-                self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
-            index - 2] == 0 and self._tumorCheck[index - 1] == 0) or ((
-                self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
-            index - 2] == 1 and self._tumorCheck[index - 1] == 0)) or ((
-                self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
-            index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
-            print "Quadrant 1"
-            self.callMovement(0, self._savexcoordinate[y] + 4, self._saveycoordinate[y] + 6)
-
-        if (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
-            index - 2] == 1 and self._tumorCheck[index - 1] == 1) or (
-                self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
-            index - 2] == 1 and self._tumorCheck[index - 1] == 0) or ((
-                self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
-            index - 2] == 1 and self._tumorCheck[index - 1] == 1)) or ((
-                self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
-            index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
-            print "Quadrant 3"
-            self.callMovement(0, self._savexcoordinate[y] - 4, self._saveycoordinate[y] - 6)
-
-        if (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
-            index - 2] == 1 and self._tumorCheck[index - 1] == 0) or (
-                self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
-            index - 2] == 0 and self._tumorCheck[index - 1] == 0) or ((
-                self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
-            index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
-            print "Quadrant 4"
-            self.callMovement(0, self._savexcoordinate[y] + 4, self._saveycoordinate[y] - 6)
-
-        self.addedEdge = 0
-        self.call_getCoordinates(self.timerTracker + 1000)
-
-    def newOrigin(self):
-        self.addedEdge = 0
-        self.get_coordinates()
-        if self.fiducialIndex < 1:
-            self.fiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
-            self.fiducialIndex = self.fiducialIndex + 1
+        if xResolution < 2 or yResolution < 2:
+            oscillatingTime = ((
+                                           yMax - yMin) / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
+            lengthOfOneWidth = (((
+                                             xMax - xMin) / xResolution) * 2) * timeValue  # how long it takes to go back and forth once
+            # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
+            for xCoordinateValue in self.frange(0, (oscillatingTime * lengthOfOneWidth) + (lengthOfOneWidth),
+                                                lengthOfOneWidth):  # calls forwards and backwards as necessary
+                self.ROIsearchXWidthForward(xCoordinateValue, timeValue, xResolution, xMin, xMax)
+                self.ROIsearchXWidthBackward(xCoordinateValue, timeValue, xResolution, xMin, xMax)
         else:
-            self.addToCurrentFiducialNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
+            oscillatingTime = ((
+                                           yMax - yMin) / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
+            lengthOfOneWidth = (((
+                                             xMax - xMin) / xResolution) * 2) * timeValue  # how long it takes to go back and forth once
+            # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
 
-    def startTrajectorySearch(self, outputArrayNode):
-        trajTimer = qt.QTimer()
-        trajTimer.singleShot(self.startNext, lambda: self.findTrajectory(outputArrayNode))  # was self.startNext
+            for xCoordinateValue in self.frange(0, lengthOfOneWidth * oscillatingTime,
+                                                lengthOfOneWidth):  # calls forwards and backwards as necessary
 
-    # The following code was developed for contour tracing following a systamtic scan by determining the convex hull of a list of collected points
+                self.ROIsearchXWidthForward(xCoordinateValue, timeValue, xResolution, xMin, xMax)
+                self.ROIsearchXWidthBackward(xCoordinateValue, timeValue, xResolution, xMin, xMax)
+
+    def ROIsearchXWidthForward(self, xCoordinate, timeValue, xResolution, xMin, xMax):  # used to be passed xCoordinate
+        # Move the width of the bed forward in the positive x direction
+        # Corresponds to a timer called in printer interactor widget
+
+        self.scanTimer = qt.QTimer()
+        # for xValue in xrange(xMin, xMax, xResolution):
+        for xValue in self.frange(xMin, xMax, xResolution):  # increment by 10 until 120
+            # delay had xCoordinate aswell
+            delayMs = xCoordinate + (xValue - xMin) * (
+                        timeValue / xResolution) + timeValue  # added the divide by 10  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to del
+            self.XMovement(delayMs, xValue)
+
+    def ROIsearchXWidthBackward(self, xCoordinate, timeValue, xResolution, xMin, xMax):
+        # Move the width of the bed backwards in the negative x direction
+        # Corresponds to a timer called in printer interactor widget
+
+        self.scanTimer = qt.QTimer()
+        for xValue in self.backfrange(xMax, xMin, -xResolution):
+            delayMs = xCoordinate + (((xMax - xMin) / xResolution) * timeValue) + (xMax - xValue) * (
+                        timeValue / abs(xResolution)) + timeValue
+            self.XMovement(delayMs, xValue)
+
+    def ROIsearchYLoop(self, timeValue, yResolution, xResolution, yMin, yMax, xMin, xMax):
+        # specific intervals correspond to timeValues divisible by 1000
+        # The variances in intervals were timed specifically to account for mechanical delays with the printer
+
+        firstDistance = ((xMax - xMin) / xResolution)
+        secondDistance = 2 * ((xMax - xMin) / xResolution)
+        self.yMovement((firstDistance + 2) * timeValue, yResolution + yMin)
+        self.yMovement((secondDistance + 1) * timeValue, (yResolution * 2) + yMin)
+        self.i = 0
+        self.j = 0
+        for yValue in self.frange(yMin + (yResolution * 3), yMax + yResolution, yResolution * 2):
+            delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
+            self.yMovement(delayMs, yValue)
+            self.i = self.i + 1
+            print yValue
+        for yValue in self.frange(yMin + (yResolution * 4), yMax + yResolution, yResolution * 2):
+            delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
+            self.yMovement(delayMs, yValue)
+            print yValue
+            self.j = self.j + 1
+
+                                                # Contour Tracing - After Systematic Scan
+
+        # The following code was developed for contour tracing following a systamtic scan by determining the convex hull of a list of collected points
+
     def createPolyDataPoint(self, xcoordinate, ycoordinate, zcoordinate):
         if self.firstDataPointGenerated < 1:
             self.firstDataPointGenerated = self.firstDataPointGenerated + 1
@@ -1051,320 +1057,215 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.ZMovement(2000, -5)  # moves the probe down (useful for actual tracing if probe is replaced by a marker)
         self.ZMovement(2000 * pointLimit + 4000, 0)  # moves the probe back up after edge tracing is finished
 
-    # Image Registration functions
-    def callFollowFiducials(self):
-        fiducialTimer = qt.QTimer()
-        for delay in xrange(0, 3000, 1000):
-            fiducialTimer.singleShot(delay, lambda: self.followFiducialCoordinates())
+                                        # Contour Tracing - Independent of Systematic Scan
 
-    def followFiducialCoordinates(self):
-        ILfidList = slicer.util.getNode('MarkupsFiducial')  # was F
-        numFids = ILfidList.GetNumberOfFiducials()
 
-        for i in xrange(numFids):
-            ras = [0, 0, 0]
-            pos = ILfidList.GetNthFiducialPosition(i, ras)
-            world = [0, 0, 0, 0]
-            ILfidList.GetNthFiducialWorldCoordinates(0, world)
-            self.fiducialMovementDelay = self.fiducialMovementDelay + 1000
-            xcoord = abs(int(ras[0]))
-            ycoord = abs(int(ras[1]))
-            if xcoord < 120 and ycoord < 120:  # maintains that the coordinates stay within the test bed limitations
-                self.xyMovement(xcoord, ycoord, self.fiducialMovementDelay)
-            # ras is the coordinate of the fiducial
 
-    def findCenterOfMassOfFiducials(self):
-        ILfidList = slicer.util.getNode('Irregularity')
-        numFids = ILfidList.GetNumberOfFiducials()
-        centerOfMass = [0, 0, 0]
-        sumPos = np.zeros(3)
-        for i in xrange(numFids):
-            pos = np.zeros(3)
-            ILfidList.GetNthFiducialPosition(i, pos)
-            sumPos += pos
-        centerOfMass = sumPos / numFids
-        xcoord = centerOfMass[0]
-        ycoord = centerOfMass[1]
-        print xcoord, ycoord
-        #self.controlledXYMovement(xcoord, ycoord)
+    # independent edge tracing: the following code was developed using a series of qt single shot timers and a root searching algorithm
+    # to determine the approximate boundaries of an image without a systematic search.
 
-    def ROIsystematicSearch(self):
-        ILfidList = slicer.util.getNode('BoundaryPoints')
-        numFids = ILfidList.GetNumberOfFiducials()
+    def edgeTrace(self, outputArrayNode, quadrantResolution):
+        quadCheckTime = (quadrantResolution*5*1000) + 1000
+        for i in self.frange(0, 400000, quadCheckTime):
+            self.callQuadrantCheck(i, outputArrayNode, quadrantResolution)  # checks which region to continue in
+            self.callGetCoordinates(i + 5500)  # determines the coordinates of the edge point, places a fiducial there
+            self.callNewOrigin(i + 7000)
+            self.callCheckIfOff(i + 7000)
 
-        for i in xrange(numFids):
-            ras = [0, 0, 0]
-            pos = ILfidList.GetNthFiducialPosition(i, ras)
-            world = [0, 0, 0, 0]
-            ILfidList.GetNthFiducialWorldCoordinates(0, world)
-            xcoord = int(ras[0])
-            ycoord = int(ras[1])
-            self._ROIxbounds.append(xcoord)
-            self._ROIybounds.append(ycoord)
+    def callCheckIfOff(self,delay):
+        checktimer = qt.QTimer()
+        checktimer.singleShot(delay, lambda: self.CheckIfOff())
 
-        xMin = min(self._ROIxbounds)
-        xMax = max(self._ROIxbounds)
-        yMin = min(self._ROIybounds)
-        yMax = max(self._ROIybounds)
-        return xMin, xMax, yMin, yMax
+    def CheckIfOff(self):
+        if self.offSpecimen == 1:
+            print "off."
 
-    def ROIsearchXLoop(self, timeValue, xResolution, yResolution, xMin, xMax, yMin, yMax):
+    def callNewOrigin(self, delay):
+        originTimer = qt.QTimer()
+        originTimer.singleShot(delay, lambda: self.newOrigin())
 
-        if xResolution < 2 or yResolution < 2:
-            oscillatingTime = ((yMax -yMin) / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
-            lengthOfOneWidth = (((xMax - xMin) / xResolution) * 2) * timeValue  # how long it takes to go back and forth once
-            # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
-            for xCoordinateValue in self.frange(0, (oscillatingTime * lengthOfOneWidth) + (lengthOfOneWidth),lengthOfOneWidth):  # calls forwards and backwards as necessary
-                self.ROIsearchXWidthForward(xCoordinateValue, timeValue, xResolution, xMin, xMax)
-                self.ROIsearchXWidthBackward(xCoordinateValue, timeValue, xResolution, xMin, xMax)
+    def callQuadrantCheck(self, delay, outputArrayNode, quadrantResolution):
+        quadTimer = qt.QTimer()
+        quadTimer.singleShot(delay, lambda: self.checkQuadrantValues(outputArrayNode, quadrantResolution))
+
+    def callPrintFunc(self, delay):
+        self.edgeTraceTimer.singleShot(delay, lambda: self.printFunc())
+
+    def callMovement(self, delay, xcoordinate, ycoordinate):
+        self.cutInTimer = qt.QTimer()
+        self.cutInTimer.singleShot(delay, lambda: self.controlledXYMovement(xcoordinate, ycoordinate))
+
+    def callGetCoordinates(self, delay):
+        coordTimer = qt.QTimer()
+        coordTimer.singleShot(delay, lambda: self.get_coordinates())
+
+    def call_getCoordinates(self, delay):
+        self.edgeTraceTimer.singleShot(delay, lambda: self.get_coordinates())
+
+    def findAndMoveToEdge(self, outputArrayNode):
+        # ROI Contour Tracing
+        xMin, xMax, yMin, yMax =  self.ROIsystematicSearch()
+        self.cutInTimer = qt.QTimer()
+        self.edgeTraceTimer = qt.QTimer()
+        # move forward until reference spectra is observed then return to that spot
+        for y in xrange(xMin, xMax + 1, 1):
+            delayMs = ((y / 2) * 500) - 2000
+            self.callMovement(delayMs, y, y)
+
+        lastdelay = ((yMax + 1) / 2) * 500
+
+        for x in xrange(0, lastdelay, 500):
+            self.readCoordinatesAtTimeInterval(x, outputArrayNode)
+        self.moveBackToOriginalEdgePoint(lastdelay)
+
+    def checkQuadrantValues(self, outputArrayNode, quadrantResolution):
+        # go right, back, left, forward until you determine which quadrant to continue in
+        self.printTimer = qt.QTimer()
+        index = len(self._savexcoordinate) - 1
+
+        self.callMovement(1000, (self._savexcoordinate[index] + quadrantResolution), (self._saveycoordinate[index]))
+        self.readCoordinatesAtTimeInterval2(2000, outputArrayNode)
+
+        self.callMovement(2000, (self._savexcoordinate[index]), (self._saveycoordinate[index] - quadrantResolution))
+        self.readCoordinatesAtTimeInterval2(3000, outputArrayNode)
+
+        self.callMovement(3000, (self._savexcoordinate[index] - quadrantResolution), (self._saveycoordinate[index]))
+        self.readCoordinatesAtTimeInterval2(4000, outputArrayNode)
+
+        self.callMovement(4000, (self._savexcoordinate[index]), (self._saveycoordinate[index] + quadrantResolution))
+        self.readCoordinatesAtTimeInterval2(5000, outputArrayNode)
+
+        self.callMovement(5000, (self._savexcoordinate[index]), (self._saveycoordinate[index]))
+
+        self.callPrintFunc(7000)
+        self.startTrajectorySearch(outputArrayNode, quadrantResolution)
+        self.timerTracker = self.timerTracker + 6000
+
+    def printFunc(self):
+        print(self._tumorCheck)  # useful for debugging purposes
+
+    def readCoordinatesAtTimeInterval(self, delay, outputArrayNode):
+        self.firstComparison = 1
+        self.edgeTraceTimer.singleShot(delay, lambda: self.spectrumComparison(outputArrayNode))
+
+    def readCoordinatesAtTimeInterval2(self, delay, outputArrayNode):
+        self.createTumorArray = 1
+        self.edgeTraceTimer.singleShot(delay, lambda: self.spectrumComparison(outputArrayNode))
+
+    def readCoordinatesAtTimeInterval3(self, delay, outputArrayNode):
+        self.edgeTraceTimer.singleShot(delay, lambda: self.spectrumComparison(outputArrayNode))
+
+    def moveBackToOriginalEdgePoint(self, lastdelay):
+        x = len(self._savexcoordinate) - 1
+        self.edgeTraceTimer.singleShot(lastdelay, lambda: self.controlledXYMovement(self._savexcoordinate[x],self._saveycoordinate[x]))
+
+    def findTrajectory(self, outputArrayNode, quadrantResolution):
+        self.trajectoryTimer = qt.QTimer()
+        index = len(self._tumorCheck)
+        y = len(self._savexcoordinate) - 1
+
+        if (self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
+            index - 2] == 0 and self._tumorCheck[index - 1] == 1) or ((
+                self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
+            index - 2] == 0 and self._tumorCheck[index - 1] == 1)):
+            print "Quadrant 2"
+            self.callMovement(0, self._savexcoordinate[y] - (quadrantResolution - 1), self._saveycoordinate[y] + (quadrantResolution + 1))
+
+        if (self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
+            index - 2] == 0 and self._tumorCheck[index - 1] == 0) or (
+                self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
+            index - 2] == 0 and self._tumorCheck[index - 1] == 0) or ((
+                self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
+            index - 2] == 1 and self._tumorCheck[index - 1] == 0)) or ((
+                self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
+            index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
+            print "Quadrant 1"
+            self.callMovement(0, self._savexcoordinate[y] + (quadrantResolution - 1), self._saveycoordinate[y] + (quadrantResolution + 1))
+
+        if (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
+            index - 2] == 1 and self._tumorCheck[index - 1] == 1) or (
+                self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
+            index - 2] == 1 and self._tumorCheck[index - 1] == 0) or ((
+                self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
+            index - 2] == 1 and self._tumorCheck[index - 1] == 1)) or ((
+                self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
+            index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
+            print "Quadrant 3"
+            self.callMovement(0, self._savexcoordinate[y] - (quadrantResolution - 1), self._saveycoordinate[y] - (quadrantResolution + 1))
+
+        if (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
+            index - 2] == 1 and self._tumorCheck[index - 1] == 0) or (
+                self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
+            index - 2] == 0 and self._tumorCheck[index - 1] == 0) or ((
+                self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
+            index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
+            print "Quadrant 4"
+            self.callMovement(0, self._savexcoordinate[y] + (quadrantResolution - 1), self._saveycoordinate[y] - (quadrantResolution + 1))
+
+        if (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
+            index - 2] == 0 and self._tumorCheck[index - 1] == 0):
+            self.offSpecimen = 1
+
+        self.addedEdge = 0
+        self.call_getCoordinates(self.timerTracker + 1000)
+
+    def newOrigin(self):
+        self.addedEdge = 0
+        self.get_coordinates()
+        if self.fiducialIndex < 1:
+            self.fiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
+            self.fiducialIndex = self.fiducialIndex + 1
         else:
-            oscillatingTime = ((yMax- yMin) / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
-            lengthOfOneWidth = (((xMax-xMin) / xResolution) * 2) * timeValue  # how long it takes to go back and forth once
-            # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
-
-            for xCoordinateValue in self.frange(0, lengthOfOneWidth*oscillatingTime,lengthOfOneWidth):  # calls forwards and backwards as necessary
-
-                self.ROIsearchXWidthForward(xCoordinateValue, timeValue, xResolution, xMin, xMax)
-                self.ROIsearchXWidthBackward(xCoordinateValue, timeValue, xResolution, xMin, xMax)
+            self.addToCurrentFiducialNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
 
 
-    def ROIsearchXWidthForward(self, xCoordinate, timeValue, xResolution, xMin, xMax):  # used to be passed xCoordinate
-        # Move the width of the bed forward in the positive x direction
-        # Corresponds to a timer called in printer interactor widget
 
-        self.scanTimer = qt.QTimer()
-        # for xValue in xrange(xMin, xMax, xResolution):
-        for xValue in self.frange(xMin, xMax, xResolution):  # increment by 10 until 120
-            # delay had xCoordinate aswell
-            delayMs = xCoordinate + (xValue-xMin) * (timeValue / xResolution) + timeValue # added the divide by 10  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to del
-            self.XMovement(delayMs, xValue)
+    def startTrajectorySearch(self, outputArrayNode, quadrantResolution):
+        trajTimer = qt.QTimer()
+        trajTimer.singleShot(self.startNext, lambda: self.findTrajectory(outputArrayNode, quadrantResolution))  # was self.startNext
 
-    def ROIsearchXWidthBackward(self, xCoordinate, timeValue, xResolution, xMin, xMax):
-        # Move the width of the bed backwards in the negative x direction
-        # Corresponds to a timer called in printer interactor widget
+                                        # Image Registration Tools
 
-        self.scanTimer = qt.QTimer()
-        for xValue in self.backfrange(xMax, xMin, -xResolution):
-            delayMs = xCoordinate +  (((xMax - xMin)/xResolution) * timeValue) + (xMax - xValue)*(timeValue / abs(xResolution)) + timeValue
-            self.XMovement(delayMs, xValue)
+    def getLandmarkFiducialsCoordinate(self):
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.landmarkCoordinateCmd, self.serialIGTLNode.GetID())
 
+    def onLandmarkCoordinateCmd(self, observer, eventid):
+        coordinateValues = self.landmarkCoordinateCmd.GetResponseMessage()
+        print("Command completed with status: " + self.landmarkCoordinateCmd.StatusToString(
+            self.landmarkCoordinateCmd.GetStatus()))
+        print("Response message: " + coordinateValues)
+        print("Full response: " + self.landmarkCoordinateCmd.GetResponseText())
+        # parsing the string for specific coordinate values
+        mylist = coordinateValues.split(" ")
 
-    def ROIsearchYLoop(self, timeValue, yResolution, xResolution, yMin, yMax, xMin, xMax):
-        # specific intervals correspond to timeValues divisible by 1000
-        # The variances in intervals were timed specifically to account for mechanical delays with the printer
+        # Parse string for x coordinate value
+        xvalues = mylist[0].split(":")
+        self.xcoordinate = float(xvalues[1])
 
-        firstDistance = ((xMax - xMin) / xResolution)
-        secondDistance = 2 * ((xMax - xMin) / xResolution)
-        self.yMovement((firstDistance + 2) * timeValue, yResolution + yMin)
-        self.yMovement((secondDistance + 1) * timeValue, (yResolution * 2) + yMin)
-        self.i = 0
-        self.j = 0
-        for yValue in self.frange(yMin + (yResolution * 3), yMax + yResolution, yResolution * 2):
-            delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
-            self.yMovement(delayMs, yValue)
-            self.i = self.i + 1
-            print yValue
-        for yValue in self.frange(yMin + (yResolution * 4), yMax + yResolution, yResolution * 2):
-            delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
-            self.yMovement(delayMs, yValue)
-            print yValue
-            self.j = self.j + 1
+        # Parse string for y coordinate value
+        yvalues = mylist[1].split(":")
+        self.ycoordinate = float(yvalues[1])
 
-    # General Printer Movement Commands
-    def home(self):
-        slicer.modules.openigtlinkremote.logic().SendCommand(self.homeCmd, self.serialIGTLNode.GetID())
+        # Parse string for z coordinate value
+        zvalues = mylist[2].split(":")
+        self.zcoordinate = float(zvalues[1])
 
-    def emergencyStop(self):
-        # Writes to the printer to automatically stop all motors
-        # Requires reboot
-        slicer.modules.openigtlinkremote.logic().SendCommand(self.emergStopCmd, self.serialIGTLNode.GetID())
-        self.emergStopCmd.AddObserver(self.emergStopCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
-
-    def yLoop(self, timeValue, yResolution, xResolution):
-        # the following code was developed to execute a y Movement at the beginning and end of successive x oscillations to ensure that the platform
-        # is systematically scanned along the y axis as well as the x
-        if xResolution < 2 or yResolution < 2:
-            firstDistance = (30 / xResolution)  # distance of one x oscillation
-            secondDistance = 2 * (30 / xResolution)  # distance of two x oscillations
-
-            self.yMovement((firstDistance + 2) * timeValue,
-                           yResolution)  # call yMovement once the first oscillation in the x direction is finished
-            self.yMovement((secondDistance + 1) * timeValue,
-                           yResolution * 2)  # call yMovement again once the second oscillation in the x direction is finished
-            self.i = 0
-            self.j = 0
-            for yValue in self.frange(yResolution * 3, 30 + yResolution,yResolution * 2):  # third iteration of yMovement
-                delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
-                self.yMovement(delayMs, yValue)
-                self.i = self.i + 1
-            for yValue in self.frange(yResolution * 4, 30 + yResolution,yResolution * 2):  # got ride of + yResolution in max
-                delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
-                self.yMovement(delayMs, yValue)
-                self.j = self.j + 1
+        if self.fiducialIndex2 < 1:
+            self.landmarkFiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
+            self.fiducialIndex2 = self.fiducialIndex2 + 1
+        elif self.fiducialIndex == 1234:
+            return self.xcoordinate
         else:
-            firstDistance = (120 / xResolution)  # distance of one x oscillation
-            secondDistance = 2 * (120 / xResolution)  # distance of two x oscillations
+            self.addToLandmarkFiducialNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
 
-            self.yMovement((firstDistance + 2) * timeValue, yResolution)  # call yMovement once the first oscillation in the x direction is finished
-            self.yMovement((secondDistance + 1) * timeValue, yResolution * 2)  # call yMovement again once the second oscillation in the x direction is finished
-            self.i = 0
-            self.j = 0
-            if yResolution < 38 or yResolution == 40:  # resolutions less than 40 will go right to the end of the platform, anything above 40 will stop at a distance %(120/yResolution) away
-                for yValue in self.frange(yResolution * 3, 120 + yResolution,yResolution * 2):  # third iteration of yMovement
-                    delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
-                    self.yMovement(delayMs, yValue)
-                    self.i = self.i + 1
-                for yValue in self.frange(yResolution * 4, 120 + yResolution,yResolution * 2):  # got ride of + yResolution in max
-                    delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
-                    self.yMovement(delayMs, yValue)
-                    self.j = self.j + 1
-            else:
-                for yValue in self.frange(yResolution * 3, 120, yResolution * 2):  # third iteration of yMovement
-                    delayMs = (((secondDistance + firstDistance) + 2) * timeValue) + ((secondDistance * timeValue) * (self.i))
-                    self.yMovement(delayMs, yValue)
-                    self.i = self.i + 1
-                for yValue in self.frange(yResolution * 4, 120, yResolution * 2):  # got ride of + yResolution in max
-                    delayMs = ((((2 * secondDistance) + 1)) * timeValue) + ((secondDistance * timeValue) * (self.j))
-                    self.yMovement(delayMs, yValue)
-                    self.j = self.j + 1
+    def landmarkFiducialMarker(self, xcoordinate, ycoordinate, zcoordinate):
+        self.fiducialNode1 = slicer.vtkMRMLMarkupsFiducialNode()
+        self.fiducialNode1.SetName("ModelLandmarkPoints")
+        slicer.mrmlScene.AddNode(self.fiducialNode1)
+        self.fiducialNode1.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
 
-    def xLoop(self, timeValue, xResolution, yResolution):
-        # necessary for looping the x commands on static intervals
-        if xResolution < 2 or yResolution < 2:
-            oscillatingTime = (30 / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
-            lengthOfOneWidth = ((120 / xResolution) * 2) * timeValue  # how long it takes to go back and forth once
-            # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
-            for xCoordinateValue in self.frange(0, (oscillatingTime * lengthOfOneWidth) + (lengthOfOneWidth),lengthOfOneWidth):  # calls forwards and backwards as necessary
-                self.xWidthForward(xCoordinateValue, timeValue, xResolution)
-                self.xWidthBackwards(xCoordinateValue, timeValue, xResolution)
-        else:
-            oscillatingTime = (120 / yResolution) / 2  # determines how many times the scanner should oscillate back and forth
-            lengthOfOneWidth = ((120 / xResolution) * 2) * timeValue  # how long it takes to go back and forth once
-            # lengthOfOneWidth = 25 * timeValue # the amount of movements per oscillation back and forth
-            for xCoordinateValue in self.frange(0, (oscillatingTime * lengthOfOneWidth) + (lengthOfOneWidth),
-                                                lengthOfOneWidth):  # calls forwards and backwards as necessary
-                self.xWidthForward(xCoordinateValue, timeValue, xResolution)
-                self.xWidthBackwards(xCoordinateValue, timeValue, xResolution)
-
-    def xWidthForward(self, xCoordinate, timeValue, xResolution):  # used to be passed xCoordinate
-        # Move the width of the bed forward in the positive x direction
-        # Corresponds to a timer called in printer interactor widget
-        self.scanTimer = qt.QTimer()
-        if xResolution < 38 or xResolution == 40:
-            for xValue in self.frange(0, 120 + xResolution, xResolution):  # increment by 10 until 120
-                delayMs = xCoordinate + xValue * (timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
-                self.XMovement(delayMs, xValue)
-        else:
-            for xValue in self.frange(0, 120, xResolution):  # increment by 10 until 120
-                delayMs = xCoordinate + xValue * (timeValue / xResolution)  # xCoordinate ensures the clocks are starting at correct times and xValue * (timeValue / 10 ) increments according to delay
-                self.XMovement(delayMs, xValue)
-
-    def xWidthBackwards(self, xCoordinate, timeValue, xResolution):
-        # Move the width of the bed backwards in the negative x direction
-        # Corresponds to a timer called in printer interactor widget
-        self.scanTimer = qt.QTimer()
-        if xResolution < 38 or xResolution == 40:
-            for xValue in self.backfrange(120, -xResolution, -xResolution):
-                delayMs = abs(xValue - 120) * (timeValue / xResolution) + (120 / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
-                self.XMovement(delayMs, xValue)
-        else:
-            for xValue in self.backfrange(120, 0, -xResolution):
-                delayMs = abs(xValue - 120) * (timeValue / xResolution) + (120 / xResolution + 1) * timeValue + xCoordinate  # same principle as xWidth forwards but with abs value to account for decrementing values and 13*time value to offset starting interval
-                self.XMovement(delayMs, xValue)
-
-    def yMovement(self, timeValue, yResolution):
-        self.scanTimer = qt.QTimer()
-        self.scanTimer.singleShot(timeValue, lambda: self.controlledYMovement(yResolution))
-
-    def XMovement(self, timevar, movevar):
-        self.scanTimer = qt.QTimer()
-        self.scanTimer.singleShot(timevar, lambda: self.controlledXMovement(movevar))
-
-    def slowEdgeTracing(self, xcoordinate, ycoordinate, timevar):
-        self.edgetimer = qt.QTimer()
-        self.edgetimer.singleShot(timevar, lambda: self.controlledXYMovement(xcoordinate, ycoordinate))
-
-    def xyMovement(self, xcoordinate, ycoordinate, timevar):
-        self.scanTimer = qt.QTimer()
-        self.scanTimer.singleShot(timevar, lambda: self.controlledXYMovement(xcoordinate, ycoordinate))
-
-    def ZMovement(self, timeValue, zcoordinate):
-        self.scanTimer = qt.QTimer()
-        self.scanTimer.singleShot(timeValue, lambda: self.controlledZMovement(zcoordinate))
-
-    def controlledXYMovement(self, xcoordinate, ycoordinate):
-        self.xyControlCmd.SetCommandAttribute('Text', 'G1 X%d Y%d' % (xcoordinate, ycoordinate))
-        slicer.modules.openigtlinkremote.logic().SendCommand(self.xyControlCmd, self.serialIGTLNode.GetID())
-
-    def controlledXMovement(self, xCoordinate):  # x movement
-        self.xControlCmd.SetCommandAttribute('Text', 'G1 X%d' % (xCoordinate))
-        slicer.modules.openigtlinkremote.logic().SendCommand(self.xControlCmd, self.serialIGTLNode.GetID())
-
-    def controlledYMovement(self, yCoordinate):  # y movement
-        self.yControlCmd.SetCommandAttribute('Text', 'G1 Y%d' % (yCoordinate))
-        slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, self.serialIGTLNode.GetID())
-
-    def controlledZMovement(self, zcoordinate):
-        self.zControlCmd.SetCommandAttribute('Text', 'G1 Z%d' % (zcoordinate))
-        slicer.modules.openigtlinkremote.logic().SendCommand(self.zControlCmd, self.serialIGTLNode.GetID())
-
-    # specific movement commands for keyboard control, necessary because of serialIGTLNode declaration
-    def keyboardControlledXMovementForward(self, serialIGTLNode):  # x movement
-        if self.currentXcoordinate < 120:
-            self.currentXcoordinate = self.currentXcoordinate + 1
-        else:
-            self.currentXcoordinate = self.currentXcoordinate - 1
-        self.xControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-        self.xControlCmd.SetCommandName('SendText')
-        self.xControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-        self.xControlCmd.SetCommandTimeoutSec(1.0)
-        self.xControlCmd.SetCommandAttribute('Text', 'G1 X%d' % (self.currentXcoordinate))
-        slicer.modules.openigtlinkremote.logic().SendCommand(self.xControlCmd, serialIGTLNode.GetID())
-
-    def keyboardControlledXMovementBackwards(self, serialIGTLNode):  # x movement
-        if self.currentXcoordinate > 1:
-            self.currentXcoordinate = self.currentXcoordinate - 1
-        else:
-            self.currentXcoordinate = self.currentXcoordinate + 1
-        self.xControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-        self.xControlCmd.SetCommandName('SendText')
-        self.xControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-        self.xControlCmd.SetCommandTimeoutSec(1.0)
-        self.xControlCmd.SetCommandAttribute('Text', 'G1 X%d' % (self.currentXcoordinate))
-        slicer.modules.openigtlinkremote.logic().SendCommand(self.xControlCmd, serialIGTLNode.GetID())
-
-    def keyboardControlledYMovementForward(self, serialIGTLNode):  # y movement
-        if self.currentYcoordinate < 120:
-            self.currentYcoordinate = self.currentYcoordinate + 1
-        else:
-            self.currentYcoordinate = self.currentYcoordinate - 1
-        self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-        self.yControlCmd.SetCommandName('SendText')
-        self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-        self.yControlCmd.SetCommandTimeoutSec(1.0)
-        self.yControlCmd.SetCommandAttribute('Text', 'G1 Y%d' % (self.currentYcoordinate))
-        slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, serialIGTLNode.GetID())
-
-    def keyboardControlledYMovementBackwards(self, serialIGTLNode):  # y movement
-        if self.currentYcoordinate > 1:
-            self.currentYcoordinate = self.currentYcoordinate - 1
-        else:
-            self.currentYcoordinate = self.currentYcoordinate + 1
-        self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-        self.yControlCmd.SetCommandName('SendText')
-        self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-        self.yControlCmd.SetCommandTimeoutSec(1.0)
-        self.yControlCmd.SetCommandAttribute('Text', 'G1 Y%d' % (self.currentYcoordinate))
-        slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, serialIGTLNode.GetID())
-
-    def keyboardControlledHomeMovement(self, serialIGTLNode):
-        self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-        self.yControlCmd.SetCommandName('SendText')
-        self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-        self.yControlCmd.SetCommandTimeoutSec(1.0)
-        self.yControlCmd.SetCommandAttribute('Text', 'G28 X Y')
-        slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, serialIGTLNode.GetID())
-
+    def addToLandmarkFiducialNode(self, xcoordinate, ycoordinate, zcoordinate):
+        self.fiducialNode1.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
     def ICPRegistration(self):
         ILfidList = slicer.util.getNode("ImageLandmarkPoints")
         numFids = ILfidList.GetNumberOfFiducials()
@@ -1464,6 +1365,148 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         slicer.mrmlScene.AddNode(transformNode)
         print "Landmark Transform completed succesfully."
+
+    # Image Registration functions
+    #def callFollowFiducials(self):
+     #   fiducialTimer = qt.QTimer()
+     #   for delay in xrange(0, 3000, 1000):
+      #      fiducialTimer.singleShot(delay, lambda: self.followFiducialCoordinates())
+
+    #def followFiducialCoordinates(self):
+     #   ILfidList = slicer.util.getNode('MarkupsFiducial')  # was F
+      #  numFids = ILfidList.GetNumberOfFiducials()
+
+       # for i in xrange(numFids):
+        #    ras = [0, 0, 0]
+         #   pos = ILfidList.GetNthFiducialPosition(i, ras)
+        # world = [0, 0, 0, 0]
+         #   ILfidList.GetNthFiducialWorldCoordinates(0, world)
+          #  self.fiducialMovementDelay = self.fiducialMovementDelay + 1000
+           # xcoord = abs(int(ras[0]))
+            #ycoord = abs(int(ras[1]))
+            #if xcoord < 120 and ycoord < 120:  # maintains that the coordinates stay within the test bed limitations
+            #    self.xyMovement(xcoord, ycoord, self.fiducialMovementDelay)
+            # ras is the coordinate of the fiducial
+
+    #def findCenterOfMassOfFiducials(self):
+     #   ILfidList = slicer.util.getNode('Irregularity')
+      #  numFids = ILfidList.GetNumberOfFiducials()
+      #  centerOfMass = [0, 0, 0]
+      #  sumPos = np.zeros(3)
+      #  for i in xrange(numFids):
+      #      pos = np.zeros(3)
+       #     ILfidList.GetNthFiducialPosition(i, pos)
+        #    sumPos += pos
+        #centerOfMass = sumPos / numFids
+        #xcoord = centerOfMass[0]
+        #ycoord = centerOfMass[1]
+        #print xcoord, ycoord
+        #self.controlledXYMovement(xcoord, ycoord)
+
+
+
+                                        # General Printer Movement Commands
+
+
+    def emergencyStop(self):
+        # Writes to the printer to automatically stop all motors
+        # Requires reboot
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.emergStopCmd, self.serialIGTLNode.GetID())
+        self.emergStopCmd.AddObserver(self.emergStopCmd.CommandCompletedEvent, self.onPrinterCommandCompleted)
+
+
+    def yMovement(self, timeValue, yResolution):
+        self.scanTimer = qt.QTimer()
+        self.scanTimer.singleShot(timeValue, lambda: self.controlledYMovement(yResolution))
+
+    def XMovement(self, timevar, movevar):
+        self.scanTimer = qt.QTimer()
+        self.scanTimer.singleShot(timevar, lambda: self.controlledXMovement(movevar))
+
+    def slowEdgeTracing(self, xcoordinate, ycoordinate, timevar):
+        self.edgetimer = qt.QTimer()
+        self.edgetimer.singleShot(timevar, lambda: self.controlledXYMovement(xcoordinate, ycoordinate))
+
+    def xyMovement(self, xcoordinate, ycoordinate, timevar):
+        self.scanTimer = qt.QTimer()
+        self.scanTimer.singleShot(timevar, lambda: self.controlledXYMovement(xcoordinate, ycoordinate))
+
+    def ZMovement(self, timeValue, zcoordinate):
+        self.scanTimer = qt.QTimer()
+        self.scanTimer.singleShot(timeValue, lambda: self.controlledZMovement(zcoordinate))
+
+    def controlledXYMovement(self, xcoordinate, ycoordinate):
+        self.xyControlCmd.SetCommandAttribute('Text', 'G1 X%d Y%d' % (xcoordinate, ycoordinate))
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.xyControlCmd, self.serialIGTLNode.GetID())
+
+    def controlledXMovement(self, xCoordinate):  # x movement
+        self.xControlCmd.SetCommandAttribute('Text', 'G1 X%d' % (xCoordinate))
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.xControlCmd, self.serialIGTLNode.GetID())
+
+    def controlledYMovement(self, yCoordinate):  # y movement
+        self.yControlCmd.SetCommandAttribute('Text', 'G1 Y%d' % (yCoordinate))
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, self.serialIGTLNode.GetID())
+
+    def controlledZMovement(self, zcoordinate):
+        self.zControlCmd.SetCommandAttribute('Text', 'G1 Z%d' % (zcoordinate))
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.zControlCmd, self.serialIGTLNode.GetID())
+
+    # specific movement commands for keyboard control, necessary because of serialIGTLNode declaration
+    def keyboardControlledXMovementForward(self, serialIGTLNode):  # x movement
+        if self.currentXcoordinate < 120:
+            self.currentXcoordinate = self.currentXcoordinate + 1
+        else:
+            self.currentXcoordinate = self.currentXcoordinate - 1
+        self.xControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+        self.xControlCmd.SetCommandName('SendText')
+        self.xControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+        self.xControlCmd.SetCommandTimeoutSec(1.0)
+        self.xControlCmd.SetCommandAttribute('Text', 'G1 X%d' % (self.currentXcoordinate))
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.xControlCmd, serialIGTLNode.GetID())
+
+    def keyboardControlledXMovementBackwards(self, serialIGTLNode):  # x movement
+        if self.currentXcoordinate > 1:
+            self.currentXcoordinate = self.currentXcoordinate - 1
+        else:
+            self.currentXcoordinate = self.currentXcoordinate + 1
+        self.xControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+        self.xControlCmd.SetCommandName('SendText')
+        self.xControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+        self.xControlCmd.SetCommandTimeoutSec(1.0)
+        self.xControlCmd.SetCommandAttribute('Text', 'G1 X%d' % (self.currentXcoordinate))
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.xControlCmd, serialIGTLNode.GetID())
+
+    def keyboardControlledYMovementForward(self, serialIGTLNode):  # y movement
+        if self.currentYcoordinate < 120:
+            self.currentYcoordinate = self.currentYcoordinate + 1
+        else:
+            self.currentYcoordinate = self.currentYcoordinate - 1
+        self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+        self.yControlCmd.SetCommandName('SendText')
+        self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+        self.yControlCmd.SetCommandTimeoutSec(1.0)
+        self.yControlCmd.SetCommandAttribute('Text', 'G1 Y%d' % (self.currentYcoordinate))
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, serialIGTLNode.GetID())
+
+    def keyboardControlledYMovementBackwards(self, serialIGTLNode):  # y movement
+        if self.currentYcoordinate > 1:
+            self.currentYcoordinate = self.currentYcoordinate - 1
+        else:
+            self.currentYcoordinate = self.currentYcoordinate + 1
+        self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+        self.yControlCmd.SetCommandName('SendText')
+        self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+        self.yControlCmd.SetCommandTimeoutSec(1.0)
+        self.yControlCmd.SetCommandAttribute('Text', 'G1 Y%d' % (self.currentYcoordinate))
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, serialIGTLNode.GetID())
+
+    def keyboardControlledHomeMovement(self, serialIGTLNode):
+        self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+        self.yControlCmd.SetCommandName('SendText')
+        self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+        self.yControlCmd.SetCommandTimeoutSec(1.0)
+        self.yControlCmd.SetCommandAttribute('Text', 'G28 X Y')
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, serialIGTLNode.GetID())
 
 
 class PrinterInteractorTest(ScriptedLoadableModuleTest):
