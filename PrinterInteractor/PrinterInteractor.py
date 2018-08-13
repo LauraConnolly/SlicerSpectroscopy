@@ -47,20 +47,11 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
 
     def setup(self):
 
-        # self.installShortcutKeys()
 
         ScriptedLoadableModuleWidget.setup(self)
 
         # Instantiate and connect widgets ...
         self.logic = PrinterInteractorLogic()
-        #
-        # Device Selection Area - contains all of the functions specific to the optical device in use.
-        #
-        DeviceSelectionCollapsibleButton = ctk.ctkCollapsibleButton()
-        DeviceSelectionCollapsibleButton.text = "Device Selection "
-        self.layout.addWidget(DeviceSelectionCollapsibleButton)
-        DeviceSelectionCollapsibleButton.collapsed = True
-        DeviceSelectionFormLayout = qt.QFormLayout(DeviceSelectionCollapsibleButton)
         #
         # Parameters Area
         #
@@ -97,24 +88,15 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #
         self.probeSelector = qt.QComboBox()
         self.probeSelector.insertItem(1, "RED: 660 nm")
-        self.probeSelector.insertItem(2, "UV: 395 nm ")
-        DeviceSelectionFormLayout.addRow("Laser Wavelength :", self.probeSelector)
-        #
-        # UV Threshold Bar
-        #
-        #self.UVthresholdBar = ctk.ctkSliderWidget()
-        #self.UVthresholdBar.singleStep = 0.1
-        #self.UVthresholdBar.minimum = 0
-        #self.UVthresholdBar.maximum = 1
-        #self.UVthresholdBar.value = 0.5
-        #DeviceSelectionFormLayout.addRow(" UV Intensity at 530 nm wavelength: ", self.UVthresholdBar)
+        #self.probeSelector.insertItem(2, "UV: 395 nm ")
+        PrinterControlFormLayout.addRow("Laser Wavelength :", self.probeSelector)
         #
         # Learn Spectra Button
         #
-        self.learnSpectraButton = qt.QPushButton("Learn Spectra (necessary for 660 nm wavelength)")
+        self.learnSpectraButton = qt.QPushButton("Learn Spectra")
         self.learnSpectraButton.toolTip = "Move over spectra of interest to collect reference."
         self.learnSpectraButton.enabled = True
-        DeviceSelectionFormLayout.addRow(self.learnSpectraButton)
+        PrinterControlFormLayout.addRow(self.learnSpectraButton)
         self.learnSpectraButton.connect('clicked(bool)', self.onLearnSpectraButton)
         #
         # Home Button
@@ -323,10 +305,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.logic.declareShortcut(serialIGTLNode=self.inputSelector.currentNode())
         print "Shortcuts activated."
 
-
     def onScanButton(self):
-        # The lowest resolution this function can be used at is 2x2 mm/step, otherwise it will overload the windows dispatcher
-        # For higher resolution scanning, using the ROI Scanning tools
         
         # Printer Movement
         self.onSerialIGLTSelectorChanged()
@@ -451,47 +430,45 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     _ROIybounds = []
 
     def __init__(self):
-        # general instantiations
+
+        # General instantiations
         self.serialIGTLNode = None
         self.doubleArrayNode = None
         self.spectrumImageNode = None
         self.observerTags = []
         self.outputArrayNode = None
 
-        self.numberOfSpectrumDataPoints = 100
-        self.firstDataPointGenerated = 0
+        # Spectrum Analysis Variables
         self.spectraCollected = 0
-
-        # Variable used to determine whether or not a node is already instantiated
-        self.genFidIndex= 0
-        self.regFidIndex = 0
-        self.boundFidIndex = 0
-
         self.averageSpectrumDifferences = 0
-        self.fiducialMovementDelay = 0
-        self.currentXcoordinate = 0
-        self.currentYcoordinate = 0
-        self.edgePoint = 0
+        self.numberOfSpectrumDataPoints = 100
         self.firstComparison = 0
-        self.createTumorArray = 0
-        self.startNext = 6000
-        self.timerTracker = 0
-        self.checker = 0
-        # polydata definitions
+        self.currentSpectrum = vtk.vtkPoints()
         self.referenceSpectra = vtk.vtkPolyData()
         self.spectra = vtk.vtkPoints()
-        self.pointsForHull = vtk.vtkPoints()
-        self.currentSpectrum = vtk.vtkPoints()
 
-        # coordinate class declaration
+        # Cooridinate Variables
         self.xcoordinate = 0
         self.ycoordinate = 0
         self.zcoordinate = 0
+        self.genFidIndex = 0
+        self.regFidIndex = 0
+        self.boundFidIndex = 0
 
-        # independent edge tracing variables
+        # Contour Tracing Variables
+        self.pointsForHull = vtk.vtkPoints()
+        self.firstDataPointGenerated = 0
+        self.edgePoint = 0
         self.pointsForEdgeTracing = vtk.vtkPoints()
         self.edgeTracingTimerStart = 2000
+        self.createTumorArray = 0
+        self.startNext = 6000
+        self.timerTracker = 0
 
+        # General Movement Variables
+        self.fiducialMovementDelay = 0
+        self.currentXcoordinate = 0
+        self.currentYcoordinate = 0
 
         # instantiate coordinate values
         self.getCoordinateCmd = slicer.vtkSlicerOpenIGTLinkCommand()
@@ -658,6 +635,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             self.shortcuts.append(shortcut)
 
                                                             # Locational Information
+            
+    # These functions are used to access the coordinate location of the fiber probe and communicate that to slicer for application in the slicer 3D scene. 
 
     def parseCoords(self, mylist):
         # Parse string for x coordinate value
@@ -723,7 +702,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
 
                                                     # Spectrum Comparison
-
+    
+    # Spectrum comparison is used to determine where the live spectrum is the same as the reference spectrum collected before scanning. 
+    
     def spectrumComparison(self, outputArrayNode):
         
         if self.spectraCollected == 0:
@@ -973,7 +954,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 # This code was developed to facilitate automated edge tracing without any systematic scanning. The probe moves in at the specified resolution in a +x,-y,-x,+y pattern iteratively
 # and determines it's new trajectory based on the spectrum in each quadrant.
 
+    # TODO: fix this function
 
+    # These functions call functions at intervals specified by the edgeTrace function
     def callNewOrigin(self, delay):
         originTimer = qt.QTimer()
         originTimer.singleShot(delay, lambda: self.newOrigin())
@@ -982,8 +965,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         quadTimer = qt.QTimer()
         quadTimer.singleShot(delay, lambda: self.checkQuadrantValues(outputArrayNode, quadrantResolution))
 
-    def callPrintFunc(self, delay):
-        self.edgeTraceTimer.singleShot(delay, lambda: self.printFunc())
 
     def callMovement(self, delay, xcoordinate, ycoordinate):
         self.cutInTimer = qt.QTimer()
@@ -995,8 +976,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def call_getCoordinates(self, delay):
         self.edgeTraceTimer.singleShot(delay, lambda: self.get_coordinates())
-    def printFunc(self):
-        print(self._tumorCheck)  # useful for debugging purposes
 
     def readCoordinatesAtTimeInterval(self, delay, outputArrayNode):
         self.firstComparison = 1
@@ -1013,17 +992,16 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         x = len(self._savexcoordinate) - 1
         self.edgeTraceTimer.singleShot(lastdelay, lambda: self.controlledXYMovement(self._savexcoordinate[x],self._saveycoordinate[x]))
 
+
     def edgeTrace(self, outputArrayNode, quadrantResolution):
-        quadCheckTime = (quadrantResolution * 5 * 1000) + 1000
-        for i in self.frange(0, 400000, quadCheckTime):
+        qt = (quadrantResolution * 5 * 1000) + 1000
+        for i in self.frange(0, 400000, qt):
             self.callQuadrantCheck(i, outputArrayNode, quadrantResolution)
             self.callGetCoordinates(i + 5500)
             self.callNewOrigin(i + 7000)
 
     def findAndMoveToEdge(self, outputArrayNode):
-
         xMin, xMax, yMin, yMax =  self.ROIsystematicSearch()
-        self.cutInTimer = qt.QTimer()
         self.edgeTraceTimer = qt.QTimer()
 
         for y in xrange(xMin, xMax + 1, 1):
@@ -1034,6 +1012,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         for x in xrange(0, lastdelay, 500):
             self.readCoordinatesAtTimeInterval(x, outputArrayNode)
+
         self.moveBackToOriginalEdgePoint(lastdelay)
 
     def checkQuadrantValues(self, outputArrayNode, quadrantResolution):
@@ -1054,8 +1033,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.readCoordinatesAtTimeInterval2(5000, outputArrayNode)
 
         self.callMovement(5000, (self._savexcoordinate[index]), (self._saveycoordinate[index]))
-
-        self.callPrintFunc(7000)
+        
         self.startTrajectorySearch(outputArrayNode, quadrantResolution)
         self.timerTracker = self.timerTracker + 6000
 
