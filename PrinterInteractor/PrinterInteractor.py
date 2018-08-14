@@ -953,10 +953,14 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
 # This code was developed to facilitate automated edge tracing without any systematic scanning. The probe moves in at the specified resolution in a +x,-y,-x,+y pattern iteratively
 # and determines it's new trajectory based on the spectrum in each quadrant.
+        # Contour Tracing - Independent of Systematic Scan
 
-    # TODO: fix this function
+        # This code was developed to facilitate automated edge tracing without any systematic scanning. The probe moves in at the specified resolution in a +x,-y,-x,+y pattern iteratively
+        # and determines it's new trajectory based on the spectrum in each quadrant.
 
-    # These functions call functions at intervals specified by the edgeTrace function
+        # TODO: fix this function
+
+        # These functions call functions at intervals specified by the edgeTrace function
     def callNewOrigin(self, delay):
         originTimer = qt.QTimer()
         originTimer.singleShot(delay, lambda: self.newOrigin())
@@ -964,7 +968,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     def callQuadrantCheck(self, delay, outputArrayNode, quadrantResolution):
         quadTimer = qt.QTimer()
         quadTimer.singleShot(delay, lambda: self.checkQuadrantValues(outputArrayNode, quadrantResolution))
-
 
     def callMovement(self, delay, xcoordinate, ycoordinate):
         self.cutInTimer = qt.QTimer()
@@ -975,7 +978,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         coordTimer.singleShot(delay, lambda: self.get_coordinates())
 
     def call_getCoordinates(self, delay):
-        self.edgeTraceTimer.singleShot(delay, lambda: self.get_coordinates())
+        edgeTraceTimer = qt.QTimer()
+        edgeTraceTimer.singleShot(delay, lambda: self.get_coordinates())
 
     def readCoordinatesAtTimeInterval(self, delay, outputArrayNode):
         self.firstComparison = 1
@@ -990,25 +994,27 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def moveBackToOriginalEdgePoint(self, lastdelay):
         x = len(self._savexcoordinate) - 1
-        self.edgeTraceTimer.singleShot(lastdelay, lambda: self.controlledXYMovement(self._savexcoordinate[x],self._saveycoordinate[x]))
-
+        self.edgeTraceTimer.singleShot(lastdelay, lambda: self.controlledXYMovement(self._savexcoordinate[x],
+                                                                                        self._saveycoordinate[x]))
 
     def edgeTrace(self, outputArrayNode, quadrantResolution):
-        qt = (quadrantResolution * 5 * 1000) + 1000
+        qt = (5 * 1000) + 4000
         for i in self.frange(0, 400000, qt):
             self.callQuadrantCheck(i, outputArrayNode, quadrantResolution)
-            self.callGetCoordinates(i + 5500)
-            self.callNewOrigin(i + 7000)
+            self.callGetCoordinates(i + 7000)
+            self.callNewOrigin(i + 7500)
 
     def findAndMoveToEdge(self, outputArrayNode):
-        xMin, xMax, yMin, yMax =  self.ROIsystematicSearch()
+        xMin, xMax, yMin, yMax = self.ROIsystematicSearch()
         self.edgeTraceTimer = qt.QTimer()
+        self.callMovement(0,xMin,yMin)
 
         for y in xrange(xMin, xMax + 1, 1):
-            delayMs = ((y / 2) * 500) - 2000
-            self.callMovement(delayMs, y, y)
+            delayMs = ((y / 2) * 500) - 6000
+            self.callMovement(delayMs, y, yMin)
+            yMin = yMin + 1
 
-        lastdelay = ((yMax + 1) / 2) * 500
+        lastdelay = delayMs + 1000
 
         for x in xrange(0, lastdelay, 500):
             self.readCoordinatesAtTimeInterval(x, outputArrayNode)
@@ -1016,7 +1022,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.moveBackToOriginalEdgePoint(lastdelay)
 
     def checkQuadrantValues(self, outputArrayNode, quadrantResolution):
-        # go right, back, left, forward until you determine which quadrant to continue in
+            # go right, back, left, forward until you determine which quadrant to continue in
         self.printTimer = qt.QTimer()
         index = len(self._savexcoordinate) - 1
 
@@ -1033,10 +1039,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.readCoordinatesAtTimeInterval2(5000, outputArrayNode)
 
         self.callMovement(5000, (self._savexcoordinate[index]), (self._saveycoordinate[index]))
-        
+
         self.startTrajectorySearch(outputArrayNode, quadrantResolution)
         self.timerTracker = self.timerTracker + 6000
-
 
     def findTrajectory(self, outputArrayNode, quadrantResolution):
         self.trajectoryTimer = qt.QTimer()
@@ -1044,64 +1049,69 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         y = len(self._savexcoordinate) - 1
 
         if (self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
-            index - 2] == 0 and self._tumorCheck[index - 1] == 1) or ((
-                self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
-            index - 2] == 0 and self._tumorCheck[index - 1] == 1)):
+                index - 2] == 0 and self._tumorCheck[index - 1] == 1) or ((
+                    self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
+                index - 2] == 0 and self._tumorCheck[index - 1] == 1) or (self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
+                index - 2] == 0 and self._tumorCheck[index - 1] == 1)):
             print "Quadrant 2"
-            self.callMovement(0, self._savexcoordinate[y] - (quadrantResolution - 1), self._saveycoordinate[y] + (quadrantResolution + 1))
+            self.callMovement(0, self._savexcoordinate[y] - (quadrantResolution - 1),
+                                  self._saveycoordinate[y] + (quadrantResolution + 1))
 
         if (self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
-            index - 2] == 0 and self._tumorCheck[index - 1] == 0) or (
-                self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
-            index - 2] == 0 and self._tumorCheck[index - 1] == 0) or ((
-                self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
-            index - 2] == 1 and self._tumorCheck[index - 1] == 0)) or ((
-                self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
-            index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
+                index - 2] == 0 and self._tumorCheck[index - 1] == 0) or (
+                    self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
+                index - 2] == 0 and self._tumorCheck[index - 1] == 0) or ((
+                    self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
+                index - 2] == 1 and self._tumorCheck[index - 1] == 0)) or ((
+                    self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
+                index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
             print "Quadrant 1"
-            self.callMovement(0, self._savexcoordinate[y] + (quadrantResolution - 1), self._saveycoordinate[y] + (quadrantResolution + 1))
+            self.callMovement(0, self._savexcoordinate[y] + (quadrantResolution - 1),
+                                  self._saveycoordinate[y] + (quadrantResolution + 1))
 
         if (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
-            index - 2] == 1 and self._tumorCheck[index - 1] == 1) or (
-                self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
-            index - 2] == 1 and self._tumorCheck[index - 1] == 0) or ((
-                self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
-            index - 2] == 1 and self._tumorCheck[index - 1] == 1)) or ((
-                self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
-            index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
+                index - 2] == 1 and self._tumorCheck[index - 1] == 1) or (
+                    self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
+                index - 2] == 1 and self._tumorCheck[index - 1] == 0) or ((
+                    self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
+                index - 2] == 1 and self._tumorCheck[index - 1] == 1)) or ((
+                    self._tumorCheck[index - 4] == 1 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
+                index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
             print "Quadrant 3"
-            self.callMovement(0, self._savexcoordinate[y] - (quadrantResolution - 1), self._saveycoordinate[y] - (quadrantResolution + 1))
+            self.callMovement(0, self._savexcoordinate[y] - (quadrantResolution - 1),
+                                  self._saveycoordinate[y] - (quadrantResolution + 1))
 
         if (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
-            index - 2] == 1 and self._tumorCheck[index - 1] == 0) or (
-                self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
-            index - 2] == 0 and self._tumorCheck[index - 1] == 0) or ((
-                self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
-            index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
+                index - 2] == 1 and self._tumorCheck[index - 1] == 0) or (
+                    self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
+                index - 2] == 0 and self._tumorCheck[index - 1] == 0) or ((
+                    self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
+                index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
             print "Quadrant 4"
-            self.callMovement(0, self._savexcoordinate[y] + (quadrantResolution - 1), self._saveycoordinate[y] - (quadrantResolution + 1))
+            self.callMovement(0, self._savexcoordinate[y] + (quadrantResolution - 1),
+                                  self._saveycoordinate[y] - (quadrantResolution + 1))
 
         if (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
-            index - 2] == 0 and self._tumorCheck[index - 1] == 0):
+                index - 2] == 0 and self._tumorCheck[index - 1] == 0):
             self.offSpecimen = 1
 
-        self.edgePoint = 0
-        self.call_getCoordinates(self.timerTracker + 1000)
+            self.edgePoint = 0
+            self.call_getCoordinates(self.timerTracker + 1000)
 
     def newOrigin(self):
         self.edgePoint = 0
         self.get_coordinates()
-        if self.genFidIndex< 1:
+        if self.genFidIndex < 1:
             self.fiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
-            self.genFidIndex= self.genFidIndex+ 1
+            self.genFidIndex = self.genFidIndex + 1
         else:
             self.addToCurrentFiducialNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
 
     def startTrajectorySearch(self, outputArrayNode, quadrantResolution):
         trajTimer = qt.QTimer()
-        trajTimer.singleShot(self.startNext, lambda: self.findTrajectory(outputArrayNode, quadrantResolution))  # was self.startNext
+        trajTimer.singleShot(self.startNext,lambda: self.findTrajectory(outputArrayNode, quadrantResolution))  # was self.startNext
 
-                                        # Image Registration Tools
+        # Image Registration Tools
 
     # For image registration, the user must indicate where the registration points are using either the arrow keys or manually select the points in the slicer window.
     # Landmark registration is then used to compute the transform and to visualize the registration, the user must organize the transform hierarchy properly in slicer
