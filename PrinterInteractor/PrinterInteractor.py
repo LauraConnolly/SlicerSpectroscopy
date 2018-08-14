@@ -243,7 +243,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         # Quadrant Resolution
         #
         self.quadResolution_spinbox = qt.QDoubleSpinBox()
-        self.quadResolution_spinbox.setMinimum(1)
+        self.quadResolution_spinbox.setMinimum(0)
         self.quadResolution_spinbox.setMaximum(10)
         self.quadResolution_spinbox.setValue(5)
         ContourTracingFormLayout.addRow("Quadrant Searching Resolution (mm/ step):", self.quadResolution_spinbox)
@@ -999,7 +999,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def edgeTrace(self, outputArrayNode, quadrantResolution):
         qt = (5 * 1000) + 4000
-        for i in self.frange(0, 400000, qt):
+        for i in self.frange(0, 100000, qt):
             self.callQuadrantCheck(i, outputArrayNode, quadrantResolution)
             self.callGetCoordinates(i + 7000)
             self.callNewOrigin(i + 7500)
@@ -1086,7 +1086,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
                     self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
                 index - 2] == 0 and self._tumorCheck[index - 1] == 0) or ((
                     self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 1 and self._tumorCheck[
-                index - 2] == 1 and self._tumorCheck[index - 1] == 1)):
+                index - 2] == 1 and self._tumorCheck[index - 1] == 1)) or (self._tumorCheck[index - 4] == 0 and self._tumorCheck[index - 3] == 0 and self._tumorCheck[
+                index - 2] == 0 and self._tumorCheck[index - 1] == 0):
             print "Quadrant 4"
             self.callMovement(0, self._savexcoordinate[y] + (quadrantResolution - 1),
                                   self._saveycoordinate[y] - (quadrantResolution + 1))
