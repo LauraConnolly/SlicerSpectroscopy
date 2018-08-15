@@ -1010,16 +1010,18 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         delayX = (xMax-xMin)/ xResolution * ddMs
         delayY = (yMax-yMin)/ yResolution * delayX
 
-        self.k = 0
-        self.reg = 0
+        self.k = 1
+        self.l = 2
+       
         for callDelay in self.frange(0,delayY, delayX*2):
             print callDelay, callDelay + delayX
-            bfwd = yMin + (yResolution) + ((self.k+1)*yResolution) * (self.reg) # fix these values
-            #bbkwd = yMin + (2*yResolution) +((self.k*2)*yResolution)
+            bfwd = yMin + (self.k*yResolution)
+            bbkwd = yMin + (self.l*yResolution)
             self.calldiagonalforward(xResolution, yResolution, callDelay, ddMs, bfwd)
             self.calldiagonalbackward(xResolution, yResolution, callDelay+delayX, ddMs, bbkwd)
-            self.k = self.k + 1
-            self.reg = 1
+            self.k = self.k + 2
+            self.l = self.l + 2
+
 
 
 
