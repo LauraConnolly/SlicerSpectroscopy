@@ -224,6 +224,15 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.ROIsearchButton.connect('clicked(bool)', self.ROIsearch)
         self.ROIsearchButton.setStyleSheet("background-color: green")
         #
+        # ROI Raster Search
+        #
+        self.ROIrasterButton = qt.QPushButton("ROI Raster Search")
+        self.ROIrasterButton.toolTip = " "
+        self.ROIrasterButton.enabled = True
+        ROIFormLayout.addRow(self.ROIrasterButton)
+        self.ROIrasterButton.connect('clicked(bool)', self.ROIrastersearch)
+        self.ROIrasterButton.setStyleSheet("background-color: green")
+        #
         # Edge Tracing Button
         #
         self.ConvexHullTraceButton = qt.QPushButton("Trace Contour (after systematic scan)")
@@ -362,9 +371,9 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.mvmtDelay = self.timeDelay_spinbox.value
         xResolution = self.xResolution_spinbox.value
         yResolution = self.yResolution_spinbox.value
-        if self.logic.ROIsystematicSearch() == False:
+        if self.logic.ROIBoundarySearch() == False:
             return
-        xMin, xMax, yMin, yMax = self.logic.ROIsystematicSearch()
+        xMin, xMax, yMin, yMax = self.logic.ROIBoundarySearch()
         self.logic.yMovement(0, yMin)
         self.logic.XMovement(0, xMin)
         self.logic.ROIsearchXLoop(self.mvmtDelay, xResolution, yResolution, xMin,xMax, yMin, yMax)
@@ -379,6 +388,16 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         for self.iterationTimingValue in self.logic.frange(0, (stopsToVisitX * stopsToVisitY * self.mvmtDelay) + 16 * self.mvmtDelay,self.mvmtDelay):
             self.tissueAnalysisTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
             self.iterationTimingValue = self.iterationTimingValue + self.mvmtDelay
+
+    def ROIrastersearch(self):
+        self.ondoubleArrayNodeChanged()
+        self.onSerialIGLTSelectorChanged()
+        xResolution = self.xResolution_spinbox.value
+        yResolution = self.yResolution_spinbox.value
+        delay = self.timeDelay_spinbox.value
+        #self.logic.ROIRaster(xResolution, yResolution, delay)
+        self.logic.zigzagPattern(xResolution, yResolution, delay)
+        #self.logic.diagonalbackward(xResolution, yResolution,delay)
 
     def onFindConvexHull(self):
         self.logic.convexHull()
@@ -491,6 +510,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.boundaryCoordinateCmd.SetCommandTimeoutSec(1.0)
         self.boundaryCoordinateCmd.SetCommandAttribute('Text', 'M114')
         self.boundaryCoordinateCmd.AddObserver(self.boundaryCoordinateCmd.CommandCompletedEvent,self.onBoundaryCoordinateCmd)
+        # raster search coordinates
+        self.rasterCoordinateCmd = slicer.vtkSlicerOpenIGTLinkCommand()
+        self.rasterCoordinateCmd.SetCommandName('SendText')
+        self.rasterCoordinateCmd.SetCommandAttribute('DeviceId', "SerialDevice")
+        self.rasterCoordinateCmd.SetCommandTimeoutSec(1.0)
+        self.rasterCoordinateCmd.SetCommandAttribute('Text', 'M114')
+        self.rasterCoordinateCmd.AddObserver(self.rasterCoordinateCmd.CommandCompletedEvent,self.onRasterCoordinateCmd)
         # instantiate home command
         self.homeCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.homeCmd.SetCommandName('SendText')
@@ -685,6 +711,8 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         else:
             self.addToCurrentFiducialNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
 
+        return self.xcoordinate, self.ycoordinate
+
     def fiducialMarkerChecked(self):
         self.genFidIndex= 1234  # will break if 1234 fiducials is ever reached, implemented for the fiducial marking off function
 
@@ -844,7 +872,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.fiducialNode2.AddFiducial(xcoordinate, ycoordinate, zcoordinate)
         self.boundFidIndex = self.boundFidIndex + 1
 
-    def ROIsystematicSearch(self):
+    def ROIBoundarySearch(self):
         ILfidList = slicer.util.getNode('BoundaryPoints')
         if not ILfidList:
             print "Error: No boundary points selected."
@@ -906,6 +934,79 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             delayMs = ((((2 * fullOscillationWidth) + 1)) * mvmtDelay) + ((fullOscillationWidth * mvmtDelay) * j)
             self.yMovement(delayMs, yValue)
             j = j + 1
+                        
+                                                # ROI Rasterization Scanning
+
+    def get_raster_coordinates(self):
+        slicer.modules.openigtlinkremote.logic().SendCommand(self.rasterCoordinateCmd, self.serialIGTLNode.GetID())
+        return self.xcoordinate, self.ycoordinate
+
+    def onRasterCoordinateCmd(self, observer, eventid):
+        coordinateValues = self.rasterCoordinateCmd.GetResponseMessage()
+        print("Command completed with status: " + self.rasterCoordinateCmd.StatusToString(self.rasterCoordinateCmd.GetStatus()))
+        print("Response message: " + coordinateValues)
+        print("Full response: " + self.rasterCoordinateCmd.GetResponseText())
+
+        mylist = coordinateValues.split(" ")
+        self.xcoordinate, self.ycoordinate, self.zcoordinate = self.parseCoords(mylist)
+
+        #self.ROIRaster(self.xcoordinate, self.ycoordinate)
+        return self.xcoordinate, self.ycoordinate
+    def calldiagonalforward(self, xResolution, yResolution, timeDelay, ddMs):
+        dTimer = qt.QTimer()
+        dTimer.singleShot(timeDelay, lambda: self.diagonalforward(xResolution,yResolution,ddMs))
+
+    def calldiagonalbackward(self, xResolution, yResolution, timeDelay, ddMs):
+        dTimer = qt.QTimer()
+        dTimer.singleShot(timeDelay, lambda: self.diagonalbackward(xResolution,yResolution,ddMs))
+
+    def diagonalforward(self,  xResolution, yResolution, timeDelay):
+
+        xMin, xMax, yMin, yMax = self.ROIBoundarySearch()
+        deltaY = (yMin + yResolution) -yMin
+        deltaX = xMax - xMin
+        slope = deltaY/deltaX
+
+        self.i = 0
+        for x in self.frange(xMin,xMax,xResolution):
+            #delayMs = (x-xMin/xResolution) * timeDelay - ((xMin/ xResolution)*timeDelay) #- 1000*(self.i)
+            b = yMin + self.i *(yResolution * 2 )
+            delayMs = timeDelay * self.i
+            y = slope*x + b
+            self.xyMovement(x,y,delayMs)
+            print x,y,delayMs
+            self.i = self.i + 1
+
+    def diagonalbackward(self,xResolution, yResolution, timeDelay):
+        xMin, xMax, yMin, yMax = self.ROIBoundarySearch()
+        deltaY = (yMin + yResolution) - yMin
+        deltaX = xMax - xMin
+        slope = -(deltaY / deltaX)
+
+        self.j = 0
+        for x in self.backfrange(xMax, xMin, -xResolution):
+            delayMs = timeDelay * self.j
+            b = yMin + yResolution*self.j
+            y = slope * x + b
+            self.xyMovement(x, y, delayMs)
+            print x, y, delayMs
+            self.j = self.j + 1
+
+    def zigzagPattern(self, xResolution, yResolution,  ddMs):
+
+        xMin, xMax, yMin, yMax = self.ROIBoundarySearch()
+        delayX = (xMax-xMin)/ xResolution * ddMs
+        delayY = (yMax-yMin)/ yResolution * delayX
+
+        for callDelay in self.frange(0,delayY, delayX*2):
+            print callDelay, callDelay + delayX
+            self.calldiagonalforward(xResolution, yResolution, callDelay, ddMs)
+            self.calldiagonalbackward(xResolution, yResolution, callDelay+delayX, ddMs)
+
+
+
+
+
 
                                                 # Contour Tracing - After Systematic Scan
 
@@ -1005,7 +1106,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             self.callNewOrigin(i + 7500)
 
     def findAndMoveToEdge(self, outputArrayNode):
-        xMin, xMax, yMin, yMax = self.ROIsystematicSearch()
+        xMin, xMax, yMin, yMax = self.ROIBoundarySearch()
         self.edgeTraceTimer = qt.QTimer()
         self.callMovement(0,xMin,yMin)
 
