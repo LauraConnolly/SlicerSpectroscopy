@@ -383,6 +383,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.tissueAnalysisTimer = qt.QTimer()
         self.iterationTimingValue = 0
 
+
         stopsToVisitX = (xMax - xMin) / xResolution
         stopsToVisitY = (yMax - yMin) / yResolution
         for self.iterationTimingValue in self.logic.frange(0, (stopsToVisitX * stopsToVisitY * self.mvmtDelay) + 16 * self.mvmtDelay,self.mvmtDelay):
@@ -402,10 +403,13 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         self.tissueAnalysisTimer = qt.QTimer()
         self.iterationTimingValue = 0
 
+        xMin, xMax, yMin, yMax = self.logic.ROIBoundarySearch()
+        self.mvmtDelay = self.timeDelay_spinbox.value
         stopsToVisitX = (xMax - xMin) / xResolution
         stopsToVisitY = (yMax - yMin) / yResolution
         for self.iterationTimingValue in self.logic.frange(0, (stopsToVisitX * stopsToVisitY * self.mvmtDelay) + 16 * self.mvmtDelay,self.mvmtDelay):
             self.tissueAnalysisTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
+
             self.iterationTimingValue = self.iterationTimingValue + self.mvmtDelay
 
     def onFindConvexHull(self):
@@ -945,7 +949,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             j = j + 1
                         
                                                 # ROI Rasterization Scanning
-
+        # TODO: fix fwd and bwk y intercepts
     def get_raster_coordinates(self):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.rasterCoordinateCmd, self.serialIGTLNode.GetID())
         return self.xcoordinate, self.ycoordinate
@@ -1007,13 +1011,15 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         delayY = (yMax-yMin)/ yResolution * delayX
 
         self.k = 0
+        self.reg = 0
         for callDelay in self.frange(0,delayY, delayX*2):
             print callDelay, callDelay + delayX
-            b = yMin + (self.k*yResolution)
-            self.calldiagonalforward(xResolution, yResolution, callDelay, ddMs, b)
-            self.calldiagonalbackward(xResolution, yResolution, callDelay+delayX, ddMs, b)
-
-
+            bfwd = yMin + (yResolution) + ((self.k+1)*yResolution) * (self.reg) # fix these values
+            #bbkwd = yMin + (2*yResolution) +((self.k*2)*yResolution)
+            self.calldiagonalforward(xResolution, yResolution, callDelay, ddMs, bfwd)
+            self.calldiagonalbackward(xResolution, yResolution, callDelay+delayX, ddMs, bbkwd)
+            self.k = self.k + 1
+            self.reg = 1
 
 
 
