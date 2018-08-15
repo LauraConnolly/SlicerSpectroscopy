@@ -395,9 +395,18 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         xResolution = self.xResolution_spinbox.value
         yResolution = self.yResolution_spinbox.value
         delay = self.timeDelay_spinbox.value
-        #self.logic.ROIRaster(xResolution, yResolution, delay)
+
         self.logic.zigzagPattern(xResolution, yResolution, delay)
-        #self.logic.diagonalbackward(xResolution, yResolution,delay)
+
+        # Tissue Analysis
+        self.tissueAnalysisTimer = qt.QTimer()
+        self.iterationTimingValue = 0
+
+        stopsToVisitX = (xMax - xMin) / xResolution
+        stopsToVisitY = (yMax - yMin) / yResolution
+        for self.iterationTimingValue in self.logic.frange(0, (stopsToVisitX * stopsToVisitY * self.mvmtDelay) + 16 * self.mvmtDelay,self.mvmtDelay):
+            self.tissueAnalysisTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
+            self.iterationTimingValue = self.iterationTimingValue + self.mvmtDelay
 
     def onFindConvexHull(self):
         self.logic.convexHull()
@@ -952,41 +961,40 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         #self.ROIRaster(self.xcoordinate, self.ycoordinate)
         return self.xcoordinate, self.ycoordinate
-    def calldiagonalforward(self, xResolution, yResolution, timeDelay, ddMs):
+    def calldiagonalforward(self, xResolution, yResolution, timeDelay, ddMs, b):
         dTimer = qt.QTimer()
-        dTimer.singleShot(timeDelay, lambda: self.diagonalforward(xResolution,yResolution,ddMs))
+        dTimer.singleShot(timeDelay, lambda: self.diagonalforward(xResolution,yResolution,ddMs, b))
 
-    def calldiagonalbackward(self, xResolution, yResolution, timeDelay, ddMs):
+    def calldiagonalbackward(self, xResolution, yResolution, timeDelay, ddMs,b):
         dTimer = qt.QTimer()
-        dTimer.singleShot(timeDelay, lambda: self.diagonalbackward(xResolution,yResolution,ddMs))
+        dTimer.singleShot(timeDelay, lambda: self.diagonalbackward(xResolution,yResolution,ddMs, b))
 
-    def diagonalforward(self,  xResolution, yResolution, timeDelay):
+    def diagonalforward(self,  xResolution, yResolution, timeDelay,b):
 
         xMin, xMax, yMin, yMax = self.ROIBoundarySearch()
-        deltaY = (yMin + yResolution) -yMin
+        deltaY = (yResolution)
         deltaX = xMax - xMin
         slope = deltaY/deltaX
 
         self.i = 0
         for x in self.frange(xMin,xMax,xResolution):
-            #delayMs = (x-xMin/xResolution) * timeDelay - ((xMin/ xResolution)*timeDelay) #- 1000*(self.i)
-            b = yMin + self.i *(yResolution * 2 )
+
             delayMs = timeDelay * self.i
             y = slope*x + b
             self.xyMovement(x,y,delayMs)
             print x,y,delayMs
             self.i = self.i + 1
 
-    def diagonalbackward(self,xResolution, yResolution, timeDelay):
+    def diagonalbackward(self,xResolution, yResolution, timeDelay, b):
         xMin, xMax, yMin, yMax = self.ROIBoundarySearch()
-        deltaY = (yMin + yResolution) - yMin
+        deltaY = (yResolution)
         deltaX = xMax - xMin
         slope = -(deltaY / deltaX)
 
         self.j = 0
         for x in self.backfrange(xMax, xMin, -xResolution):
             delayMs = timeDelay * self.j
-            b = yMin + yResolution*self.j
+
             y = slope * x + b
             self.xyMovement(x, y, delayMs)
             print x, y, delayMs
@@ -998,10 +1006,12 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         delayX = (xMax-xMin)/ xResolution * ddMs
         delayY = (yMax-yMin)/ yResolution * delayX
 
+        self.k = 0
         for callDelay in self.frange(0,delayY, delayX*2):
             print callDelay, callDelay + delayX
-            self.calldiagonalforward(xResolution, yResolution, callDelay, ddMs)
-            self.calldiagonalbackward(xResolution, yResolution, callDelay+delayX, ddMs)
+            b = yMin + (self.k*yResolution)
+            self.calldiagonalforward(xResolution, yResolution, callDelay, ddMs, b)
+            self.calldiagonalbackward(xResolution, yResolution, callDelay+delayX, ddMs, b)
 
 
 
