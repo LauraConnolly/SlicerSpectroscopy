@@ -217,21 +217,19 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #
         # ROI Systematic Search Button
         #
-        self.ROIsearchButton = qt.QPushButton("ROI Systematic Search")
+        self.ROIsearchButton = qt.QPushButton("ROI Rectilinear Scan")
         self.ROIsearchButton.toolTip = " "
         self.ROIsearchButton.enabled = True
         ROIFormLayout.addRow(self.ROIsearchButton)
         self.ROIsearchButton.connect('clicked(bool)', self.ROIsearch)
-        self.ROIsearchButton.setStyleSheet("background-color: green")
         #
         # ROI Raster Search
         #
-        self.ROIrasterButton = qt.QPushButton("ROI Raster Search")
+        self.ROIrasterButton = qt.QPushButton("ROI Raster Scan")
         self.ROIrasterButton.toolTip = " "
         self.ROIrasterButton.enabled = True
         ROIFormLayout.addRow(self.ROIrasterButton)
         self.ROIrasterButton.connect('clicked(bool)', self.ROIrastersearch)
-        self.ROIrasterButton.setStyleSheet("background-color: green")
         #
         # Edge Tracing Button
         #
@@ -390,6 +388,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
             self.tissueAnalysisTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
             self.iterationTimingValue = self.iterationTimingValue + self.mvmtDelay
 
+
     def ROIrastersearch(self):
         self.ondoubleArrayNodeChanged()
         self.onSerialIGLTSelectorChanged()
@@ -523,13 +522,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.boundaryCoordinateCmd.SetCommandTimeoutSec(1.0)
         self.boundaryCoordinateCmd.SetCommandAttribute('Text', 'M114')
         self.boundaryCoordinateCmd.AddObserver(self.boundaryCoordinateCmd.CommandCompletedEvent,self.onBoundaryCoordinateCmd)
-        # raster search coordinates
-        self.rasterCoordinateCmd = slicer.vtkSlicerOpenIGTLinkCommand()
-        self.rasterCoordinateCmd.SetCommandName('SendText')
-        self.rasterCoordinateCmd.SetCommandAttribute('DeviceId', "SerialDevice")
-        self.rasterCoordinateCmd.SetCommandTimeoutSec(1.0)
-        self.rasterCoordinateCmd.SetCommandAttribute('Text', 'M114')
-        self.rasterCoordinateCmd.AddObserver(self.rasterCoordinateCmd.CommandCompletedEvent,self.onRasterCoordinateCmd)
         # instantiate home command
         self.homeCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.homeCmd.SetCommandName('SendText')
@@ -715,14 +707,14 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.dataCollection = self.createPolyDataPoint(self.xcoordinate, self.ycoordinate, self.zcoordinate)
 
         if self.genFidIndex< 1:
-            self.fiducialMarker(self.xcoordinate, self.ycoordinate, self.zcoordinate)
+            self.fiducialMarker(self.xcoordinate, self.ycoordinate + 1, self.zcoordinate)
             self.genFidIndex= self.genFidIndex + 1
             # Only creates ONE node
         elif self.genFidIndex== 1234:
             return self.xcoordinate
             # for turning fiducial marking off
         else:
-            self.addToCurrentFiducialNode(self.xcoordinate, self.ycoordinate, self.zcoordinate)
+            self.addToCurrentFiducialNode(self.xcoordinate, self.ycoordinate + 1, self.zcoordinate)
 
         return self.xcoordinate, self.ycoordinate
 
@@ -947,24 +939,11 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             delayMs = ((((2 * fullOscillationWidth) + 1)) * mvmtDelay) + ((fullOscillationWidth * mvmtDelay) * j)
             self.yMovement(delayMs, yValue)
             j = j + 1
-                        
-                                                # ROI Rasterization Scanning
-        # TODO: fix fwd and bwk y intercepts
-    def get_raster_coordinates(self):
-        slicer.modules.openigtlinkremote.logic().SendCommand(self.rasterCoordinateCmd, self.serialIGTLNode.GetID())
-        return self.xcoordinate, self.ycoordinate
 
-    def onRasterCoordinateCmd(self, observer, eventid):
-        coordinateValues = self.rasterCoordinateCmd.GetResponseMessage()
-        print("Command completed with status: " + self.rasterCoordinateCmd.StatusToString(self.rasterCoordinateCmd.GetStatus()))
-        print("Response message: " + coordinateValues)
-        print("Full response: " + self.rasterCoordinateCmd.GetResponseText())
 
-        mylist = coordinateValues.split(" ")
-        self.xcoordinate, self.ycoordinate, self.zcoordinate = self.parseCoords(mylist)
+                    # ROI Rasterization Scanning
+        # This function initiates a zig-zag raster pattern within a ROI, delivers more accurate scanning that systematic rectilinear scan
 
-        #self.ROIRaster(self.xcoordinate, self.ycoordinate)
-        return self.xcoordinate, self.ycoordinate
     def calldiagonalforward(self, xResolution, yResolution, timeDelay, ddMs, b):
         dTimer = qt.QTimer()
         dTimer.singleShot(timeDelay, lambda: self.diagonalforward(xResolution,yResolution,ddMs, b))
@@ -986,7 +965,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             delayMs = timeDelay * self.i
             y = slope*x + b
             self.xyMovement(x,y,delayMs)
-            print x,y,delayMs
             self.i = self.i + 1
 
     def diagonalbackward(self,xResolution, yResolution, timeDelay, b):
@@ -1001,7 +979,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
             y = slope * x + b
             self.xyMovement(x, y, delayMs)
-            print x, y, delayMs
             self.j = self.j + 1
 
     def zigzagPattern(self, xResolution, yResolution,  ddMs):
@@ -1012,7 +989,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
         self.k = 1
         self.l = 2
-       
+
         for callDelay in self.frange(0,delayY, delayX*2):
             print callDelay, callDelay + delayX
             bfwd = yMin + (self.k*yResolution)
@@ -1021,9 +998,6 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             self.calldiagonalbackward(xResolution, yResolution, callDelay+delayX, ddMs, bbkwd)
             self.k = self.k + 2
             self.l = self.l + 2
-
-
-
 
 
                                                 # Contour Tracing - After Systematic Scan
@@ -1072,14 +1046,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
 # This code was developed to facilitate automated edge tracing without any systematic scanning. The probe moves in at the specified resolution in a +x,-y,-x,+y pattern iteratively
 # and determines it's new trajectory based on the spectrum in each quadrant.
-        # Contour Tracing - Independent of Systematic Scan
 
-        # This code was developed to facilitate automated edge tracing without any systematic scanning. The probe moves in at the specified resolution in a +x,-y,-x,+y pattern iteratively
-        # and determines it's new trajectory based on the spectrum in each quadrant.
-
-        # TODO: fix this function
-
-        # These functions call functions at intervals specified by the edgeTrace function
     def callNewOrigin(self, delay):
         originTimer = qt.QTimer()
         originTimer.singleShot(delay, lambda: self.newOrigin())
@@ -1231,7 +1198,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         trajTimer = qt.QTimer()
         trajTimer.singleShot(self.startNext,lambda: self.findTrajectory(outputArrayNode, quadrantResolution))  # was self.startNext
 
-        # Image Registration Tools
+                                                    # Image Registration Tools
 
     # For image registration, the user must indicate where the registration points are using either the arrow keys or manually select the points in the slicer window.
     # Landmark registration is then used to compute the transform and to visualize the registration, the user must organize the transform hierarchy properly in slicer
@@ -1454,9 +1421,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     # specific movement commands for keyboard control, necessary because of serialIGTLNode declaration
     def keyboardControlledXMovementForward(self, serialIGTLNode):  # x movement
         if self.currentXcoordinate < 120:
-            self.currentXcoordinate = self.currentXcoordinate + 2
+            self.currentXcoordinate = self.currentXcoordinate + 1
         else:
-            self.currentXcoordinate = self.currentXcoordinate - 2
+            self.currentXcoordinate = self.currentXcoordinate - 1
         self.xControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.xControlCmd.SetCommandName('SendText')
         self.xControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
@@ -1465,10 +1432,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.xControlCmd, serialIGTLNode.GetID())
 
     def keyboardControlledXMovementBackwards(self, serialIGTLNode):  # x movement
-        if self.currentXcoordinate > 2:
-            self.currentXcoordinate = self.currentXcoordinate - 2
+        if self.currentXcoordinate > 1:
+            self.currentXcoordinate = self.currentXcoordinate - 1
         else:
-            self.currentXcoordinate = self.currentXcoordinate + 2
+            self.currentXcoordinate = self.currentXcoordinate + 1
         self.xControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.xControlCmd.SetCommandName('SendText')
         self.xControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
@@ -1478,9 +1445,9 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def keyboardControlledYMovementForward(self, serialIGTLNode):  # y movement
         if self.currentYcoordinate < 120:
-            self.currentYcoordinate = self.currentYcoordinate + 2
+            self.currentYcoordinate = self.currentYcoordinate + 1
         else:
-            self.currentYcoordinate = self.currentYcoordinate - 2
+            self.currentYcoordinate = self.currentYcoordinate - 1
         self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.yControlCmd.SetCommandName('SendText')
         self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
@@ -1489,10 +1456,10 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         slicer.modules.openigtlinkremote.logic().SendCommand(self.yControlCmd, serialIGTLNode.GetID())
 
     def keyboardControlledYMovementBackwards(self, serialIGTLNode):  # y movement
-        if self.currentYcoordinate > 2:
-            self.currentYcoordinate = self.currentYcoordinate - 2
+        if self.currentYcoordinate > 1:
+            self.currentYcoordinate = self.currentYcoordinate - 1
         else:
-            self.currentYcoordinate = self.currentYcoordinate + 2
+            self.currentYcoordinate = self.currentYcoordinate + 1
         self.yControlCmd = slicer.vtkSlicerOpenIGTLinkCommand()
         self.yControlCmd.SetCommandName('SendText')
         self.yControlCmd.SetCommandAttribute('DeviceId', "SerialDevice")
