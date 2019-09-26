@@ -162,7 +162,7 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         #
         self.zResolution_spinbox = qt.QDoubleSpinBox()
         self.zResolution_spinbox.setMinimum(-20)
-        self.zResolution_spinbox.setMaximum(120)
+        self.zResolution_spinbox.setMaximum(150)
         self.zResolution_spinbox.setValue(10)
         PrinterControlFormLayout.addRow("Z Position (distance from 0):", self.zResolution_spinbox)
         #
@@ -197,6 +197,15 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         PrinterControlFormLayout.addRow(self.scanButton)
         self.scanButton.connect('clicked(bool)', self.onScanButton)
         self.scanButton.setStyleSheet("background-color: green; font: bold")
+        #
+        # Surface Scan Button
+        #
+        self.patternButton = qt.QPushButton("Follow Pattern")
+        self.patternButton.toolTip = "Begin systematic surface scan"
+        self.patternButton.enabled = True
+        PrinterControlFormLayout.addRow(self.patternButton)
+        self.patternButton.connect('clicked(bool)', self.onPatternButton)
+        self.patternButton.setStyleSheet("background-color: green; font: bold")
         #
         # Stop Button
         #
@@ -325,7 +334,6 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
         else:
             self.logic.xLoop(self.mvmtDelay, xResolution, yResolution)
             self.logic.yLoop(self.mvmtDelay, yResolution, xResolution)
-        
             stopsToVisitX = 120 / xResolution
             stopsToVisitY = 120 / yResolution
         
@@ -337,10 +345,33 @@ class PrinterInteractorWidget(ScriptedLoadableModuleWidget):
                 self.tissueAnalysisTimer.singleShot(self.iterationTimingValue, lambda: self.tissueDecision())
                 self.iterationTimingValue = self.iterationTimingValue + self.mvmtDelay
 
+    def onPatternButton(self):
+        self.onSerialIGLTSelectorChanged()
+        pattern = np.load("C:\Users\lconnolly\Desktop\use_this_tissue_scanning/transformed pts.npy")
+        patternTimer = qt.QTimer()
+        timevar = 0
+        for j in range(0,len(pattern)):
+            x = pattern[j][0]
+            y = pattern[j][1]
+            self.logic.xyMovement(x,y, timevar)
+            patternTimer.singleShot(timevar, lambda: self.tissueDecision())
+            timevar = timevar + 1000
+
     def tissueDecision(self):
-        self.ondoubleArrayNodeChanged()
-        if self.logic.spectrumComparison(self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
-            self.logic.get_coordinates()
+
+        # For using the thorlabs spectrometer
+        #self.ondoubleArrayNodeChanged()
+        #if self.logic.spectrumComparison(self.outputArraySelector.currentNode()) == False:  # add a fiducial if the the tumor detecting function returns false
+        #    self.logic.get_coordinates()
+
+        # For using the matlab commander module
+        matlabcommander = slicer.modules.matlabcommander
+        parameters = {}
+        parameters['cmd'] = '5*20'
+        #cliNode = slicer.cli.runSync(matlabcommander, None, parameters)
+        cliNode = slicer.cli.run(matlabcommander, None, parameters)
+        soln = cliNode.GetParameterValue(1,0)
+        print(soln)
 
     def onFiducialMarkerChecked(self):
         # Turns off fiducial Marking when checked
@@ -459,6 +490,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
     # ROI boundary arrays
     _ROIxbounds = []
     _ROIybounds = []
+    
 
     def __init__(self):
 
@@ -468,6 +500,7 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
         self.spectrumImageNode = None
         self.observerTags = []
         self.outputArrayNode = None
+        
 
         # Spectrum Analysis Variables
         self.spectraCollected = 0
@@ -981,6 +1014,20 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
             self.xyMovement(x, y, delayMs)
             self.j = self.j + 1
 
+
+    def contour_pattern(self):
+        pattern = np.load("C:\Users\lconnolly\Desktop\use_this_tissue_scanning/transformed pts.npy")
+        patternTimer = qt.QTimer()
+        timevar = 0
+        for j in range(0,len(pattern)):
+            x = pattern[j][0]
+            y = pattern[j][1]
+            self.xyMovement(x,y, timevar)
+            patternTimer.singleShot(timevar, lambda: self.tissueDecision())
+            timevar = timevar + 1000
+
+        
+
     def zigzagPattern(self, xResolution, yResolution,  ddMs):
 
         xMin, xMax, yMin, yMax = self.ROIBoundarySearch()
@@ -1392,11 +1439,13 @@ class PrinterInteractorLogic(ScriptedLoadableModuleLogic):
 
     def slowEdgeTracing(self, xcoordinate, ycoordinate, timevar):
         self.edgetimer = qt.QTimer()
-        self.edgetimer.singleShot(timevar, lambda: self.controlledXYMovement(xcoordinate, ycoordinate))
+        self.edgetimer.singleShot(timevar, lambda: self.get(xcoordinate, ycoordinate))
 
     def xyMovement(self, xcoordinate, ycoordinate, timevar):
         self.scanTimer = qt.QTimer()
         self.scanTimer.singleShot(timevar, lambda: self.controlledXYMovement(xcoordinate, ycoordinate))
+    
+    
 
     def ZMovement(self, mvmtDelay, zcoordinate):
         self.scanTimer = qt.QTimer()
